@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="position:absolute; inset:0; display:flex; flex-direction:column; background:#F5FEFE; font-family:'Nunito',sans-serif; overflow:hidden;">
+
+  <!-- Header -->
+  <header style="padding:40px 20px 16px; background:#fff; flex-shrink:0; border-bottom:1px solid #E4F4F3;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+      <button onClick="{{ goHome }}" style="background:none; border:none; cursor:pointer; padding:4px; margin-left:-4px; display:flex;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1A3A38" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg></button>
+      <button class="sl-press" onClick="{{ openCreate }}" style="width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:#3DBFB8; border:none; cursor:pointer;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>
+    </div>
+    <h1 style="margin:0; font-size:1.4rem; font-weight:800; color:#1A3A38;">Mi Calendario</h1>
+    <p style="margin:2px 0 0; font-size:0.75rem; color:#717182;">Organiza tus sesiones y actividades</p>
+  </header>
+
+  <!-- View tabs -->
+  <div style="padding:14px 20px; background:#fff; flex-shrink:0; display:flex; gap:8px; border-bottom:1px solid #E4F4F3;">
+    <button onClick="{{ setDia }}" style="{{ diaTabStyle }}">Día</button>
+    <button onClick="{{ setSemana }}" style="{{ semanaTabStyle }}">Semana</button>
+    <button onClick="{{ setMes }}" style="{{ mesTabStyle }}">Mes</button>
+  </div>
+
+  <!-- Content -->
+  <div class="sl-scroll" style="flex:1; overflow-y:auto; padding:16px 20px;">
+
+    <!-- DAY VIEW -->
+    <sc-if value="{{ isDay }}" hint-placeholder-val="{{ true }}">
+      <p style="margin:0 0 16px; font-size:0.85rem; font-weight:700; color:#1A3A38;">Hoy · {{ dayTitle }}</p>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <sc-for list="{{ daySlots }}" as="slot" hint-placeholder-count="13">
+          <div style="display:flex; gap:12px;">
+            <div style="width:60px; flex-shrink:0; font-size:0.7rem; color:#717182; padding-top:2px;">{{ slot.label }}</div>
+            <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
+              <sc-if value="{{ slot.empty }}" hint-placeholder-val="{{ true }}"><div style="height:32px; border-bottom:1px solid #E4F4F3;"></div></sc-if>
+              <sc-for list="{{ slot.events }}" as="ev" hint-placeholder-count="0">
+                <div style="{{ ev.cardStyle }}">
+                  <div style="{{ ev.barStyle }}"></div>
+                  <div style="flex:1; min-width:0; display:flex; align-items:flex-start; gap:8px;">
+                    <sc-if value="{{ ev.isTask }}" hint-placeholder-val="{{ false }}">
+                      <button onClick="{{ ev.onToggle }}" style="{{ ev.checkStyle }}"><sc-if value="{{ ev.completed }}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></sc-if></button>
+                    </sc-if>
+                    <button onClick="{{ ev.onClick }}" style="flex:1; text-align:left; background:none; border:none; cursor:pointer; padding:0;">
+                      <p style="{{ ev.titleStyle }}">{{ ev.title }}</p>
+                      <p style="margin:2px 0 0; font-size:0.7rem; color:#717182;">{{ ev.timeRange }}</p>
+                    </button>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- WEEK VIEW -->
+    <sc-if value="{{ isWeek }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; gap:6px; margin-bottom:20px;">
+        <sc-for list="{{ weekDays }}" as="d" hint-placeholder-count="7">
+          <button onClick="{{ d.onClick }}" style="{{ d.style }}">
+            <span style="font-size:0.62rem; font-weight:600; text-transform:capitalize;">{{ d.dow }}</span>
+            <span style="font-size:0.9rem; font-weight:700;">{{ d.num }}</span>
+          </button>
+        </sc-for>
+      </div>
+      <p style="margin:0 0 12px; font-size:0.8rem; font-weight:700; color:#1A3A38; text-transform:capitalize;">{{ weekDayTitle }}</p>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <sc-if value="{{ weekEmpty }}" hint-placeholder-val="{{ false }}"><p style="font-size:0.75rem; color:#717182; text-align:center; padding:20px 0;">No hay eventos para este día</p></sc-if>
+        <sc-for list="{{ weekEvents }}" as="ev" hint-placeholder-count="0">
+          <div style="{{ ev.cardStyle }}">
+            <div style="{{ ev.barStyle }}"></div>
+            <div style="flex:1; min-width:0; display:flex; align-items:flex-start; gap:8px;">
+              <sc-if value="{{ ev.isTask }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ ev.onToggle }}" style="{{ ev.checkStyle }}"><sc-if value="{{ ev.completed }}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></sc-if></button>
+              </sc-if>
+              <button onClick="{{ ev.onClick }}" style="flex:1; text-align:left; background:none; border:none; cursor:pointer; padding:0;">
+                <p style="{{ ev.titleStyle }}">{{ ev.title }}</p>
+                <p style="margin:2px 0 0; font-size:0.7rem; color:#717182;">{{ ev.timeRange }}</p>
+              </button>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- MONTH VIEW -->
+    <sc-if value="{{ isMonth }}" hint-placeholder-val="{{ false }}">
+      <p style="margin:0 0 16px; font-size:0.95rem; font-weight:800; color:#1A3A38; text-transform:capitalize;">{{ monthTitle }}</p>
+      <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:4px;">
+        <sc-for list="{{ dayHeaders }}" as="h" hint-placeholder-count="7"><div style="text-align:center; padding:6px 0; font-size:0.65rem; font-weight:700; color:#717182;">{{ h }}</div></sc-for>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:4px;">
+        <sc-for list="{{ monthCells }}" as="c" hint-placeholder-count="35">
+          <button onClick="{{ c.onClick }}" style="{{ c.cellStyle }}">
+            <span style="{{ c.numStyle }}">{{ c.num }}</span>
+            <sc-if value="{{ c.hasEvents }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex; gap:2px; margin-top:3px;">
+                <sc-for list="{{ c.dots }}" as="dot" hint-placeholder-count="0"><div style="{{ dot.style }}"></div></sc-for>
+              </div>
+            </sc-if>
+          </button>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <div style="height:16px;"></div>
+  </div>
+
+  <!-- Bottom Nav -->
+  <div style="padding:12px 16px 28px; display:flex; gap:12px; background:#fff; flex-shrink:0; border-top:1px solid #E4F4F3;">
+    <button class="sl-press" onClick="{{ goHome }}" style="flex:1; padding:12px; border-radius:16px; display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; background:#E6F8F7; border:1.5px solid rgba(61,191,184,.2);">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3DBFB8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
+      <span style="font-size:0.65rem; font-weight:700; color:#1A3A38;">Inicio</span>
+    </button>
+    <button class="sl-press" onClick="{{ goFaq }}" style="flex:1; padding:12px; border-radius:16px; display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; background:#E6F8F7; border:1.5px solid rgba(61,191,184,.2);">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3DBFB8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+      <span style="font-size:0.65rem; font-weight:700; color:#1A3A38; text-align:center; line-height:1.3;">Preguntas Frecuentes</span>
+    </button>
+  </div>
+
+  <!-- Toast -->
+  <sc-if value="{{ toastShow }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute; top:48px; left:50%; transform:translateX(-50%); z-index:60; display:flex; align-items:center; gap:8px; padding:10px 16px; border-radius:12px; background:#1A3A38; box-shadow:0 8px 24px rgba(0,0,0,.25); animation:sl-fade .2s ease; white-space:nowrap;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4DD9A6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21.801 10A10 10 0 1 1 17 3.335"/><path d="m9 11 3 3L22 4"/></svg>
+      <span style="font-size:0.78rem; font-weight:600; color:#fff;">{{ toastMsg }}</span>
+    </div>
+  </sc-if>
+
+  <!-- MODAL (create / detail / edit / delete) -->
+  <sc-if value="{{ modalOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:absolute; inset:0; z-index:50; background:rgba(20,40,38,.45); display:flex; align-items:flex-end;">
+      <div onClick="{{ stop }}" style="width:100%; max-height:88%; background:#fff; border-radius:24px 24px 0 0; overflow:hidden; display:flex; flex-direction:column; animation:sl-slide-up .28s cubic-bezier(.16,1,.3,1);">
+        <div style="padding:16px 20px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #E4F4F3; flex-shrink:0;">
+          <h2 style="margin:0; font-size:1.05rem; font-weight:800; color:#1A3A38;">{{ modalTitle }}</h2>
+          <button onClick="{{ closeModal }}" style="background:none; border:none; cursor:pointer; padding:4px; display:flex;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#717182" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        </div>
+        <div class="sl-scroll" style="overflow-y:auto; padding:20px;">
+
+          <!-- FORM (create or edit) -->
+          <sc-if value="{{ showForm }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:16px; margin-bottom:20px;">
+              <div><label style="display:block; font-size:0.75rem; font-weight:700; color:#1A3A38; margin-bottom:6px;">Título</label>
+                <input value="{{ fTitle }}" onChange="{{ onFTitle }}" placeholder="Nombre del evento" style="width:100%; padding:10px 12px; border-radius:10px; outline:none; font-size:0.82rem; color:#1A3A38; border:1.5px solid #D0ECEB; background:#fff;"></div>
+              <div><label style="display:block; font-size:0.75rem; font-weight:700; color:#1A3A38; margin-bottom:6px;">Tipo</label>
+                <select value="{{ fType }}" onChange="{{ onFType }}" style="width:100%; padding:10px 12px; border-radius:10px; appearance:none; -webkit-appearance:none; outline:none; font-size:0.82rem; color:#1A3A38; border:1.5px solid #D0ECEB; background:#fff;">
+                  <option value="sesión">Sesión</option><option value="tarea">Tarea</option><option value="recordatorio">Recordatorio</option><option value="evento">Evento</option>
+                </select></div>
+              <div><label style="display:block; font-size:0.75rem; font-weight:700; color:#1A3A38; margin-bottom:6px;">Fecha</label>
+                <input type="date" value="{{ fDate }}" onChange="{{ onFDate }}" style="width:100%; padding:10px 12px; border-radius:10px; outline:none; font-size:0.82rem; color:#1A3A38; border:1.5px solid #D0ECEB; background:#fff;"></div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div><label style="display:block; font-size:0.75rem; font-weight:700; color:#1A3A38; margin-bottom:6px;">Inicio</label>
+                  <input type="time" value="{{ fStart }}" onChange="{{ onFStart }}" style="width:100%; padding:10px 12px; border-radius:10px; outline:none; font-size:0.82rem; color:#1A3A38; border:1.5px solid #D0ECEB; background:#fff;"></div>
+                <div><label style="display:block; font-size:0.75rem; font-weight:700; color:#1A3A38; margin-bottom:6px;">Fin</label>
+                  <input type="time" value="{{ fEnd }}" onChange="{{ onFEnd }}" style="width:100%; padding:10px 12px; border-radius:10px; outline:none; font-size:0.82rem; color:#1A3A38; border:1.5px solid #D0ECEB; background:#fff;"></div>
+              </div>
+              <div><label style="display:block; font-size:0.75rem; font-weight:700; color:#1A3A38; margin-bottom:6px;">Recordatorio</label>
+                <select value="{{ fReminder }}" onChange="{{ onFReminder }}" style="width:100%; padding:10px 12px; border-radius:10px; appearance:none; -webkit-appearance:none; outline:none; font-size:0.82rem; color:#1A3A38; border:1.5px solid #D0ECEB; background:#fff;">
+                  <option value="ninguno">Ninguno</option><option value="10 minutos antes">10 minutos antes</option><option value="30 minutos antes">30 minutos antes</option><option value="1 hora antes">1 hora antes</option><option value="1 día antes">1 día antes</option>
+                </select></div>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button onClick="{{ cancelForm }}" style="flex:1; padding:11px; border-radius:10px; cursor:pointer; border:1.5px solid #E4F4F3; color:#4A6E6B; background:#fff; font-size:0.82rem; font-weight:700;">Cancelar</button>
+              <button onClick="{{ submitForm }}" style="flex:1; padding:11px; border-radius:10px; color:#fff; border:none; cursor:pointer; background:#3DBFB8; font-size:0.82rem; font-weight:700;">{{ submitLabel }}</button>
+            </div>
+          </sc-if>
+
+          <!-- DETAIL -->
+          <sc-if value="{{ showDetail }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:16px; margin-bottom:20px;">
+              <div style="display:flex; gap:12px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#717182" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:2px;"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg><div><p style="margin:0 0 2px; font-size:0.7rem; color:#717182;">Fecha</p><p style="margin:0; font-size:0.82rem; font-weight:600; color:#1A3A38;">{{ detailDate }}</p></div></div>
+              <div style="display:flex; gap:12px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#717182" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:2px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><div><p style="margin:0 0 2px; font-size:0.7rem; color:#717182;">Hora</p><p style="margin:0; font-size:0.82rem; font-weight:600; color:#1A3A38;">{{ detailTime }}</p></div></div>
+              <sc-if value="{{ hasReminder }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex; gap:12px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#717182" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:2px;"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg><div><p style="margin:0 0 2px; font-size:0.7rem; color:#717182;">Recordatorio</p><p style="margin:0; font-size:0.82rem; font-weight:600; color:#1A3A38;">{{ detailReminder }}</p></div></div>
+              </sc-if>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button onClick="{{ startEdit }}" style="flex:1; padding:11px; border-radius:10px; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; border:1.5px solid #3DBFB8; color:#3DBFB8; background:#fff; font-size:0.82rem; font-weight:700;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Editar</button>
+              <button onClick="{{ askDelete }}" style="flex:1; padding:11px; border-radius:10px; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; border:none; color:#fff; background:#E53E3E; font-size:0.82rem; font-weight:700;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Eliminar</button>
+            </div>
+            <button onClick="{{ closeModal }}" style="width:100%; padding:11px; border-radius:10px; margin-top:8px; cursor:pointer; border:1.5px solid #E4F4F3; color:#4A6E6B; background:#fff; font-size:0.82rem; font-weight:700;">Cerrar</button>
+          </sc-if>
+
+          <!-- DELETE CONFIRM -->
+          <sc-if value="{{ showDelete }}" hint-placeholder-val="{{ false }}">
+            <p style="margin:0 0 20px; font-size:0.85rem; color:#4A6E6B;">¿Seguro que deseas eliminar este evento?</p>
+            <div style="display:flex; gap:8px;">
+              <button onClick="{{ cancelDelete }}" style="flex:1; padding:11px; border-radius:10px; cursor:pointer; border:1.5px solid #3DBFB8; color:#3DBFB8; background:#fff; font-size:0.82rem; font-weight:700;">Cancelar</button>
+              <button onClick="{{ confirmDelete }}" style="flex:1; padding:11px; border-radius:10px; color:#fff; border:none; cursor:pointer; background:#E53E3E; font-size:0.82rem; font-weight:700;">Eliminar</button>
+            </div>
+          </sc-if>
+
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;navigate&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;(to: string | number) =&gt; void&quot;}}">
+class Component extends DCLogic {
+  TODAY = new Date(2026, 5, 4);
+  COLORS = { "sesión": "#3DBFB8", "tarea": "#F59E0B", "recordatorio": "#7C3AED", "evento": "#3B82F6" };
+  DOW_SHORT = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+  MONTHS = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+
+  constructor(props) {
+    super(props);
+    const d = (m, day) => new Date(2026, m, day);
+    this.state = {
+      view: "día",
+      selDate: new Date(2026, 5, 4),
+      events: [
+        { id: "1", title: "Sesión de lectura Grupo 1", type: "sesión", date: d(5,4), startTime: "10:00", endTime: "11:00", reminder: "30 minutos antes" },
+        { id: "2", title: "Preparar material del módulo", type: "tarea", date: d(5,4), startTime: "13:00", endTime: "13:30", reminder: "ninguno", completed: false },
+        { id: "3", title: "Actividad Grupo 2", type: "sesión", date: d(5,4), startTime: "14:00", endTime: "15:00", reminder: "10 minutos antes" },
+        { id: "4", title: "Audiocuento con Grupo 3", type: "sesión", date: d(5,4), startTime: "16:30", endTime: "17:30", reminder: "1 hora antes" },
+        { id: "5", title: "Reunión de coordinación", type: "evento", date: d(5,6), startTime: "09:00", endTime: "10:30", reminder: "1 día antes" },
+        { id: "6", title: "Entregar informe mensual", type: "tarea", date: d(5,9), startTime: "15:00", endTime: "15:30", reminder: "ninguno", completed: false },
+      ],
+      modal: null, // "create" | "detail" | "edit" | "delete"
+      selEvent: null,
+      form: this.blankForm(new Date(2026, 5, 4)),
+      toast: null,
+    };
+  }
+
+  blankForm(date) { return { title: "", type: "sesión", dateStr: this.toISO(date), startTime: "10:00", endTime: "11:00", reminder: "ninguno" }; }
+  toISO(d) { return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
+  fromISO(s) { const [y,m,dd] = s.split("-").map(Number); return new Date(y, m-1, dd); }
+  sameDay(a, b) { return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+  addDays(d, n) { const r = new Date(d); r.setDate(r.getDate()+n); return r; }
+  startOfWeek(d) { return this.addDays(d, -d.getDay()); }
+  fmtTime(hhmm) { const [h,m] = hhmm.split(":").map(Number); const ap = h>=12?"PM":"AM"; const h12 = h%12===0?12:h%12; return h12+":"+String(m).padStart(2,"0")+" "+ap; }
+
+  toast(msg) { this.setState({ toast: msg }); clearTimeout(this._t); this._t = setTimeout(()=>this.setState({toast:null}), 2200); }
+  componentWillUnmount() { clearTimeout(this._t); }
+
+  setForm(k) { return (e) => { const v = e.target.value; this.setState(s => ({ form: { ...s.form, [k]: v } })); }; }
+
+  openCreate = () => this.setState(s => ({ modal: "create", form: this.blankForm(s.selDate) }));
+  openDetail = (ev) => this.setState({ modal: "detail", selEvent: ev });
+  startEdit = () => this.setState(s => ({ modal: "edit", form: { title: s.selEvent.title, type: s.selEvent.type, dateStr: this.toISO(s.selEvent.date), startTime: s.selEvent.startTime, endTime: s.selEvent.endTime, reminder: s.selEvent.reminder || "ninguno" } }));
+  closeModal = () => this.setState({ modal: null, selEvent: null });
+  cancelForm = () => this.setState(s => ({ modal: s.selEvent ? "detail" : null }));
+
+  submitForm = () => {
+    const f = this.state.form;
+    if (!f.title.trim()) { this.toast("Por favor ingresa un título"); return; }
+    if (this.state.modal === "edit") {
+      this.setState(s => ({
+        events: s.events.map(e => e.id === s.selEvent.id ? { ...e, title: f.title, type: f.type, date: this.fromISO(f.dateStr), startTime: f.startTime, endTime: f.endTime, reminder: f.reminder } : e),
+        modal: null, selEvent: null,
+      }));
+      this.toast("Evento actualizado correctamente");
+    } else {
+      const ne = { id: Date.now().toString(), title: f.title, type: f.type, date: this.fromISO(f.dateStr), startTime: f.startTime, endTime: f.endTime, reminder: f.reminder, completed: false };
+      this.setState(s => ({ events: [...s.events, ne], modal: null }));
+      this.toast("Evento creado correctamente");
+    }
+  };
+  askDelete = () => this.setState({ modal: "delete" });
+  cancelDelete = () => this.setState({ modal: "detail" });
+  confirmDelete = () => { this.setState(s => ({ events: s.events.filter(e => e.id !== s.selEvent.id), modal: null, selEvent: null })); this.toast("Evento eliminado"); };
+  toggleTask = (id) => this.setState(s => ({ events: s.events.map(e => e.id===id && e.type==="tarea" ? { ...e, completed: !e.completed } : e) }));
+
+  mapEvent(ev) {
+    const color = this.COLORS[ev.type];
+    const isTask = ev.type === "tarea";
+    return {
+      title: ev.title, timeRange: ev.startTime + " - " + ev.endTime, isTask, completed: !!ev.completed,
+      onClick: () => this.openDetail(ev), onToggle: () => this.toggleTask(ev.id),
+      cardStyle: { display: "flex", gap: 12, alignItems: "flex-start", width: "100%", borderRadius: 12, padding: 12, background: "#fff", border: "1.5px solid " + color + "40", opacity: ev.completed ? 0.6 : 1 },
+      barStyle: { width: 4, height: 44, borderRadius: 9, flexShrink: 0, background: color },
+      titleStyle: { margin: 0, fontSize: "0.85rem", fontWeight: 700, color: "#1A3A38", textDecoration: ev.completed ? "line-through" : "none" },
+      checkStyle: { width: 18, height: 18, flexShrink: 0, marginTop: 1, borderRadius: 5, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: ev.completed ? "#3DBFB8" : "#fff", border: "2px solid " + (ev.completed ? "#3DBFB8" : "#C0DEDC") },
+    };
+  }
+
+  renderVals() {
+    const nav = this.props.navigate || (() => {});
+    const s = this.state;
+    const BRAND = "#3DBFB8";
+    const sel = s.selDate;
+    const tab = (v) => ({ flex: 1, padding: "8px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: "0.8rem", fontWeight: 700, background: s.view === v ? BRAND : "transparent", color: s.view === v ? "#fff" : "#4A6E6B" });
+
+    // DAY
+    const dayEvents = s.events.filter(e => this.sameDay(e.date, sel));
+    const daySlots = Array.from({ length: 13 }, (_, i) => {
+      const hour = i + 7;
+      const evs = dayEvents.filter(e => parseInt(e.startTime.split(":")[0], 10) === hour).map(e => this.mapEvent(e));
+      const label = hour === 12 ? "12:00 PM" : hour > 12 ? (hour-12)+":00 PM" : hour+":00 AM";
+      return { label, empty: evs.length === 0, events: evs };
+    });
+    const dayTitle = this.DOW_SHORT[sel.getDay()] + " " + sel.getDate() + " " + this.MONTHS[sel.getMonth()].slice(0,3);
+
+    // WEEK
+    const ws = this.startOfWeek(sel);
+    const weekDays = Array.from({ length: 7 }, (_, i) => {
+      const day = this.addDays(ws, i);
+      const isSel = this.sameDay(day, sel);
+      return { dow: this.DOW_SHORT[day.getDay()], num: day.getDate(), onClick: () => this.setState({ selDate: day }),
+        style: { flex: 1, padding: "8px 2px", borderRadius: 10, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", background: isSel ? BRAND : "#fff", color: isSel ? "#fff" : "#4A6E6B", border: isSel ? "none" : "1.5px solid #E4F4F3" } };
+    });
+    const weekEvList = dayEvents.slice().sort((a,b) => a.startTime.localeCompare(b.startTime)).map(e => this.mapEvent(e));
+    const weekDayTitle = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"][sel.getDay()] + ", " + sel.getDate() + " de " + this.MONTHS[sel.getMonth()];
+
+    // MONTH
+    const monthStart = new Date(sel.getFullYear(), sel.getMonth(), 1);
+    const gridStart = this.startOfWeek(monthStart);
+    const monthCells = Array.from({ length: 42 }, (_, i) => {
+      const day = this.addDays(gridStart, i);
+      const isCur = day.getMonth() === sel.getMonth();
+      const isToday = this.sameDay(day, this.TODAY);
+      const isSel = this.sameDay(day, sel);
+      const evs = s.events.filter(e => this.sameDay(e.date, day));
+      const border = isSel ? "2px solid " + BRAND : (isToday ? "1.5px solid " + BRAND : "1.5px solid #E4F4F3");
+      return {
+        num: day.getDate(), hasEvents: evs.length > 0,
+        dots: evs.slice(0,3).map(e => ({ style: { width: 4, height: 4, borderRadius: "50%", background: this.COLORS[e.type] } })),
+        onClick: () => this.setState({ selDate: day }),
+        cellStyle: { aspectRatio: "1", borderRadius: 10, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 2, cursor: "pointer", background: (isToday||isSel) ? "#E6F8F7" : "#fff", border, opacity: isCur ? 1 : 0.4 },
+        numStyle: { fontSize: "0.75rem", fontWeight: (isToday||isSel) ? 700 : 400, color: (isToday||isSel) ? BRAND : "#1A3A38" },
+      };
+    }).slice(0, this.addDays(gridStart, 35).getMonth() === sel.getMonth() || this.sameDay(this.addDays(gridStart,35), monthStart) ? 42 : 42);
+
+    // MODAL
+    const f = s.form;
+    const se = s.selEvent;
+    const detailDate = se ? (se.date.getDate() + " de " + this.MONTHS[se.date.getMonth()] + ", " + se.date.getFullYear()) : "";
+
+    return {
+      goHome: () => nav("/"), goFaq: () => nav("/faq"),
+      setDia: () => this.setState({ view: "día" }), setSemana: () => this.setState({ view: "semana" }), setMes: () => this.setState({ view: "mes" }),
+      diaTabStyle: tab("día"), semanaTabStyle: tab("semana"), mesTabStyle: tab("mes"),
+      isDay: s.view === "día", isWeek: s.view === "semana", isMonth: s.view === "mes",
+      dayTitle, daySlots,
+      weekDays, weekEvents: weekEvList, weekEmpty: weekEvList.length === 0, weekDayTitle,
+      monthTitle: this.MONTHS[sel.getMonth()] + " " + sel.getFullYear(), dayHeaders: ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"], monthCells,
+      openCreate: this.openCreate,
+      // modal
+      modalOpen: !!s.modal, closeModal: this.closeModal, stop: (e) => e.stopPropagation(),
+      modalTitle: s.modal === "create" ? "Nuevo evento" : s.modal === "edit" ? "Editar evento" : s.modal === "delete" ? "Eliminar evento" : (se ? se.title : ""),
+      showForm: s.modal === "create" || s.modal === "edit",
+      showDetail: s.modal === "detail",
+      showDelete: s.modal === "delete",
+      submitLabel: s.modal === "edit" ? "Guardar cambios" : "Guardar evento",
+      fTitle: f.title, fType: f.type, fDate: f.dateStr, fStart: f.startTime, fEnd: f.endTime, fReminder: f.reminder,
+      onFTitle: this.setForm("title"), onFType: this.setForm("type"), onFDate: this.setForm("dateStr"), onFStart: this.setForm("startTime"), onFEnd: this.setForm("endTime"), onFReminder: this.setForm("reminder"),
+      cancelForm: this.cancelForm, submitForm: this.submitForm,
+      detailDate, detailTime: se ? (se.startTime + " - " + se.endTime) : "", detailReminder: se ? se.reminder : "",
+      hasReminder: !!(se && se.reminder && se.reminder !== "ninguno"),
+      startEdit: this.startEdit, askDelete: this.askDelete, cancelDelete: this.cancelDelete, confirmDelete: this.confirmDelete,
+      toastShow: !!s.toast, toastMsg: s.toast || "",
+    };
+  }
+}
+</script>
+</body>
+</html>

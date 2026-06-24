@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="position:absolute; inset:0; display:flex; flex-direction:column; background:#F5FEFE; font-family:'Nunito',sans-serif; overflow:hidden;">
+
+  <!-- Header -->
+  <header style="{{ headerStyle }}">
+    <div style="position:absolute; top:-24px; right:-24px; width:96px; height:96px; border-radius:50%; opacity:.2; background:#fff;"></div>
+    <div style="position:absolute; bottom:-16px; left:-16px; width:64px; height:64px; border-radius:50%; opacity:.1; background:#fff;"></div>
+    <button onClick="{{ goBack }}" style="position:relative; margin-bottom:16px; display:flex; align-items:center; gap:6px; background:none; border:none; cursor:pointer; color:rgba(255,255,255,.85);">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+      <span style="font-size:0.8rem; font-weight:600;">Volver</span>
+    </button>
+    <div style="position:relative; display:flex; align-items:center; gap:12px;">
+      <span style="font-size:2rem; line-height:1;">{{ emoji }}</span>
+      <div>
+        <p style="margin:0; color:rgba(255,255,255,.7); font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em;">Módulo</p>
+        <h1 style="margin:0; color:#fff; font-size:1.2rem; font-weight:800; line-height:1.1;">Módulo de {{ label }}</h1>
+      </div>
+    </div>
+  </header>
+
+  <!-- Tab bar -->
+  <div style="display:flex; gap:8px; padding:12px 16px; background:#fff; flex-shrink:0; border-bottom:1px solid #E4F4F3;">
+    <button onClick="{{ setPdf }}" style="{{ pdfTabStyle }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>PDF</button>
+    <button onClick="{{ setVideo }}" style="{{ videoTabStyle }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg>Video</button>
+    <button onClick="{{ setAudio }}" style="{{ audioTabStyle }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/></svg>Audiocuento</button>
+  </div>
+
+  <!-- Content -->
+  <div class="sl-scroll" style="flex:1; overflow-y:auto; padding:16px;">
+
+    <!-- PDF -->
+    <sc-if value="{{ isPdf }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <sc-for list="{{ pdfItems }}" as="it" hint-placeholder-count="8">
+          <button style="width:100%; display:flex; align-items:flex-start; gap:12px; border-radius:12px; padding:10px 12px; text-align:left; background:none; border:none; cursor:pointer;">
+            <span style="{{ it.numberStyle }}">{{ it.number }}</span>
+            <span style="{{ it.titleStyle }}">{{ it.title }}</span>
+            <sc-if value="{{ it.isLevel1 }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#717182" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left:auto; flex-shrink:0; margin-top:2px;"><path d="m9 18 6-6-6-6"/></svg></sc-if>
+          </button>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- Video -->
+    <sc-if value="{{ isVideo }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <sc-for list="{{ videos }}" as="v" hint-placeholder-count="3">
+          <div style="border-radius:16px; background:#fff; overflow:hidden; border:1.5px solid #E4F4F3;">
+            <div style="{{ v.thumbStyle }}">
+              <div style="{{ v.radialStyle }}"></div>
+              <div style="{{ v.linesStyle }}"></div>
+              <button class="sl-press" onClick="{{ v.onOpen }}" style="{{ v.playBtnStyle }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" stroke="none" style="margin-left:3px;"><polygon points="6 3 20 12 6 21 6 3"/></svg></button>
+              <span style="{{ v.badgeStyle }}">{{ v.duration }}</span>
+            </div>
+            <div style="padding:12px 16px; display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
+              <div style="flex:1;">
+                <p style="margin:0; font-size:0.85rem; font-weight:700; color:#1A3A38;">{{ v.title }}</p>
+                <p style="margin:2px 0 0; font-size:0.72rem; color:#4A6E6B; line-height:1.4;">{{ v.description }}</p>
+              </div>
+              <button onClick="{{ v.onOpen }}" style="{{ v.maxStyle }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" x2="14" y1="3" y2="10"/><line x1="3" x2="10" y1="21" y2="14"/></svg></button>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- Audio -->
+    <sc-if value="{{ isAudio }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <sc-for list="{{ audios }}" as="a" hint-placeholder-count="3">
+          <div style="{{ a.cardStyle }}">
+            <div style="display:flex; align-items:flex-start; gap:12px;">
+              <button class="sl-press" onClick="{{ a.onToggle }}" style="{{ a.playBtnStyle }}">
+                <sc-if value="{{ a.isPlaying }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="#fff" stroke="none"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg></sc-if>
+                <sc-if value="{{ a.notPlaying }}" hint-placeholder-val="{{ true }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="#3DBFB8" stroke="none" style="margin-left:2px;"><polygon points="6 3 20 12 6 21 6 3"/></svg></sc-if>
+              </button>
+              <div style="flex:1; min-width:0;">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                  <p style="margin:0; font-size:0.85rem; font-weight:700; color:#1A3A38;">{{ a.title }}</p>
+                  <span style="font-size:0.65rem; font-weight:600; color:#717182; white-space:nowrap;">{{ a.duration }}</span>
+                </div>
+                <p style="margin:2px 0 0; font-size:0.72rem; color:#4A6E6B; line-height:1.4;">{{ a.description }}</p>
+                <sc-if value="{{ a.showProgress }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top:12px;">
+                    <div style="width:100%; height:6px; border-radius:9px; background:#E0F0EF; overflow:hidden;"><div style="{{ a.fillStyle }}"></div></div>
+                    <div style="display:flex; justify-content:space-between; margin-top:4px;"><span style="font-size:0.6rem; color:#717182;">{{ a.progressLabel }}</span><span style="font-size:0.6rem; color:#717182;">{{ a.duration }}</span></div>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+            <sc-if value="{{ a.isPlaying }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex; align-items:flex-end; gap:2px; margin-top:12px; height:20px; justify-content:center; opacity:.6;">
+                <sc-for list="{{ bars }}" as="b" hint-placeholder-count="0"><div style="{{ b.style }}"></div></sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <div style="height:8px;"></div>
+  </div>
+
+  <!-- Bottom Nav -->
+  <div style="padding:12px 16px 28px; display:flex; gap:12px; background:#fff; flex-shrink:0; border-top:1px solid #E4F4F3;">
+    <button class="sl-press" onClick="{{ goHome }}" style="flex:1; padding:12px; border-radius:16px; display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; background:#E6F8F7; border:1.5px solid rgba(61,191,184,.2);">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3DBFB8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
+      <span style="font-size:0.65rem; font-weight:700; color:#1A3A38;">Inicio</span>
+    </button>
+    <button class="sl-press" onClick="{{ goFaq }}" style="flex:1; padding:12px; border-radius:16px; display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; background:#E6F8F7; border:1.5px solid rgba(61,191,184,.2);">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3DBFB8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+      <span style="font-size:0.65rem; font-weight:700; color:#1A3A38; text-align:center; line-height:1.3;">Preguntas Frecuentes</span>
+    </button>
+  </div>
+
+  <!-- Fullscreen video -->
+  <sc-if value="{{ fsOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute; inset:0; z-index:50; display:flex; flex-direction:column; background:#0A0A0A;">
+      <div style="{{ fsAreaStyle }}">
+        <button onClick="{{ closeFs }}" style="position:absolute; top:16px; right:16px; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; z-index:10; background:rgba(255,255,255,.12); border:none; cursor:pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <div style="position:absolute; top:16px; left:16px;">
+          <p style="margin:0; color:rgba(255,255,255,.6); font-size:0.65rem; text-transform:uppercase; letter-spacing:.08em;">Reproduciendo</p>
+          <p style="margin:0; color:#fff; font-size:0.9rem; font-weight:700;">{{ fsTitle }}</p>
+        </div>
+        <button class="sl-press" onClick="{{ toggleFs }}" style="{{ fsBigBtnStyle }}">
+          <sc-if value="{{ fsPlaying }}" hint-placeholder-val="{{ false }}"><svg width="30" height="30" viewBox="0 0 24 24" fill="#fff" stroke="none"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg></sc-if>
+          <sc-if value="{{ fsPaused }}" hint-placeholder-val="{{ true }}"><svg width="30" height="30" viewBox="0 0 24 24" fill="#fff" stroke="none" style="margin-left:4px;"><polygon points="6 3 20 12 6 21 6 3"/></svg></sc-if>
+        </button>
+        <sc-if value="{{ fsPlaying }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute; bottom:32px; display:flex; gap:6px;">
+            <sc-for list="{{ fsDots }}" as="d" hint-placeholder-count="0"><div style="{{ d.style }}"></div></sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <div style="padding:16px 24px 40px; background:#111;">
+        <p style="margin:0 0 12px; color:rgba(255,255,255,.6); text-align:center; font-size:0.75rem;">{{ fsDescription }}</p>
+        <div style="width:100%; height:4px; border-radius:9px; margin-bottom:4px; overflow:hidden; background:#333;"><div style="{{ fsFillStyle }}"></div></div>
+        <div style="display:flex; justify-content:space-between;"><span style="font-size:0.65rem; color:#888;">{{ fsProgressLabel }}</span><span style="font-size:0.65rem; color:#888;">{{ fsDuration }}</span></div>
+        <div style="display:flex; align-items:center; justify-content:center; gap:32px; margin-top:16px;">
+          <button style="color:#888; background:none; border:none; cursor:pointer; display:flex;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg></button>
+          <button class="sl-press" onClick="{{ toggleFs }}" style="{{ fsCtrlBtnStyle }}">
+            <sc-if value="{{ fsPlaying }}" hint-placeholder-val="{{ false }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" stroke="none"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg></sc-if>
+            <sc-if value="{{ fsPaused }}" hint-placeholder-val="{{ true }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" stroke="none" style="margin-left:3px;"><polygon points="6 3 20 12 6 21 6 3"/></svg></sc-if>
+          </button>
+          <button onClick="{{ closeFs }}" style="color:#888; background:none; border:none; cursor:pointer; display:flex;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;navigate&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;(to: string | number) =&gt; void&quot;},&quot;moduleName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;felicidad&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = { activeTab: "pdf", fullscreenVideo: null, playingAudioId: null, audioProgress: {}, fsPlaying: false, fsProgress: 0 };
+
+  META = {
+    felicidad: { label: "Felicidad", emoji: "😊", color: "#F0B429", gradient: "linear-gradient(135deg,#F6C90E,#E9A800)" },
+    enojo:     { label: "Enojo",     emoji: "😠", color: "#E53E3E", gradient: "linear-gradient(135deg,#FC5858,#C53030)" },
+    desagrado: { label: "Desagrado", emoji: "🤢", color: "#38A169", gradient: "linear-gradient(135deg,#4DC982,#2F855A)" },
+    tristeza:  { label: "Tristeza",  emoji: "😢", color: "#4299E1", gradient: "linear-gradient(135deg,#63B3ED,#2B6CB0)" },
+  };
+  PDF = [
+    { level: 1, number: "1", title: "Introducción" },
+    { level: 2, number: "1.1", title: "Material del módulo" },
+    { level: 2, number: "1.2", title: "Objetivos de aprendizaje" },
+    { level: 1, number: "2", title: "Historias Acerca de la Alegría" },
+    { level: 2, number: "2.1", title: "El Principito" },
+    { level: 2, number: "2.2", title: "Matilda" },
+    { level: 2, number: "2.3", title: "Pollyanna" },
+    { level: 1, number: "3", title: "Actividades Creativas" },
+    { level: 2, number: "3.1", title: "Dibuja tu emoción" },
+    { level: 2, number: "3.2", title: "Escribe sobre un momento feliz" },
+    { level: 2, number: "3.3", title: "Juego de palabras emocionales" },
+    { level: 1, number: "4", title: "Evaluación" },
+    { level: 2, number: "4.1", title: "Preguntas de reflexión" },
+    { level: 2, number: "4.2", title: "Rúbrica de participación" },
+  ];
+  VIDEOS = [
+    { id: 1, title: "La Alegría de Leer", description: "Corto animado sobre un niño que descubre el amor por los libros.", duration: "8 min", color: "#7C3AED" },
+    { id: 2, title: "Celebrando con Palabras", description: "Historia de una niña que usa las palabras para expresar su felicidad.", duration: "12 min", color: "#D97706" },
+    { id: 3, title: "El Libro Mágico", description: "Cuento animado sobre los poderes especiales que tienen los libros.", duration: "6 min", color: "#38A169" },
+  ];
+  AUDIOS = [
+    { id: 1, title: "El Principito", description: "Antoine de Saint-Exupéry. Un cuento sobre la amistad y la alegría de descubrir el mundo.", duration: "18 min", totalSeconds: 1080 },
+    { id: 2, title: "Matilda", description: "Roald Dahl. La historia de una niña prodigio que encuentra alegría en los libros.", duration: "24 min", totalSeconds: 1440 },
+    { id: 3, title: "La Tortuga y la Liebre", description: "Fábula clásica sobre la perseverancia y la alegría de superarse a uno mismo.", duration: "10 min", totalSeconds: 600 },
+  ];
+
+  componentWillUnmount() { this.stopTimer(); this.stopFsTimer(); }
+  stopTimer() { if (this.timer) { clearInterval(this.timer); this.timer = null; } }
+  stopFsTimer() { if (this.fsTimer) { clearInterval(this.fsTimer); this.fsTimer = null; } }
+
+  toggleAudio(id) {
+    if (this.state.playingAudioId === id) { this.stopTimer(); this.setState({ playingAudioId: null }); return; }
+    this.stopTimer();
+    this.setState({ playingAudioId: id });
+    this.timer = setInterval(() => {
+      this.setState(prev => {
+        const track = this.AUDIOS.find(a => a.id === prev.playingAudioId);
+        if (!track) return prev;
+        const cur = prev.audioProgress[prev.playingAudioId] || 0;
+        if (cur >= track.totalSeconds) { this.stopTimer(); const ap = { ...prev.audioProgress }; ap[prev.playingAudioId] = 0; return { playingAudioId: null, audioProgress: ap }; }
+        const ap = { ...prev.audioProgress }; ap[prev.playingAudioId] = cur + 1; return { audioProgress: ap };
+      });
+    }, 1000);
+  }
+
+  openFs(v) { this.stopFsTimer(); this.setState({ fullscreenVideo: v, fsPlaying: false, fsProgress: 0 }); }
+  closeFs() { this.stopFsTimer(); this.setState({ fullscreenVideo: null, fsPlaying: false, fsProgress: 0 }); }
+  toggleFs() {
+    const playing = !this.state.fsPlaying;
+    this.setState({ fsPlaying: playing });
+    this.stopFsTimer();
+    if (playing) {
+      this.fsTimer = setInterval(() => {
+        this.setState(prev => {
+          if (prev.fsProgress >= 480) { this.stopFsTimer(); return { fsPlaying: false, fsProgress: 0 }; }
+          return { fsProgress: prev.fsProgress + 1 };
+        });
+      }, 1000);
+    }
+  }
+
+  fmt(s) { return Math.floor(s / 60) + ":" + (s % 60).toString().padStart(2, "0"); }
+
+  renderVals() {
+    const nav = this.props.navigate || (() => {});
+    const s = this.state;
+    const BRAND = "#3DBFB8";
+    const meta = this.META[this.props.moduleName] || { label: "Alegría", emoji: "✨", color: BRAND, gradient: "linear-gradient(135deg,#3DBFB8,#2A9A95)" };
+
+    const tabStyle = (active) => ({ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px", borderRadius: 12, cursor: "pointer", fontSize: "0.75rem", background: active ? meta.color : "#F5FEFE", color: active ? "#fff" : "#4A6E6B", border: active ? "none" : "1.5px solid #E0F0EF", fontWeight: active ? 700 : 500 });
+
+    const pdfItems = this.PDF.map(it => ({
+      number: it.number, title: it.title, isLevel1: it.level === 1,
+      numberStyle: { flexShrink: 0, marginTop: 2, fontSize: it.level === 1 ? "0.82rem" : "0.75rem", fontWeight: it.level === 1 ? 800 : 600, color: it.level === 1 ? meta.color : "#717182", minWidth: "2rem" },
+      titleStyle: { fontSize: it.level === 1 ? "0.88rem" : "0.8rem", fontWeight: it.level === 1 ? 700 : 400, color: it.level === 1 ? "#1A3A38" : "#4A6E6B", paddingLeft: it.level === 2 ? "0.5rem" : 0 },
+    }));
+
+    const videos = this.VIDEOS.map(v => ({
+      title: v.title, description: v.description, duration: v.duration,
+      onOpen: () => this.openFs(v),
+      thumbStyle: { position: "relative", width: "100%", height: 130, display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg," + v.color + "22," + v.color + "44)" },
+      radialStyle: { position: "absolute", inset: 0, background: "radial-gradient(circle at 30% 40%, " + v.color + "33 0%, transparent 60%)" },
+      linesStyle: { position: "absolute", bottom: 0, left: 0, right: 0, height: 32, opacity: .1, background: "repeating-linear-gradient(90deg," + v.color + " 0px," + v.color + " 2px, transparent 2px, transparent 20px)" },
+      playBtnStyle: { position: "relative", zIndex: 10, width: 56, height: 56, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 16px rgba(0,0,0,.25)", background: v.color, border: "none", cursor: "pointer" },
+      badgeStyle: { position: "absolute", bottom: 8, right: 12, fontSize: "0.65rem", fontWeight: 700, color: v.color, background: v.color + "15", borderRadius: 6, padding: "2px 6px" },
+      maxStyle: { flexShrink: 0, marginTop: 2, padding: 6, borderRadius: 8, border: "none", cursor: "pointer", color: v.color, background: v.color + "12", display: "flex" },
+    }));
+
+    const audios = this.AUDIOS.map(a => {
+      const isPlaying = s.playingAudioId === a.id;
+      const progress = s.audioProgress[a.id] || 0;
+      const pct = (progress / a.totalSeconds) * 100;
+      return {
+        title: a.title, description: a.description, duration: a.duration,
+        isPlaying, notPlaying: !isPlaying, onToggle: () => this.toggleAudio(a.id),
+        showProgress: isPlaying || progress > 0,
+        progressLabel: this.fmt(progress),
+        cardStyle: { borderRadius: 16, background: "#fff", padding: 16, border: "1.5px solid " + (isPlaying ? BRAND : "#E4F4F3") },
+        playBtnStyle: { flexShrink: 0, width: 48, height: 48, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 3px rgba(0,0,0,.1)", cursor: "pointer", background: isPlaying ? BRAND : "#F0FAFA", border: "2px solid " + (isPlaying ? BRAND : "#D0ECEB") },
+        fillStyle: { height: "100%", borderRadius: 9, width: pct + "%", background: BRAND, transition: "width .25s linear" },
+      };
+    });
+
+    const bars = Array.from({ length: 28 }).map((_, i) => ({
+      style: { width: 4, borderRadius: 9, background: BRAND, height: (35 + ((i * 37) % 66)) + "%", animation: "sl-pulse " + (0.4 + ((i * 13) % 60) / 100).toFixed(2) + "s ease-in-out infinite alternate", animationDelay: (i * 0.04).toFixed(2) + "s" },
+    }));
+
+    const fv = s.fullscreenVideo;
+    const fsColor = fv ? fv.color : BRAND;
+    const fsDots = [0, 1, 2, 3, 4].map(i => ({ style: { width: 6, height: 6, borderRadius: "50%", background: fsColor, animation: "sl-bounce .8s ease-in-out infinite", animationDelay: (i * 0.12) + "s" } }));
+
+    return {
+      headerStyle: { padding: "40px 16px 20px", position: "relative", overflow: "hidden", flexShrink: 0, background: meta.gradient },
+      emoji: meta.emoji, label: meta.label,
+      goBack: () => nav(-1), goHome: () => nav("/"), goFaq: () => nav("/faq"),
+      setPdf: () => this.setState({ activeTab: "pdf" }), setVideo: () => this.setState({ activeTab: "video" }), setAudio: () => this.setState({ activeTab: "audiocuento" }),
+      pdfTabStyle: tabStyle(s.activeTab === "pdf"), videoTabStyle: tabStyle(s.activeTab === "video"), audioTabStyle: tabStyle(s.activeTab === "audiocuento"),
+      isPdf: s.activeTab === "pdf", isVideo: s.activeTab === "video", isAudio: s.activeTab === "audiocuento",
+      pdfItems, videos, audios, bars,
+      fsOpen: !!fv, fsTitle: fv ? fv.title : "", fsDescription: fv ? fv.description : "", fsDuration: fv ? fv.duration : "",
+      fsPlaying: s.fsPlaying, fsPaused: !s.fsPlaying,
+      fsProgressLabel: this.fmt(s.fsProgress),
+      toggleFs: () => this.toggleFs(), closeFs: () => this.closeFs(),
+      fsDots,
+      fsAreaStyle: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", background: "radial-gradient(ellipse at center, " + fsColor + "22 0%, #0A0A0A 70%)" },
+      fsBigBtnStyle: { width: 80, height: 80, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: fsColor, border: "none", cursor: "pointer", boxShadow: "0 0 40px " + fsColor + "66" },
+      fsCtrlBtnStyle: { width: 56, height: 56, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: fsColor, border: "none", cursor: "pointer" },
+      fsFillStyle: { height: "100%", borderRadius: 9, width: ((s.fsProgress / 480) * 100) + "%", background: fsColor, transition: "width .25s linear" },
+    };
+  }
+}
+</script>
+</body>
+</html>

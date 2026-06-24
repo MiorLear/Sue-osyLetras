@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="position:absolute; inset:0; display:flex; flex-direction:column; background:#F5FEFE; font-family:'Nunito',sans-serif; overflow:hidden;">
+
+  <!-- Header -->
+  <header style="padding:40px 20px 24px; position:relative; overflow:hidden; flex-shrink:0; background:linear-gradient(135deg,#3DBFB8,#2A9A95);">
+    <div style="position:absolute; top:-24px; right:-24px; width:96px; height:96px; border-radius:50%; opacity:.2; background:#fff;"></div>
+    <div style="position:absolute; bottom:-16px; left:-16px; width:64px; height:64px; border-radius:50%; opacity:.1; background:#fff;"></div>
+    <div style="position:relative; display:flex; align-items:center; gap:12px;">
+      <div style="background:#fff; border-radius:16px; padding:6px; box-shadow:0 1px 3px rgba(0,0,0,.12); flex-shrink:0;">
+        <img src="assets/logo.jpg" alt="logo" style="width:40px; height:40px; border-radius:12px; object-fit:cover; display:block;">
+      </div>
+      <div>
+        <p style="margin:0; color:rgba(255,255,255,.7); font-size:0.7rem;">Sueños y Letras</p>
+        <h1 style="margin:0; color:#fff; font-size:1.15rem; font-weight:800;">Preguntas Frecuentes</h1>
+      </div>
+    </div>
+  </header>
+
+  <!-- Content -->
+  <div class="sl-scroll" style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:16px;">
+    <sc-for list="{{ categories }}" as="cat" hint-placeholder-count="4">
+      <section>
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+          <span style="font-size:1.1rem;">{{ cat.emoji }}</span>
+          <p style="margin:0; font-size:0.82rem; font-weight:800; color:#1A3A38;">{{ cat.label }}</p>
+          <div style="flex:1; height:1px; margin-left:4px; background:#E0F0EF;"></div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <sc-for list="{{ cat.items }}" as="it" hint-placeholder-count="3">
+            <div style="{{ it.itemStyle }}">
+              <button onClick="{{ it.onClick }}" style="width:100%; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:14px 16px; text-align:left; background:none; border:none; cursor:pointer;">
+                <span style="{{ it.qStyle }}">{{ it.q }}</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="{{ it.chevronStyle }}"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <sc-if value="{{ it.open }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:0 16px 16px; border-top:1px solid #E0F0EF;">
+                  <p style="margin:10px 0 0; font-size:0.78rem; color:#4A6E6B; line-height:1.6;">{{ it.a }}</p>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+    </sc-for>
+
+    <div style="border-radius:16px; padding:16px; text-align:center; margin-top:4px; background:#E8F8F7; border:1px solid #C0E8E5;">
+      <p style="margin:0 0 4px; font-size:0.8rem; font-weight:700; color:#1A3A38;">¿No encontraste tu respuesta?</p>
+      <p style="margin:0; font-size:0.72rem; color:#4A6E6B;">Escríbenos a <span style="color:#3DBFB8; font-weight:700;">soporte@suenosyletras.org</span></p>
+    </div>
+    <div style="height:8px;"></div>
+  </div>
+
+  <!-- Bottom Nav -->
+  <div style="padding:12px 16px 28px; display:flex; gap:12px; background:#fff; flex-shrink:0; border-top:1px solid #E4F4F3;">
+    <button class="sl-press" onClick="{{ goHome }}" style="flex:1; padding:12px; border-radius:16px; display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; background:#E6F8F7; border:1.5px solid rgba(61,191,184,.2);">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3DBFB8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
+      <span style="font-size:0.65rem; font-weight:700; color:#1A3A38;">Inicio</span>
+    </button>
+    <button class="sl-press" onClick="{{ goProfile }}" style="flex:1; padding:12px; border-radius:16px; display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; background:#E6F8F7; border:1.5px solid rgba(61,191,184,.2);">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3DBFB8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span style="font-size:0.65rem; font-weight:700; color:#1A3A38;">Mi Perfil</span>
+    </button>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;navigate&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;(to: string | number) =&gt; void&quot;}}">
+class Component extends DCLogic {
+  state = { openItem: null };
+  toggle(key) { return () => this.setState(p => ({ openItem: p.openItem === key ? null : key })); }
+
+  renderVals() {
+    const nav = this.props.navigate || (() => {});
+    const BRAND = "#3DBFB8";
+    const RAW = [
+      { id: "general", emoji: "📱", label: "General", items: [
+        { q: "¿Qué es Sueños y Letras?", a: "Sueños y Letras es una organización dedicada a alfabetizar niños y fomentar el hábito de la lectura mediante módulos temáticos basados en emociones." },
+        { q: "¿Cómo empiezo a usar la aplicación?", a: "Crea tu cuenta eligiendo un método de registro (Google, teléfono o correo), completa tu información básica y podrás acceder a todos los módulos disponibles." },
+        { q: "¿Es gratuita la aplicación?", a: "Sí, la aplicación es completamente gratuita para todos los usuarios registrados." },
+        { q: "¿En qué idioma está disponible la app?", a: "Actualmente la aplicación está disponible en español. Próximamente añadiremos más idiomas." },
+      ] },
+      { id: "modulos", emoji: "📚", label: "Módulos", items: [
+        { q: "¿Qué son los módulos?", a: "Los módulos son unidades de aprendizaje temáticas basadas en emociones (Felicidad, Enojo, Desagrado, Tristeza). Cada módulo incluye PDFs, videos y audiocuentos." },
+        { q: "¿Cómo accedo al contenido de un módulo?", a: "Desde la pantalla de inicio o la pantalla de Módulos, toca el módulo que deseas explorar. Verás las pestañas PDF, Video y Audiocuento para acceder a cada tipo de contenido." },
+        { q: "¿Puedo descargar el contenido para verlo sin internet?", a: "Actualmente el contenido requiere conexión a internet. La descarga offline estará disponible en futuras versiones." },
+        { q: "¿Con qué frecuencia se agregan nuevos módulos?", a: "Añadimos nuevos módulos y contenido de forma periódica. Te notificaremos cuando haya nuevo material disponible." },
+      ] },
+      { id: "foro", emoji: "💬", label: "Foro", items: [
+        { q: "¿Qué es el Foro?", a: "El Foro es un espacio de comunidad donde maestros, coordinadores y participantes pueden compartir reflexiones, recursos y noticias relacionadas con los módulos." },
+        { q: "¿Puedo publicar imágenes o videos en el Foro?", a: "Sí, puedes compartir texto, imágenes y videos en el Foro. Asegúrate de que el contenido sea apropiado y relacionado con el aprendizaje." },
+        { q: "¿Cómo se modera el contenido del Foro?", a: "El equipo de Sueños y Letras revisa el contenido del Foro para garantizar un ambiente seguro y positivo para todos." },
+      ] },
+      { id: "cuenta", emoji: "👤", label: "Mi Cuenta", items: [
+        { q: "¿Cómo cambio mi foto de perfil?", a: "Ve a Mi Perfil desde el botón en la pantalla de inicio. Toca el ícono de cámara sobre tu foto actual y selecciona una nueva imagen de tu galería." },
+        { q: "¿Cómo cambio mi contraseña?", a: "En la pantalla de inicio de sesión, toca '¿Olvidaste tu contraseña?' y sigue las instrucciones enviadas a tu correo o número de teléfono." },
+        { q: "¿Puedo cambiar mi método de inicio de sesión?", a: "Actualmente el método de inicio de sesión se configura al registrarse. Contáctanos a través del soporte si necesitas cambiarlo." },
+        { q: "¿Cómo elimino mi cuenta?", a: "Para eliminar tu cuenta, escríbenos a soporte@suenosyletras.org indicando tu solicitud y la eliminaremos en un plazo de 5 días hábiles." },
+      ] },
+    ];
+    const open = this.state.openItem;
+    const categories = RAW.map(cat => ({
+      emoji: cat.emoji, label: cat.label,
+      items: cat.items.map((it, idx) => {
+        const key = cat.id + "-" + idx;
+        const isOpen = open === key;
+        return {
+          q: it.q, a: it.a, open: isOpen, onClick: this.toggle(key),
+          itemStyle: { borderRadius: 12, overflow: "hidden", background: "#fff", border: "1.5px solid " + (isOpen ? BRAND : "#E0F0EF") },
+          qStyle: { fontSize: "0.8rem", fontWeight: isOpen ? 700 : 500, color: isOpen ? BRAND : "#1A3A38", flex: 1, lineHeight: 1.4 },
+          chevronStyle: { color: isOpen ? BRAND : "#717182", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform .2s", flexShrink: 0, marginTop: 1 },
+        };
+      }),
+    }));
+    return { categories, goHome: () => nav("/"), goProfile: () => nav("/profile") };
+  }
+}
+</script>
+</body>
+</html>

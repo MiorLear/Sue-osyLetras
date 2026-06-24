@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="position:absolute; inset:0; display:flex; flex-direction:column; background:#F5FEFE; font-family:'Nunito',sans-serif; overflow:hidden;">
+
+  <!-- Header -->
+  <header style="padding:40px 20px 28px; position:relative; overflow:hidden; flex-shrink:0; background:linear-gradient(135deg,#3DBFB8 0%,#2A9A95 100%);">
+    <div style="position:absolute; top:-32px; right:-32px; width:112px; height:112px; border-radius:50%; opacity:.2; background:#fff;"></div>
+    <div style="position:absolute; bottom:-24px; left:-24px; width:80px; height:80px; border-radius:50%; opacity:.1; background:#fff;"></div>
+    <div style="position:relative; display:flex; align-items:center; gap:12px;">
+      <div style="background:#fff; border-radius:16px; padding:6px; box-shadow:0 1px 3px rgba(0,0,0,.12); flex-shrink:0;">
+        <img src="assets/logo.jpg" alt="Sueños y Letras" style="width:44px; height:44px; border-radius:12px; object-fit:cover; display:block;">
+      </div>
+      <div>
+        <p style="margin:0; color:rgba(255,255,255,.75); font-size:0.75rem;">Sueños y Letras</p>
+        <p style="margin:0; color:rgba(255,255,255,.9); font-size:0.95rem;">Bienvenida,</p>
+        <h1 style="margin:0; color:#fff; font-size:1.2rem; font-weight:800; line-height:1.1;">María Reneé</h1>
+      </div>
+    </div>
+  </header>
+
+  <!-- Body -->
+  <div class="sl-scroll" style="flex:1; overflow-y:auto; padding:20px 16px; display:flex; flex-direction:column; gap:20px;">
+
+    <!-- Mis Módulos -->
+    <section>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+        <h2 style="margin:0; font-size:0.95rem; font-weight:800; color:#1A3A38;">Mis Módulos</h2>
+        <span style="font-size:0.68rem; color:#3DBFB8; font-weight:600;">3 activos</span>
+      </div>
+      <div style="display:flex; gap:8px; margin-bottom:12px;">
+        <sc-for list="{{ modules }}" as="m" hint-placeholder-count="3">
+          <button class="sl-press" onClick="{{ m.onClick }}" style="{{ m.cardStyle }}">
+            <span style="font-size:1.6rem;">{{ m.emoji }}</span>
+            <span style="{{ m.nameStyle }}">{{ m.name }}</span>
+          </button>
+        </sc-for>
+      </div>
+      <button class="sl-press2" onClick="{{ goModules }}" style="width:100%; padding:12px; border-radius:12px; border:none; color:#fff; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; font-size:0.85rem; font-weight:700; background:linear-gradient(90deg,#3DBFB8 0%,#2A9A95 100%);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>
+        Ver Módulos
+      </button>
+    </section>
+
+    <!-- Foro -->
+    <section>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+        <h2 style="margin:0; font-size:0.95rem; font-weight:800; color:#1A3A38;">Foro</h2>
+        <span style="font-size:0.68rem; color:#3DBFB8; font-weight:600;">2 nuevos posts</span>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+        <sc-for list="{{ foroPosts }}" as="p" hint-placeholder-count="2">
+          <button onClick="{{ goForo }}" style="display:block; width:100%; text-align:left; border-radius:16px; background:#fff; padding:14px; border:1.5px solid #E4F4F3; cursor:pointer;">
+            <div style="display:flex; gap:10px;">
+              <div style="width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; flex-shrink:0; font-size:0.65rem; font-weight:800; background:{{ p.avatarBg }};">{{ p.initials }}</div>
+              <div style="flex:1; min-width:0;">
+                <div style="display:flex; flex-wrap:wrap; align-items:baseline; gap:0 4px;">
+                  <span style="font-size:0.78rem; font-weight:700; color:#1A3A38;">{{ p.user }}</span>
+                  <span style="font-size:0.68rem; color:#717182;">{{ p.handle }}</span>
+                  <span style="font-size:0.68rem; color:#717182;">· {{ p.time }}</span>
+                </div>
+                <p style="margin:3px 0 0; font-size:0.76rem; color:#4A6E6B; line-height:1.45;">{{ p.text }}</p>
+                <div style="display:flex; gap:16px; margin-top:8px;">
+                  <span style="display:flex; align-items:center; gap:4px; font-size:0.68rem; color:#717182;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>{{ p.comments }}</span>
+                  <span style="display:flex; align-items:center; gap:4px; font-size:0.68rem; color:#717182;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 9 3-3 3 3"/><path d="M13 18H7a2 2 0 0 1-2-2V6"/><path d="m22 15-3 3-3-3"/><path d="M11 6h6a2 2 0 0 1 2 2v10"/></svg>{{ p.reposts }}</span>
+                  <span style="display:flex; align-items:center; gap:4px; font-size:0.68rem; color:#717182;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>{{ p.likes }}</span>
+                </div>
+              </div>
+            </div>
+          </button>
+        </sc-for>
+      </div>
+      <button class="sl-press2" onClick="{{ goForo }}" style="width:100%; padding:12px; border-radius:12px; background:#fff; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; border:1.5px solid #3DBFB8; color:#3DBFB8; font-size:0.85rem; font-weight:700;">
+        Ver Foro
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+    </section>
+
+    <!-- Mi Calendario -->
+    <section>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+        <h2 style="margin:0; font-size:0.95rem; font-weight:800; color:#1A3A38;">Mi Calendario</h2>
+        <span style="font-size:0.68rem; color:#3DBFB8; font-weight:600;">Hoy · jue 4 jun</span>
+      </div>
+      <div style="border-radius:16px; background:#fff; overflow:hidden; margin-bottom:12px; border:1.5px solid #E4F4F3;">
+        <sc-for list="{{ events }}" as="ev" hint-placeholder-count="3">
+          <div style="{{ ev.rowStyle }}">
+            <div style="width:4px; height:36px; border-radius:9px; flex-shrink:0; background:{{ ev.color }};"></div>
+            <div style="flex:1;">
+              <p style="margin:0; font-size:0.8rem; font-weight:700; color:#1A3A38;">{{ ev.group }}</p>
+              <p style="margin:0; font-size:0.7rem; color:#717182;">{{ ev.time }}</p>
+            </div>
+            <div style="{{ ev.timeStyle }}">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span style="{{ ev.labelStyle }}">{{ ev.label }}</span>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <button class="sl-press2" onClick="{{ goCalendar }}" style="width:100%; padding:12px; border-radius:12px; background:#fff; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; border:1.5px solid #3DBFB8; color:#3DBFB8; font-size:0.85rem; font-weight:700;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
+        Ver Calendario
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+    </section>
+
+    <div style="height:8px;"></div>
+  </div>
+
+  <!-- Bottom Nav -->
+  <div style="padding:12px 16px 28px; display:flex; gap:12px; background:#fff; flex-shrink:0; border-top:1px solid #E4F4F3;">
+    <button class="sl-press" onClick="{{ goProfile }}" style="flex:1; padding:12px; border-radius:16px; display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; background:#E6F8F7; border:1.5px solid rgba(61,191,184,.2);">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3DBFB8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span style="font-size:0.65rem; font-weight:700; color:#1A3A38; text-align:center; line-height:1.3;">Mi Perfil</span>
+    </button>
+    <button class="sl-press" onClick="{{ goFaq }}" style="flex:1; padding:12px; border-radius:16px; display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; background:#E6F8F7; border:1.5px solid rgba(61,191,184,.2);">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3DBFB8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+      <span style="font-size:0.65rem; font-weight:700; color:#1A3A38; text-align:center; line-height:1.3;">Preguntas Frecuentes</span>
+    </button>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;navigate&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;(to: string | number) =&gt; void&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const nav = this.props.navigate || (() => {});
+    const TEXT_MUTED = "#717182";
+
+    const modules = [
+      { id: "felicidad", name: "Felicidad", emoji: "😊", bg: "#FFF8E1", bd: "#F0B429", tx: "#7A5800" },
+      { id: "enojo",     name: "Enojo",     emoji: "😠", bg: "#FFF0F0", bd: "#E53E3E", tx: "#7D1A1A" },
+      { id: "desagrado", name: "Desagrado", emoji: "🤢", bg: "#F0FFF4", bd: "#38A169", tx: "#1C5E2C" },
+    ].map(m => ({
+      emoji: m.emoji,
+      name: m.name,
+      onClick: () => nav("/module/" + m.id),
+      cardStyle: { flex: 1, borderRadius: 16, padding: "12px 4px", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, background: m.bg, border: "1.5px solid " + m.bd + "30", cursor: "pointer" },
+      nameStyle: { fontSize: "0.65rem", fontWeight: 700, color: m.tx, textAlign: "center" },
+    }));
+
+    const foroPosts = [
+      { user: "Maestra Ana", handle: "@ana_maestro", time: "hace 2h", initials: "MA", avatarBg: "#7C3AED",
+        text: "¡Terminamos el módulo de Felicidad! 🎉 Los niños aprendieron palabras nuevas: alegría, sonrisa, abrazo... ¿Cuál es su favorita? 📚",
+        likes: 12, comments: 4, reposts: 2 },
+      { user: "Coordinadora Lucía", handle: "@lucia_coord", time: "hace 5h", initials: "CL", avatarBg: "#D97706",
+        text: "Recordatorio: sesión de lectura grupal mañana a las 10:00 AM. ¡No olviden sus libros! 📖",
+        likes: 8, comments: 6, reposts: 3 },
+    ];
+
+    const rawEvents = [
+      { group: "Grupo 1", time: "10:00 AM", minutesLeft: 30,  color: "#3DBFB8" },
+      { group: "Grupo 2", time: "2:00 PM",  minutesLeft: 240, color: "#7C3AED" },
+      { group: "Grupo 3", time: "4:30 PM",  minutesLeft: 390, color: "#D97706" },
+    ];
+    const timeLabel = (min) => {
+      if (min < 60) return "En " + min + " min";
+      const h = Math.floor(min / 60), m = min % 60;
+      return m === 0 ? "En " + h + "h" : "En " + h + "h " + m + "min";
+    };
+    const events = rawEvents.map((ev, i) => {
+      const urgent = ev.minutesLeft <= 60;
+      return {
+        group: ev.group, time: ev.time, color: ev.color, label: timeLabel(ev.minutesLeft),
+        rowStyle: { display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: i < rawEvents.length - 1 ? "1px solid #F0F5F5" : "none" },
+        timeStyle: { display: "flex", alignItems: "center", gap: 4, color: urgent ? "#E53E3E" : TEXT_MUTED, fontSize: "0.7rem" },
+        labelStyle: { fontWeight: urgent ? 700 : 400 },
+      };
+    });
+
+    return {
+      modules, foroPosts, events,
+      goModules: () => nav("/modules"),
+      goForo: () => nav("/foro"),
+      goCalendar: () => nav("/calendar"),
+      goProfile: () => nav("/profile"),
+      goFaq: () => nav("/faq"),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    .sl-scroll::-webkit-scrollbar { width: 0px; background: transparent; }
+    .sl-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+    @keyframes sl-slide-up { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes sl-fade { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes sl-pulse { from { opacity: 0.35; } to { opacity: 1; } }
+    @keyframes sl-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+    @keyframes sl-spin { to { transform: rotate(360deg); } }
+    .sl-press { transition: transform .12s ease, box-shadow .2s ease; }
+    .sl-press:active { transform: scale(.95); }
+    .sl-press2:active { transform: scale(.98); }
+    input::placeholder, textarea::placeholder { color: #9DB8B5; }
+    button { font-family: inherit; }
+    input, textarea, select { font-family: inherit; }
+    .sl-input { border: 1.5px solid #D0ECEB; background: #fff; transition: border-color .15s ease; }
+    .sl-input:focus { border-color: #3DBFB8; }
+  </style>
+</helmet>
+<div style="min-height:100vh; width:100%; background:#D4F0EE; display:flex; align-items:center; justify-content:center; padding:24px; font-family:'Nunito', sans-serif;">
+  <div style="width:390px; height:844px; background:#F5FEFE; position:relative; overflow:hidden; border-radius:32px; box-shadow:0 32px 80px -24px rgba(26,58,56,.5), 0 0 0 1px rgba(255,255,255,.6);">
+
+    <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+      <dc-import name="HomeScreen" navigate="{{ navigate }}" hint-size="100%,100%"></dc-import>
+    </sc-if>
+    <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ false }}">
+      <dc-import name="LoginScreen" navigate="{{ navigate }}" hint-size="100%,100%"></dc-import>
+    </sc-if>
+    <sc-if value="{{ isRegister }}" hint-placeholder-val="{{ false }}">
+      <dc-import name="RegisterScreen" navigate="{{ navigate }}" hint-size="100%,100%"></dc-import>
+    </sc-if>
+    <sc-if value="{{ isForgot }}" hint-placeholder-val="{{ false }}">
+      <dc-import name="ForgotPasswordScreen" navigate="{{ navigate }}" hint-size="100%,100%"></dc-import>
+    </sc-if>
+    <sc-if value="{{ isModules }}" hint-placeholder-val="{{ false }}">
+      <dc-import name="ModulesScreen" navigate="{{ navigate }}" hint-size="100%,100%"></dc-import>
+    </sc-if>
+    <sc-if value="{{ isModule }}" hint-placeholder-val="{{ false }}">
+      <dc-import name="ModuleScreen" navigate="{{ navigate }}" module-name="{{ moduleName }}" hint-size="100%,100%"></dc-import>
+    </sc-if>
+    <sc-if value="{{ isForo }}" hint-placeholder-val="{{ false }}">
+      <dc-import name="ForoScreen" navigate="{{ navigate }}" foro-filter="{{ foroFilter }}" hint-size="100%,100%"></dc-import>
+    </sc-if>
+    <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ false }}">
+      <dc-import name="ProfileScreen" navigate="{{ navigate }}" hint-size="100%,100%"></dc-import>
+    </sc-if>
+    <sc-if value="{{ isFaq }}" hint-placeholder-val="{{ false }}">
+      <dc-import name="FAQScreen" navigate="{{ navigate }}" hint-size="100%,100%"></dc-import>
+    </sc-if>
+    <sc-if value="{{ isCalendar }}" hint-placeholder-val="{{ false }}">
+      <dc-import name="CalendarScreen" navigate="{{ navigate }}" hint-size="100%,100%"></dc-import>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:904}}">
+class Component extends DCLogic {
+  state = { route: "/", history: [] };
+
+  navigate = (to) => {
+    if (to === -1) {
+      this.setState(s => {
+        const h = s.history.slice();
+        const prev = h.length ? h[h.length - 1] : "/";
+        return { route: prev, history: h.slice(0, -1) };
+      });
+      return;
+    }
+    this.setState(s => ({ route: to, history: [...s.history, s.route] }));
+  };
+
+  renderVals() {
+    const r = this.state.route || "/";
+    const qi = r.indexOf("?");
+    const path = qi >= 0 ? r.slice(0, qi) : r;
+    const query = qi >= 0 ? r.slice(qi + 1) : "";
+    const moduleName = path.indexOf("/module/") === 0 ? decodeURIComponent(path.slice(8)) : "";
+    let foroFilter = "";
+    if (query) { const m = query.match(/module=([^&]+)/); if (m) foroFilter = m[1]; }
+    return {
+      navigate: this.navigate,
+      isHome:     path === "/",
+      isLogin:    path === "/login",
+      isRegister: path === "/register",
+      isForgot:   path === "/forgot-password",
+      isModules:  path === "/modules",
+      isModule:   path.indexOf("/module/") === 0,
+      isForo:     path === "/foro",
+      isProfile:  path === "/profile",
+      isFaq:      path === "/faq",
+      isCalendar: path === "/calendar",
+      moduleName,
+      foroFilter,
+    };
+  }
+}
+</script>
+</body>
+</html>

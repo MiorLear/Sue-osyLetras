@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm -v)",
+      "Bash(npx -v)",
+      "Bash(npx expo *)",
+      "Bash(java -version)",
+      "Bash(git --version)",
+      "Bash(mkdir -p design-reference)",
+      "Bash(mv *.dc.html support.js .thumbnail design-reference/)",
+      "Bash(mv uploads *)"
+    ]
+  }
+}
