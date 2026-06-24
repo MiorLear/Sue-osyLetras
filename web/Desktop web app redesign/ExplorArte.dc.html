@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="image-slot.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#FAF6EF;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  ::selection{background:#cdeae7}
+  .escroll::-webkit-scrollbar{width:10px;height:10px}
+  .escroll::-webkit-scrollbar-thumb{background:#e2d8c8;border-radius:8px;border:3px solid #FAF6EF}
+  .escroll::-webkit-scrollbar-track{background:transparent}
+  @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+  image-slot{display:block}
+</style>
+</helmet>
+
+<div style="display:flex;min-height:100vh;font-family:'Hanken Grotesk',system-ui,sans-serif;color:#18302D">
+
+  <!-- ───────────────────────── SIDEBAR ───────────────────────── -->
+  <aside style="width:280px;flex-shrink:0;background:#FFFCF6;border-right:1px solid #EDE3D3;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;padding:26px 18px 20px">
+    <div style="display:flex;align-items:center;gap:13px;padding:0 6px 20px">
+      <span style="width:46px;height:46px;border-radius:15px;background:linear-gradient(150deg,#2FA7A0,#1E7E78);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(31,126,118,.28);flex-shrink:0">
+        <span style="font-family:'Newsreader',serif;font-size:26px;font-weight:500;color:#fff;line-height:1">E</span>
+      </span>
+      <div style="line-height:1.2">
+        <div style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#A38F73;font-weight:700">Sueños y Letras</div>
+        <div style="font-family:'Newsreader',serif;font-size:22px;font-weight:600;color:#18302D;margin-top:1px">ExplorArte</div>
+      </div>
+    </div>
+
+    <div style="padding:0 10px 8px;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#BCAB8E;font-weight:700">Navegación</div>
+
+    <nav class="escroll" style="display:flex;flex-direction:column;gap:3px;flex:1;overflow-y:auto;margin:0 -4px;padding:0 4px">
+      <sc-for list="{{ nav }}" as="item" hint-placeholder-count="8">
+        <button onClick="{{ item.go }}" style="{{ item.btnStyle }}">
+          <span style="{{ item.tileStyle }}">{{ item.emoji }}</span>
+          <span style="flex:1;text-align:left">{{ item.label }}</span>
+          <span style="{{ item.dotStyle }}"></span>
+        </button>
+      </sc-for>
+    </nav>
+
+    <button onClick="{{ goProfile }}" style="display:flex;align-items:center;gap:11px;padding:10px;margin-top:10px;border-radius:16px;border:1px solid #EDE3D3;background:#fff;text-align:left;cursor:pointer;transition:box-shadow .15s" style-hover="box-shadow:0 6px 18px rgba(24,48,45,.07)">
+      <span style="width:40px;height:40px;border-radius:13px;background:linear-gradient(150deg,#D98763,#c5704e);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px;flex-shrink:0">MR</span>
+      <span style="flex:1;min-width:0">
+        <span style="display:block;font-size:13.5px;font-weight:700;color:#18302D;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">María Reneé</span>
+        <span style="display:block;font-size:11.5px;color:#93A09C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Docente · Grupo 1</span>
+      </span>
+      <span style="color:#C3B79D;font-size:18px">›</span>
+    </button>
+  </aside>
+
+  <!-- ───────────────────────── MAIN ───────────────────────── -->
+  <main class="escroll" style="flex:1;min-width:0;height:100vh;overflow-y:auto">
+    <div style="max-width:1140px;margin:0 auto;padding:40px 44px 72px">
+
+      <!-- editorial masthead -->
+      <header style="display:flex;align-items:flex-end;justify-content:space-between;gap:32px;margin-bottom:34px">
+        <div style="max-width:640px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <span style="width:26px;height:1.5px;background:#D98763"></span>
+            <span style="font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#C5895F;font-weight:700">{{ head.eyebrow }}</span>
+          </div>
+          <h1 style="font-family:'Newsreader',serif;font-weight:500;font-size:46px;line-height:1.05;letter-spacing:-.015em;color:#18302D">{{ head.title }} <span style="font-style:italic;color:#2FA7A0">{{ head.accent }}</span></h1>
+          <p style="margin-top:16px;font-size:16px;line-height:1.6;color:#566965;max-width:560px">{{ head.lede }}</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;padding-bottom:6px">
+          <div style="text-align:right;line-height:1.3">
+            <div style="font-size:12px;color:#9DA9A5;font-weight:600">Hoy</div>
+            <div style="font-family:'Newsreader',serif;font-size:17px;color:#18302D">jueves 4 jun</div>
+          </div>
+          <span style="width:42px;height:42px;border-radius:13px;background:#E7F4F2;display:flex;align-items:center;justify-content:center;font-size:20px">🗓️</span>
+        </div>
+      </header>
+
+      <!-- ═══════════ INICIO ═══════════ -->
+      <sc-if value="{{ isInicio }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <!-- hero -->
+        <div style="display:grid;grid-template-columns:1.05fr .95fr;gap:0;border-radius:28px;overflow:hidden;border:1px solid #EAE0D0;background:#fff;box-shadow:0 18px 50px -28px rgba(24,48,45,.28);margin-bottom:40px">
+          <div style="position:relative;padding:44px 42px;background:radial-gradient(120% 120% at 0% 0%,#EAF5F3 0%,#FFFCF6 60%);display:flex;flex-direction:column;justify-content:center;overflow:hidden">
+            <span style="position:absolute;top:-30px;right:-20px;font-size:130px;opacity:.06;animation:floaty 7s ease-in-out infinite">🌿</span>
+            <div style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#C5895F;font-weight:700;margin-bottom:8px;position:relative">Bienvenida de nuevo</div>
+            <div style="font-family:'Newsreader',serif;font-size:34px;line-height:1.1;color:#18302D;position:relative">Hoy es un buen día para <span style="font-style:italic;color:#2FA7A0">acompañar</span> emociones.</div>
+            <p style="margin-top:14px;font-size:14.5px;line-height:1.6;color:#566965;max-width:380px;position:relative">Tienes 3 sesiones programadas y 2 recursos nuevos en tu caja de herramientas.</p>
+            <div style="display:flex;gap:10px;margin-top:24px;position:relative">
+              <button onClick="{{ goEmociones }}" style="display:inline-flex;align-items:center;gap:8px;padding:13px 20px;border-radius:13px;background:linear-gradient(150deg,#2FA7A0,#1E7E78);color:#fff;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 10px 22px -8px rgba(31,126,118,.6)">Explorar emociones <span style="font-size:16px">→</span></button>
+              <button onClick="{{ goHerramientas }}" style="padding:13px 20px;border-radius:13px;background:#fff;border:1.5px solid #D6E9E6;color:#1E7E78;font-size:14px;font-weight:700;cursor:pointer">Mis recursos</button>
+            </div>
+          </div>
+          <image-slot id="ex-hero" style="width:100%;height:100%;min-height:300px" shape="rect" placeholder="foto de aula / docente"></image-slot>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1.55fr .95fr;gap:34px;align-items:start">
+          <!-- hub cards -->
+          <section>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px">
+              <h2 style="font-family:'Newsreader',serif;font-size:25px;font-weight:600;color:#18302D">Explora según tu necesidad</h2>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+              <sc-for list="{{ cards }}" as="c" hint-placeholder-count="4">
+                <button onClick="{{ c.go }}" style="text-align:left;cursor:pointer;border-radius:20px;padding:22px;background:#fff;border:1px solid #EDE3D3;display:flex;flex-direction:column;gap:16px;transition:transform .12s,box-shadow .15s" style-hover="transform:translateY(-3px);box-shadow:0 16px 34px -22px rgba(24,48,45,.4)">
+                  <span style="width:54px;height:54px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;background:{{ c.bg }}">{{ c.emoji }}</span>
+                  <span style="flex:1">
+                    <span style="display:block;font-size:16px;font-weight:800;color:#18302D">{{ c.title }}</span>
+                    <span style="display:block;margin-top:6px;font-size:13px;line-height:1.5;color:#6A7C78">{{ c.desc }}</span>
+                  </span>
+                  <span style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:{{ c.accent }}">{{ c.cta }} <span style="font-size:15px">→</span></span>
+                </button>
+              </sc-for>
+            </div>
+          </section>
+
+          <!-- calendar rail -->
+          <section>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px">
+              <h2 style="font-family:'Newsreader',serif;font-size:25px;font-weight:600;color:#18302D">Mi calendario</h2>
+              <span style="font-size:12px;color:#2FA7A0;font-weight:700">Hoy</span>
+            </div>
+            <div style="border-radius:20px;background:#fff;border:1px solid #EDE3D3;overflow:hidden">
+              <sc-for list="{{ events }}" as="ev" hint-placeholder-count="3">
+                <div style="{{ ev.rowStyle }}">
+                  <span style="width:3.5px;height:42px;border-radius:9px;background:{{ ev.color }};flex-shrink:0"></span>
+                  <span style="flex:1">
+                    <span style="display:block;font-size:14px;font-weight:700;color:#18302D">{{ ev.group }}</span>
+                    <span style="display:block;font-size:12px;color:#93A09C;margin-top:1px">{{ ev.time }}</span>
+                  </span>
+                  <span style="{{ ev.tagStyle }}">{{ ev.label }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <button onClick="{{ goCalendar }}" style="width:100%;margin-top:12px;padding:13px;border-radius:14px;background:#F4EEE2;border:1px solid #EADFCB;color:#1E7E78;font-size:13.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">🗓️ Ver calendario completo</button>
+
+            <div style="margin-top:22px;border-radius:20px;padding:22px;background:linear-gradient(155deg,#FBF1DA,#F8E8DE);border:1px solid #F0DEC8;position:relative;overflow:hidden">
+              <span style="position:absolute;bottom:-18px;right:-6px;font-size:84px;opacity:.18">🌻</span>
+              <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#C5895F;font-weight:700;position:relative">Frase del día</div>
+              <p style="font-family:'Newsreader',serif;font-style:italic;font-size:18px;line-height:1.4;color:#7A5230;margin-top:8px;position:relative">"Nombrar una emoción es el primer paso para acompañarla."</p>
+            </div>
+          </section>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ═══════════ EMOCIONES ═══════════ -->
+      <sc-if value="{{ isEmociones }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <div style="display:grid;grid-template-columns:1.1fr .9fr;gap:24px;align-items:stretch;margin-bottom:34px">
+          <div style="border-radius:24px;padding:32px;background:#fff;border:1px solid #EDE3D3">
+            <p style="font-size:15.5px;line-height:1.7;color:#566965">Las emociones forman parte de nuestra vida cotidiana. Reconocerlas, nombrarlas y comprenderlas es el primer paso para desarrollar bienestar emocional y construir relaciones saludables dentro del aula.</p>
+            <div style="display:flex;gap:18px;margin-top:22px;padding-top:20px;border-top:1px solid #F0E7D8">
+              <span><span style="font-family:'Newsreader',serif;font-size:30px;color:#2FA7A0">8</span><span style="display:block;font-size:12px;color:#93A09C;margin-top:2px">emociones</span></span>
+              <span style="width:1px;background:#F0E7D8"></span>
+              <span><span style="font-family:'Newsreader',serif;font-size:30px;color:#D98763">24</span><span style="display:block;font-size:12px;color:#93A09C;margin-top:2px">actividades</span></span>
+              <span style="width:1px;background:#F0E7D8"></span>
+              <span><span style="font-family:'Newsreader',serif;font-size:30px;color:#C98A3E">12</span><span style="display:block;font-size:12px;color:#93A09C;margin-top:2px">historias</span></span>
+            </div>
+          </div>
+          <button style="position:relative;border-radius:24px;overflow:hidden;border:none;cursor:pointer;background:#1E7E78;min-height:210px;text-align:left" style-hover="filter:brightness(1.04)">
+            <image-slot id="ex-emo-video" style="position:absolute;inset:0;width:100%;height:100%" shape="rect" placeholder="video de introducción"></image-slot>
+            <span style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(13,60,57,.05),rgba(13,60,57,.78))"></span>
+            <span style="position:absolute;left:24px;bottom:22px;right:24px;color:#fff">
+              <span style="display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.92);color:#1E7E78;font-size:18px;margin-bottom:12px">▶</span>
+              <span style="display:block;font-family:'Newsreader',serif;font-size:19px">¿Por qué reconocer las emociones?</span>
+              <span style="display:block;font-size:12.5px;opacity:.85;margin-top:2px">Video de introducción · ~1 min</span>
+            </span>
+          </button>
+        </div>
+
+        <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:18px">
+          <h2 style="font-family:'Newsreader',serif;font-size:25px;font-weight:600;color:#18302D">Biblioteca</h2>
+          <span style="height:1px;flex:1;background:#EADFCB"></span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+          <sc-for list="{{ emotions }}" as="e" hint-placeholder-count="8">
+            <button style="cursor:pointer;border-radius:20px;padding:26px 14px 20px;display:flex;flex-direction:column;align-items:center;gap:12px;background:{{ e.bg }};border:1px solid {{ e.border }};transition:transform .12s" style-hover="transform:translateY(-4px)">
+              <span style="font-size:50px;line-height:1">{{ e.emoji }}</span>
+              <span style="font-family:'Newsreader',serif;font-size:18px;font-weight:600;color:#18302D">{{ e.name }}</span>
+              <span style="font-size:11.5px;font-weight:700;letter-spacing:.04em;color:{{ e.color }}">Explorar →</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ═══════════ APRENDIENDO ═══════════ -->
+      <sc-if value="{{ isAprendiendo }}" hint-placeholder-val="{{ true }}">
+      <div style="max-width:780px">
+        <div style="border-radius:24px;padding:30px 32px;background:linear-gradient(150deg,#E7F4F2,#FFFCF6);border:1px solid #DCEDEA;margin-bottom:30px;position:relative;overflow:hidden">
+          <span style="position:absolute;top:-20px;right:-10px;font-size:120px;opacity:.08">🌱</span>
+          <p style="font-size:15.5px;line-height:1.7;color:#3F5450;max-width:560px;position:relative">Esta sección fortalece los conocimientos y herramientas de las docentes para acompañar procesos de bienestar emocional en sus comunidades educativas.</p>
+        </div>
+
+        <sc-for list="{{ topics }}" as="t" hint-placeholder-count="3">
+          <div style="margin-bottom:26px">
+            <div style="display:flex;align-items:center;gap:11px;margin-bottom:12px">
+              <span style="width:40px;height:40px;border-radius:13px;background:{{ t.bg }};display:flex;align-items:center;justify-content:center;font-size:21px">{{ t.emoji }}</span>
+              <h3 style="font-family:'Newsreader',serif;font-size:21px;font-weight:600;color:#18302D">{{ t.title }}</h3>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:9px">
+              <sc-for list="{{ t.subs }}" as="s" hint-placeholder-count="3">
+                <div style="{{ s.cardStyle }}">
+                  <button onClick="{{ s.toggle }}" style="width:100%;display:flex;align-items:center;gap:14px;padding:16px 18px;text-align:left;cursor:pointer;background:none">
+                    <span style="{{ s.numStyle }}">{{ s.num }}</span>
+                    <span style="{{ s.titleStyle }}">{{ s.title }}</span>
+                    <span style="{{ s.chevStyle }}">⌄</span>
+                  </button>
+                  <div style="{{ s.bodyStyle }}">
+                    <p style="font-size:13.5px;line-height:1.65;color:#566965">{{ s.body }}</p>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      </sc-if>
+
+      <!-- ═══════════ HERRAMIENTAS ═══════════ -->
+      <sc-if value="{{ isHerramientas }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+          <div style="border-radius:20px;padding:24px;background:linear-gradient(150deg,#FBF1DA,#F8E8DE);border:1px solid #F0DEC8;display:flex;flex-direction:column;gap:14px">
+            <span style="width:52px;height:52px;border-radius:15px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:26px">📖</span>
+            <span><span style="display:block;font-family:'Newsreader',serif;font-size:20px;font-weight:600;color:#18302D">Manual ExplorArte</span><span style="display:block;margin-top:4px;font-size:13px;color:#6A7C78;line-height:1.5">Documento principal de la metodología.</span></span>
+            <button style="margin-top:auto;align-self:flex-start;padding:11px 18px;border-radius:12px;background:#1E7E78;color:#fff;font-size:13px;font-weight:700;cursor:pointer">⬇ Descargar PDF</button>
+          </div>
+          <div style="border-radius:20px;padding:24px;background:#E7F4F2;border:1px solid #DCEDEA;display:flex;flex-direction:column;gap:14px">
+            <span style="width:52px;height:52px;border-radius:15px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:26px">📋</span>
+            <span><span style="display:block;font-family:'Newsreader',serif;font-size:20px;font-weight:600;color:#18302D">Guías de actividades</span><span style="display:block;margin-top:4px;font-size:13px;color:#6A7C78;line-height:1.5">Materiales complementarios para docentes.</span></span>
+            <button style="margin-top:auto;align-self:flex-start;padding:11px 18px;border-radius:12px;background:#fff;border:1.5px solid #2FA7A0;color:#1E7E78;font-size:13px;font-weight:700;cursor:pointer">Ver guías →</button>
+          </div>
+        </div>
+
+        <div style="border-radius:20px;padding:26px;background:#fff;border:1px solid #EDE3D3;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:11px;margin-bottom:16px">
+            <span style="font-size:22px">📥</span>
+            <h3 style="font-family:'Newsreader',serif;font-size:20px;font-weight:600;color:#18302D">Recursos descargables</h3>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <sc-for list="{{ downloads }}" as="d" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:12px;padding:13px 15px;border-radius:13px;background:#FAF6EF;border:1px solid #EFE6D6">
+                <span style="width:34px;height:34px;border-radius:10px;background:#fff;border:1px solid #EFE6D6;display:flex;align-items:center;justify-content:center;font-size:15px">{{ d.icon }}</span>
+                <span style="flex:1;font-size:14px;font-weight:600;color:#18302D">{{ d.name }}</span>
+                <span style="font-size:12px;color:#A0ABA7">{{ d.meta }}</span>
+                <button style="padding:8px 13px;border-radius:10px;background:#fff;border:1.5px solid #2FA7A0;color:#1E7E78;font-size:12.5px;font-weight:700;cursor:pointer">⬇ Descargar</button>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="border-radius:20px;padding:26px;background:#fff;border:1px solid #EDE3D3">
+          <div style="display:flex;align-items:center;gap:11px;margin-bottom:6px">
+            <span style="font-size:22px">📚</span>
+            <h3 style="font-family:'Newsreader',serif;font-size:20px;font-weight:600;color:#18302D">Bibliografía recomendada</h3>
+          </div>
+          <p style="font-size:13px;color:#6A7C78;margin-bottom:16px;line-height:1.5">Selección de lecturas para profundizar en bienestar emocional y desarrollo socioemocional.</p>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <sc-for list="{{ biblio }}" as="b" hint-placeholder-count="4">
+              <div style="display:flex;gap:13px;align-items:baseline">
+                <span style="font-family:'Newsreader',serif;font-style:italic;font-size:15px;color:#C5895F;flex-shrink:0">{{ b.n }}</span>
+                <span style="flex:1;font-size:14px;color:#3F5450;line-height:1.5">{{ b.text }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ═══════════ COMUNIDAD ═══════════ -->
+      <sc-if value="{{ isComunidad }}" hint-placeholder-val="{{ true }}">
+      <div style="max-width:720px">
+        <div style="display:flex;gap:8px;margin-bottom:22px;flex-wrap:wrap">
+          <sc-for list="{{ filters }}" as="f" hint-placeholder-count="5">
+            <button onClick="{{ f.pick }}" style="{{ f.chipStyle }}">{{ f.label }}</button>
+          </sc-for>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <sc-for list="{{ posts }}" as="p" hint-placeholder-count="3">
+            <article style="border-radius:20px;background:#fff;border:1px solid #EDE3D3;padding:20px">
+              <div style="display:flex;gap:13px">
+                <span style="width:44px;height:44px;border-radius:14px;background:{{ p.avatarBg }};color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0">{{ p.initials }}</span>
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:baseline;gap:7px;flex-wrap:wrap">
+                    <span style="font-size:14.5px;font-weight:700;color:#18302D">{{ p.user }}</span>
+                    <span style="font-size:12px;color:#A0ABA7">{{ p.handle }} · {{ p.time }}</span>
+                  </div>
+                  <span style="{{ p.tagStyle }}">{{ p.tag }}</span>
+                  <p style="margin-top:9px;font-size:14.5px;line-height:1.55;color:#3F5450">{{ p.text }}</p>
+                  <div style="display:flex;align-items:center;gap:18px;margin-top:14px">
+                    <span style="display:flex;align-items:center;gap:6px;font-size:13px;color:#93A09C">💬 {{ p.comments }}</span>
+                    <span style="display:flex;align-items:center;gap:6px;font-size:13px;color:#93A09C">🔁 {{ p.reposts }}</span>
+                    <button onClick="{{ p.like }}" style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;cursor:pointer;color:{{ p.likeColor }}">{{ p.heart }} {{ p.likes }}</button>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </sc-for>
+        </div>
+        <button style="position:fixed;bottom:30px;right:30px;width:60px;height:60px;border-radius:20px;background:linear-gradient(150deg,#2FA7A0,#1E7E78);color:#fff;font-size:28px;cursor:pointer;box-shadow:0 14px 30px -10px rgba(31,126,118,.7);display:flex;align-items:center;justify-content:center">＋</button>
+      </div>
+      </sc-if>
+
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { screen: 'inicio', openSub: '2-0', liked: {}, filter: 'todos' };
+
+  go(s){ return () => this.setState({ screen: s }); }
+
+  renderVals(){
+    const s = this.state.screen;
+    const teal='#2FA7A0', tealDeep='#1E7E78', clay='#D98763';
+
+    const HEADS = {
+      inicio:{ eyebrow:'Panel principal', title:'Buenos días,', accent:'María', lede:'Tu espacio para acompañar el bienestar emocional en el aula, todo en un solo lugar.' },
+      emociones:{ eyebrow:'Biblioteca de emociones', title:'Reconocer para', accent:'acompañar', lede:'Recursos para comprender distintas emociones y guiar conversaciones significativas con tus estudiantes.' },
+      herramientas:{ eyebrow:'Caja de herramientas', title:'Materiales para', accent:'la práctica', lede:'Manuales, guías descargables y bibliografía para implementar la metodología ExplorArte.' },
+      aprendiendo:{ eyebrow:'Aprendiendo', title:'Bienestar', accent:'emocional', lede:'Conceptos y estrategias para fortalecer el acompañamiento socioemocional en tu comunidad educativa.' },
+      comunidad:{ eyebrow:'Comunidad ExplorArte', title:'Crece en', accent:'comunidad', lede:'Comparte experiencias, aprendizajes e ideas con otras docentes que promueven el bienestar emocional.' },
+      calendar:{ eyebrow:'Calendario', title:'Tu', accent:'agenda', lede:'Sesiones y actividades programadas con tus grupos.' },
+      profile:{ eyebrow:'Mi perfil', title:'María', accent:'Reneé', lede:'Gestiona tu cuenta, tus grupos y tus preferencias.' },
+      sobre:{ eyebrow:'Sobre ExplorArte', title:'Sueños y', accent:'Letras', lede:'Conoce la metodología y la organización detrás de ExplorArte.' },
+    };
+
+    const NAV = [
+      { id:'inicio', emoji:'🏠', label:'Inicio' },
+      { id:'emociones', emoji:'💛', label:'Biblioteca de emociones' },
+      { id:'herramientas', emoji:'🧰', label:'Caja de herramientas' },
+      { id:'aprendiendo', emoji:'🌱', label:'Aprendiendo' },
+      { id:'comunidad', emoji:'💬', label:'Comunidad' },
+      { id:'calendar', emoji:'🗓️', label:'Calendario' },
+      { id:'profile', emoji:'👤', label:'Perfil' },
+      { id:'sobre', emoji:'ℹ️', label:'Sobre ExplorArte' },
+    ];
+    const nav = NAV.map(it => {
+      const on = it.id===s;
+      return { ...it, go:this.go(it.id),
+        btnStyle:`display:flex;align-items:center;gap:12px;padding:9px 11px;border-radius:14px;font-size:13.5px;font-weight:${on?700:600};cursor:pointer;border:none;width:100%;color:${on?tealDeep:'#5A6E6A'};background:${on?'#E7F4F2':'transparent'};transition:background .12s`,
+        tileStyle:`width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;background:${on?'#fff':'#F4EEE2'};box-shadow:${on?'0 2px 6px rgba(31,126,118,.15)':'none'}`,
+        dotStyle:`width:6px;height:6px;border-radius:50%;background:${on?teal:'transparent'};flex-shrink:0` };
+    });
+
+    const cards = [
+      { id:'emociones', emoji:'📚', title:'Biblioteca de emociones', desc:'Recursos para acompañar emociones específicas en el aula.', cta:'Explorar', bg:'#FBF1DA', accent:'#C98A3E' },
+      { id:'herramientas', emoji:'🧰', title:'Caja de herramientas', desc:'Manuales y materiales descargables para docentes.', cta:'Ver herramientas', bg:'#E7F4F2', accent:tealDeep },
+      { id:'aprendiendo', emoji:'🌱', title:'Aprendiendo', desc:'Conceptos y estrategias de acompañamiento socioemocional.', cta:'Explorar', bg:'#EAF3E8', accent:'#5C8A4F' },
+      { id:'comunidad', emoji:'💬', title:'Comunidad', desc:'Comparte experiencias con otras docentes.', cta:'Ver comunidad', bg:'#F8E8DE', accent:'#C5704E' },
+    ].map(c => ({ ...c, go:this.go(c.id) }));
+
+    const EV = [
+      { group:'Grupo 1 · Lectura', time:'10:00 AM', label:'En 30 min', color:teal, urgent:true },
+      { group:'Grupo 2 · Emociones', time:'2:00 PM', label:'En 4 h', color:'#7E6BB8', urgent:false },
+      { group:'Grupo 3 · Taller', time:'4:30 PM', label:'En 6 h 30', color:clay, urgent:false },
+    ];
+    const events = EV.map((ev,i)=>({ ...ev,
+      rowStyle:`display:flex;align-items:center;gap:13px;padding:14px 16px;${i<EV.length-1?'border-bottom:1px solid #F3ECDD':''}`,
+      tagStyle:`font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:20px;color:${ev.urgent?'#C5704E':'#93A09C'};background:${ev.urgent?'#F8E8DE':'#F4EEE2'}` }));
+
+    const emotions = [
+      { name:'Alegría', emoji:'😊', color:'#C98A3E', bg:'#FBF1DA', border:'#F0DEC0' },
+      { name:'Calma', emoji:'😌', color:teal, bg:'#E7F4F2', border:'#D3E9E6' },
+      { name:'Tristeza', emoji:'😢', color:'#5B86C9', bg:'#E8EFFA', border:'#D5E2F4' },
+      { name:'Enojo', emoji:'😠', color:'#D8654A', bg:'#F9E7E1', border:'#F2D6CC' },
+      { name:'Miedo', emoji:'😨', color:'#7E6BB8', bg:'#EEEAF7', border:'#E0D8F0' },
+      { name:'Amor', emoji:'🥰', color:'#D87693', bg:'#F8E8EE', border:'#F0D5DF' },
+      { name:'Sorpresa', emoji:'😮', color:'#3E9DAE', bg:'#E2F2F4', border:'#CFE8EB' },
+      { name:'Gratitud', emoji:'🙏', color:'#C98A3E', bg:'#F7EEDD', border:'#EEDFC4' },
+    ];
+
+    const TOPICS = [
+      { emoji:'🧠', bg:'#EEEAF7', title:'Fundamentos del bienestar emocional', subs:[
+        { title:'¿Qué es el bienestar emocional?', body:'El bienestar emocional es la capacidad de reconocer, comprender y gestionar las propias emociones, así como de relacionarse de forma saludable con las demás personas. En el aula, sienta las bases para el aprendizaje y la convivencia.' },
+        { title:'El rol de la docente como acompañante', body:'La docente no resuelve las emociones de sus estudiantes, sino que crea un espacio seguro donde nombrarlas y transitarlas. Acompañar implica escuchar, validar y ofrecer herramientas.' },
+      ]},
+      { emoji:'🌱', bg:'#EAF3E8', title:'Estrategias para el aula', subs:[
+        { title:'Rutinas de regulación emocional', body:'Pequeñas rutinas diarias —respiración, círculos de palabra, registro del estado de ánimo— ayudan a los estudiantes a reconocer cómo se sienten y a regularse de forma autónoma.' },
+        { title:'Conversaciones significativas', body:'Las preguntas abiertas invitan a la reflexión sin juzgar. Crear momentos de diálogo fortalece el vínculo y normaliza hablar de emociones.' },
+        { title:'El arte como vía de expresión', body:'El dibujo, la escritura y el juego permiten expresar lo que a veces no se puede decir con palabras, especialmente en la primera infancia.' },
+      ]},
+      { emoji:'🤝', bg:'#F8E8DE', title:'Comunidad y vínculos', subs:[
+        { title:'Construir comunidades educativas seguras', body:'Una comunidad segura es aquella donde cada persona se siente vista y respetada. La confianza se construye con consistencia, límites claros y afecto.' },
+      ]},
+    ];
+    const topics = TOPICS.map((t,ti)=>({ ...t, subs:t.subs.map((sub,si)=>{
+      const key=`${ti}-${si}`, open=this.state.openSub===key;
+      return { ...sub, num:String(si+1), toggle:()=>this.setState(p=>({openSub:p.openSub===key?null:key})),
+        cardStyle:`border-radius:15px;overflow:hidden;background:#fff;border:1px solid ${open?teal:'#EDE3D3'};transition:border-color .15s`,
+        numStyle:`width:26px;height:26px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:'Newsreader',serif;font-size:14px;background:${open?'#E7F4F2':'#F4EEE2'};color:${open?tealDeep:'#A38F73'}`,
+        titleStyle:`flex:1;font-size:14.5px;font-weight:${open?700:600};color:${open?tealDeep:'#18302D'}`,
+        chevStyle:`font-size:18px;color:${open?teal:'#BCAB8E'};transform:rotate(${open?180:0}deg);transition:transform .2s;display:inline-block`,
+        bodyStyle:`overflow:hidden;transition:max-height .25s ease;max-height:${open?'240px':'0'};padding:${open?'0 18px 16px 58px':'0 18px 0 58px'}` };
+    })}));
+
+    const downloads = [
+      { name:'Cuaderno de actividades — Nivel inicial', meta:'PDF · 3.2 MB', icon:'📄' },
+      { name:'Tarjetas de emociones imprimibles', meta:'PDF · 8.1 MB', icon:'🃏' },
+      { name:'Plantilla de planificación semanal', meta:'DOCX · 0.4 MB', icon:'🗒️' },
+      { name:'Póster "Rueda de las emociones"', meta:'PNG · 5.6 MB', icon:'🖼️' },
+    ];
+    const biblio = [
+      'Bisquerra, R. — Educación emocional y bienestar.',
+      'Goleman, D. — Inteligencia emocional.',
+      'Siegel, D. & Bryson, T. — El cerebro del niño.',
+      'L\u2019Ecuyer, C. — Educar en la realidad.',
+    ].map((text,i)=>({ n:String(i+1).padStart(2,'0'), text }));
+
+    const FILTERS=[
+      {id:'todos',label:'Todos'},{id:'alegria',label:'😊 Alegría'},{id:'tristeza',label:'😢 Tristeza'},{id:'enojo',label:'😠 Enojo'},{id:'miedo',label:'😨 Miedo'}];
+    const filters = FILTERS.map(f=>{ const on=this.state.filter===f.id; return { ...f, pick:()=>this.setState({filter:f.id}),
+      chipStyle:`padding:8px 15px;border-radius:22px;font-size:12.5px;font-weight:700;cursor:pointer;border:1px solid ${on?teal:'#EADFCB'};background:${on?teal:'#fff'};color:${on?'#fff':'#5A6E6A'}` }; });
+
+    const POSTS=[
+      { id:1, user:'Lucía Martínez', initials:'LM', handle:'@lucia', time:'2 h', avatarBg:'#7E6BB8', tag:'😊 Alegría', tagColor:'#C98A3E', tagBg:'#FBF1DA', text:'Hoy usamos las tarjetas de emociones en el círculo de la mañana y los niños se animaron a contar cómo se sentían. ¡Un momento precioso!', comments:8, reposts:3, likes:24 },
+      { id:2, user:'Andrea Gómez', initials:'AG', handle:'@andrea', time:'5 h', avatarBg:teal, tag:'😢 Tristeza', tagColor:'#5B86C9', tagBg:'#E8EFFA', text:'¿Alguna recomendación de cuentos para trabajar la despedida y la tristeza con grupos de primer grado? Estamos cerrando el ciclo.', comments:12, reposts:5, likes:31 },
+      { id:3, user:'Paola Ruiz', initials:'PR', handle:'@paola', time:'1 d', avatarBg:clay, tag:null, text:'Comparto la planificación de la semana de la calma. Incluye rutinas de respiración y un rincón tranquilo. ¡Espero que les sirva!', comments:6, reposts:9, likes:47 },
+    ];
+    const posts = POSTS.filter(p=> this.state.filter==='todos' ? true : (p.tag||'').toLowerCase().includes(this.state.filter))
+      .map(p=>{ const liked=!!this.state.liked[p.id]; return { ...p,
+        like:()=>this.setState(st=>({liked:{...st.liked,[p.id]:!st.liked[p.id]}})),
+        likes:p.likes+(liked?1:0), heart:liked?'❤️':'🤍', likeColor:liked?'#D8654A':'#93A09C',
+        tagStyle: p.tag?`display:inline-block;margin-top:6px;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:700;color:${p.tagColor};background:${p.tagBg}`:'display:none' }; });
+
+    return { head:HEADS[s]||HEADS.inicio, nav, cards, events, emotions, topics, downloads, biblio, filters, posts,
+      isInicio:s==='inicio', isEmociones:s==='emociones', isAprendiendo:s==='aprendiendo', isHerramientas:s==='herramientas', isComunidad:s==='comunidad',
+      goEmociones:this.go('emociones'), goHerramientas:this.go('herramientas'), goCalendar:this.go('calendar'), goProfile:this.go('profile') };
+  }
+}
+</script>
+</body>
+</html>

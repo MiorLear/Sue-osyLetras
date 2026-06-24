@@ -1,0 +1,80 @@
+import { useEffect, useState } from 'react';
+import type { ToolsContent } from '@explorarte/shared';
+import { Masthead } from '@/components/Masthead';
+import { api } from '@/lib/api';
+
+const proximamente = () => alert('Próximamente disponible');
+
+export default function Herramientas() {
+  const [tools, setTools] = useState<ToolsContent | null>(null);
+  useEffect(() => {
+    api.tools.get().then(setTools);
+  }, []);
+
+  return (
+    <div className="page">
+      <Masthead
+        eyebrow="Caja de herramientas"
+        title="Materiales para"
+        accent="la práctica"
+        lede="Manuales, guías descargables y bibliografía para implementar la metodología ExplorArte."
+      />
+
+      {/* feature cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+        <div style={{ borderRadius: 20, padding: 24, background: 'linear-gradient(150deg,#FBF1DA,#F8E8DE)', border: '1px solid #F0DEC8', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <span style={{ width: 52, height: 52, borderRadius: 15, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>📖</span>
+          <span>
+            <span style={{ display: 'block', fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 600, color: 'var(--text-dark)' }}>Manual ExplorArte</span>
+            <span style={{ display: 'block', marginTop: 4, fontSize: 13, color: '#6A7C78', lineHeight: 1.5 }}>Documento principal de la metodología.</span>
+          </span>
+          <button onClick={proximamente} style={{ marginTop: 'auto', alignSelf: 'flex-start', padding: '11px 18px', borderRadius: 12, background: 'var(--brand-dark)', color: '#fff', fontSize: 13, fontWeight: 700 }}>⬇ Descargar PDF</button>
+        </div>
+        <div style={{ borderRadius: 20, padding: 24, background: 'var(--nav-bg)', border: '1px solid #DCEDEA', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <span style={{ width: 52, height: 52, borderRadius: 15, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>📋</span>
+          <span>
+            <span style={{ display: 'block', fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 600, color: 'var(--text-dark)' }}>Guías de actividades</span>
+            <span style={{ display: 'block', marginTop: 4, fontSize: 13, color: '#6A7C78', lineHeight: 1.5 }}>Materiales complementarios para docentes.</span>
+          </span>
+          <button onClick={proximamente} style={{ marginTop: 'auto', alignSelf: 'flex-start', padding: '11px 18px', borderRadius: 12, background: '#fff', border: '1.5px solid var(--brand)', color: 'var(--brand-dark)', fontSize: 13, fontWeight: 700 }}>Ver guías →</button>
+        </div>
+      </div>
+
+      {/* downloadables */}
+      <div style={{ borderRadius: 20, padding: 26, background: '#fff', border: '1px solid var(--border)', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 16 }}>
+          <span style={{ fontSize: 22 }}>📥</span>
+          <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 600, color: 'var(--text-dark)' }}>Recursos descargables</h3>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          {(tools?.downloadables ?? []).map((item) => (
+            <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px', borderRadius: 13, background: 'var(--bg)', border: '1px solid var(--border-soft)' }}>
+              <span style={{ width: 34, height: 34, borderRadius: 10, background: '#fff', border: '1px solid var(--border-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>📄</span>
+              <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text-dark)' }}>{item}</span>
+              <button onClick={proximamente} style={{ padding: '8px 13px', borderRadius: 10, background: '#fff', border: '1.5px solid var(--brand)', color: 'var(--brand-dark)', fontSize: 12.5, fontWeight: 700 }}>⬇ Descargar</button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* bibliografía */}
+      <div style={{ borderRadius: 20, padding: 26, background: '#fff', border: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 6 }}>
+          <span style={{ fontSize: 22 }}>📚</span>
+          <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 600, color: 'var(--text-dark)' }}>Bibliografía recomendada</h3>
+        </div>
+        <p style={{ fontSize: 13, color: '#6A7C78', marginBottom: 16, lineHeight: 1.5 }}>
+          Selección de lecturas para profundizar en bienestar emocional y desarrollo socioemocional.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {(tools?.bibliography ?? []).map((b, i) => (
+            <div key={b} style={{ display: 'flex', gap: 13, alignItems: 'baseline' }}>
+              <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 15, color: '#C5895F', flexShrink: 0 }}>{String(i + 1).padStart(2, '0')}</span>
+              <span style={{ flex: 1, fontSize: 14, color: '#3F5450', lineHeight: 1.5 }}>{b}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

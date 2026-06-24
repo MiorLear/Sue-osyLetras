@@ -1,0 +1,23 @@
+{
+  "name": "@explorarte/shared",
+  "version": "1.0.0",
+  "description": "Shared domain types, design tokens and the swappable API client (mock + http) used by the ExplorArte web and mobile apps.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./src": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "files": ["dist", "src", "openapi.yaml"],
+  "devDependencies": {
+    "typescript": "~5.6.0"
+  }
+}

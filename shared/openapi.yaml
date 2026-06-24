@@ -1,0 +1,507 @@
+openapi: 3.0.3
+info:
+  title: ExplorArte API
+  version: 1.0.0
+  description: >
+    REST contract for the ExplorArte platform (Sueños y Letras). Both the React
+    web app and the Expo mobile app talk to this API through the shared ApiClient.
+    Until a server exists they run against an in-memory mock that implements the
+    same shapes defined here. Implement this contract in Python (FastAPI) or Java
+    (Spring Boot); the @explorarte/shared seed module provides initial data.
+servers:
+  - url: http://localhost:8000
+    description: Local backend
+  - url: https://api.explorarte.example
+    description: Production
+
+tags:
+  - name: Auth
+  - name: Emotions
+  - name: Community
+  - name: Calendar
+  - name: Learning
+  - name: Tools
+  - name: Profile
+  - name: Misc
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Email + password login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginInput' }
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResult' }
+        '401': { description: Invalid credentials }
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Create an account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterInput' }
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResult' }
+
+  /auth/otp/request:
+    post:
+      tags: [Auth]
+      summary: Request a phone OTP code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone: { type: string }
+      responses:
+        '200':
+          description: Code sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sent: { type: boolean, enum: [true] }
+
+  /auth/otp/verify:
+    post:
+      tags: [Auth]
+      summary: Verify a phone OTP code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, code]
+              properties:
+                phone: { type: string }
+                code: { type: string }
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResult' }
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Send a password reset link / code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [emailOrPhone]
+              properties:
+                emailOrPhone: { type: string }
+      responses:
+        '200':
+          description: Sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sent: { type: boolean, enum: [true] }
+
+  /emotions:
+    get:
+      tags: [Emotions]
+      summary: List emotions (library grid)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Emotion' }
+
+  /emotions/{id}:
+    get:
+      tags: [Emotions]
+      summary: Get one emotion with its detail content
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmotionDetail' }
+        '404': { description: Not found }
+
+  /posts:
+    get:
+      tags: [Community]
+      summary: List community posts, optionally filtered by emotion
+      parameters:
+        - in: query
+          name: emotion
+          schema: { type: string }
+          description: emotion id, or 'todos' / omit for all
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Post' }
+    post:
+      tags: [Community]
+      summary: Create a post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePostInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Post' }
+
+  /posts/{id}/like:
+    post:
+      tags: [Community]
+      summary: Toggle like on a post
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Updated post
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Post' }
+
+  /posts/{id}/comments:
+    post:
+      tags: [Community]
+      summary: Add a comment to a post
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateCommentInput' }
+      responses:
+        '201':
+          description: Created comment
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Comment' }
+
+  /events:
+    get:
+      tags: [Calendar]
+      summary: List calendar events
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/CalEvent' }
+    post:
+      tags: [Calendar]
+      summary: Create an event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateEventInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CalEvent' }
+
+  /events/{id}:
+    put:
+      tags: [Calendar]
+      summary: Update an event
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateEventInput' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CalEvent' }
+    delete:
+      tags: [Calendar]
+      summary: Delete an event
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Deleted }
+
+  /learning/topics:
+    get:
+      tags: [Learning]
+      summary: List learning topics (accordion content)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Topic' }
+
+  /tools:
+    get:
+      tags: [Tools]
+      summary: Teacher toolkit content
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ToolsContent' }
+
+  /me:
+    get:
+      tags: [Profile]
+      summary: Get the current user's profile
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserProfile' }
+    put:
+      tags: [Profile]
+      summary: Update the current user's profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateProfileInput' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserProfile' }
+
+  /schools:
+    get:
+      tags: [Misc]
+      summary: List selectable schools
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: string }
+
+components:
+  schemas:
+    Emotion:
+      type: object
+      required: [id, name, emoji, color, bg]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        emoji: { type: string }
+        color: { type: string }
+        bg: { type: string }
+    EmotionContent:
+      type: object
+      required: [description, classroom, questions, activities, stories]
+      properties:
+        description: { type: string }
+        classroom: { type: string }
+        questions: { type: array, items: { type: string } }
+        activities: { type: array, items: { type: string } }
+        stories: { type: array, items: { type: string } }
+    EmotionDetail:
+      allOf:
+        - $ref: '#/components/schemas/Emotion'
+        - type: object
+          required: [content]
+          properties:
+            content: { $ref: '#/components/schemas/EmotionContent' }
+    Comment:
+      type: object
+      required: [user, initials, avatarBg, time, text]
+      properties:
+        user: { type: string }
+        initials: { type: string }
+        avatarBg: { type: string }
+        time: { type: string }
+        text: { type: string }
+    Post:
+      type: object
+      required: [id, user, handle, verified, time, avatarBg, module, text, likes, liked, reposts, comments]
+      properties:
+        id: { type: integer }
+        user: { type: string }
+        handle: { type: string }
+        verified: { type: boolean }
+        time: { type: string }
+        avatarBg: { type: string }
+        module: { type: string, nullable: true }
+        text: { type: string }
+        likes: { type: integer }
+        liked: { type: boolean }
+        reposts: { type: integer }
+        comments:
+          type: array
+          items: { $ref: '#/components/schemas/Comment' }
+    CreatePostInput:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string }
+        module: { type: string, nullable: true }
+    CreateCommentInput:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string }
+    CalEvent:
+      type: object
+      required: [id, title, type, date, startTime, endTime, reminder]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        type: { type: string, enum: [sesión, tarea, recordatorio, evento] }
+        date: { type: string, format: date, description: 'YYYY-MM-DD' }
+        startTime: { type: string, example: '10:00' }
+        endTime: { type: string, example: '11:00' }
+        reminder: { type: string }
+        completed: { type: boolean }
+    CreateEventInput:
+      type: object
+      required: [title, type, date, startTime, endTime, reminder]
+      properties:
+        title: { type: string }
+        type: { type: string, enum: [sesión, tarea, recordatorio, evento] }
+        date: { type: string, format: date }
+        startTime: { type: string }
+        endTime: { type: string }
+        reminder: { type: string }
+        completed: { type: boolean }
+    UpdateEventInput:
+      type: object
+      properties:
+        title: { type: string }
+        type: { type: string, enum: [sesión, tarea, recordatorio, evento] }
+        date: { type: string, format: date }
+        startTime: { type: string }
+        endTime: { type: string }
+        reminder: { type: string }
+        completed: { type: boolean }
+    SubTopic:
+      type: object
+      required: [title, body]
+      properties:
+        title: { type: string }
+        body: { type: string }
+    Topic:
+      type: object
+      required: [id, emoji, title, subtopics]
+      properties:
+        id: { type: string }
+        emoji: { type: string }
+        title: { type: string }
+        subtopics:
+          type: array
+          items: { $ref: '#/components/schemas/SubTopic' }
+    ToolsContent:
+      type: object
+      required: [downloadables, bibliography]
+      properties:
+        downloadables: { type: array, items: { type: string } }
+        bibliography: { type: array, items: { type: string } }
+    UserProfile:
+      type: object
+      required: [name, lastname, email, phone, school]
+      properties:
+        name: { type: string }
+        lastname: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        school: { type: string }
+        photo: { type: string, nullable: true }
+    UpdateProfileInput:
+      type: object
+      properties:
+        name: { type: string }
+        lastname: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        school: { type: string }
+        photo: { type: string, nullable: true }
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string }
+        password: { type: string }
+    RegisterInput:
+      type: object
+      required: [name, lastname, school]
+      properties:
+        name: { type: string }
+        lastname: { type: string }
+        school: { type: string }
+        email: { type: string }
+        password: { type: string }
+        phone: { type: string }
+    AuthResult:
+      type: object
+      required: [token, user]
+      properties:
+        token: { type: string }
+        user: { $ref: '#/components/schemas/UserProfile' }
