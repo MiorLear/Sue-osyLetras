@@ -7,7 +7,7 @@ interface NavItem {
   href: string;
 }
 
-const NAV: NavItem[] = [
+const TEACHER_NAV: NavItem[] = [
   { emoji: '🏠', label: 'Inicio', href: '/main' },
   { emoji: '💛', label: 'Biblioteca de emociones', href: '/emociones' },
   { emoji: '🧰', label: 'Caja de herramientas', href: '/herramientas' },
@@ -18,14 +18,26 @@ const NAV: NavItem[] = [
   { emoji: 'ℹ️', label: 'Sobre ExplorArte', href: '/sobre' },
 ];
 
+const ADMIN_NAV: NavItem[] = [
+  { emoji: '🛠️', label: 'Panel', href: '/admin' },
+  { emoji: '✅', label: 'Usuarios', href: '/admin/usuarios' },
+  { emoji: '💛', label: 'Emociones', href: '/admin/emociones' },
+  { emoji: '🧰', label: 'Herramientas', href: '/admin/herramientas' },
+  { emoji: '🌱', label: 'Aprendiendo', href: '/admin/aprendiendo' },
+  { emoji: '👤', label: 'Perfil', href: '/profile' },
+  { emoji: 'ℹ️', label: 'Sobre ExplorArte', href: '/sobre' },
+];
+
 export function Sidebar() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
 
+  const nav = isAdmin ? ADMIN_NAV : TEACHER_NAV;
   const initials = user
     ? ((user.name.charAt(0) || '') + (user.lastname.charAt(0) || '')).toUpperCase()
     : 'MR';
+  const roleLabel = isAdmin ? 'Administradora' : user ? `Docente · ${user.school}` : 'Docente';
 
   return (
     <aside className="sidebar">
@@ -40,7 +52,7 @@ export function Sidebar() {
       <div className="sidebar-kicker">Navegación</div>
 
       <nav className="sidebar-nav escroll">
-        {NAV.map((item) => {
+        {nav.map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + '/');
           return (
             <button
@@ -64,7 +76,7 @@ export function Sidebar() {
         )}
         <span className="meta">
           <span className="n">{user ? `${user.name} ${user.lastname}` : 'Mi perfil'}</span>
-          <span className="e">{user ? `Docente · ${user.school}` : 'Docente'}</span>
+          <span className="e">{roleLabel}</span>
         </span>
         <span className="chev">›</span>
       </button>

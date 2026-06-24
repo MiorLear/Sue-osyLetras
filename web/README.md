@@ -22,6 +22,22 @@ npm run preview    # preview the production build
 The app runs against an **in-memory mock client** by default — no backend needed.
 Log in with any credentials (or "Continuar con Google").
 
+### Cuentas demo (modo mock)
+
+El rol y el estado se resuelven por **email** al iniciar sesión; cualquier
+contraseña es válida. Las nuevas registraciones se crean como docentes
+`pending` (pendientes de aprobación).
+
+| Email | Rol | Estado | Para probar |
+|-------|-----|--------|-------------|
+| `admin@explorarte.org` | Administrador | Aprobado | Consola de administración (`/admin`) |
+| `maria@ejemplo.com` | Docente | Aprobada | App de la docente (`/main`) |
+| `ana@ejemplo.com`, `lucia@ejemplo.com` | Docente | Pendiente | Pantalla "cuenta pendiente" / aprobación |
+| `sofia@ejemplo.com` | Docente | Aprobada | App de la docente |
+
+> El estado mock es por sesión de página: las mutaciones de contenido y las
+> aprobaciones no persisten al recargar.
+
 ## Switching to a real backend
 
 Every screen talks to the backend through `@explorarte/shared`'s `ApiClient`

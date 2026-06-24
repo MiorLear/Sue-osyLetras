@@ -1,12 +1,20 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { AuthResult } from '@explorarte/shared';
 import { GoogleIcon, Icon } from '@/components/Icon';
 import { Logo } from '@/components/Logo';
 import { Field, PrimaryButton } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
-import { api } from '@/lib/api';
+import { api, usingMock } from '@/lib/api';
 
 type ViewKind = 'main' | 'phone-number' | 'phone-otp';
+
+// Seeded demo accounts (mock mode only). Any password works; role/status are
+// resolved by email — see shared/src/api/mock/seed.ts.
+const DEMO_ACCOUNTS = [
+  { label: 'Administrador', emoji: '🛠️', email: 'admin@explorarte.org' },
+  { label: 'Docente', emoji: '👩‍🏫', email: 'maria@ejemplo.com' },
+] as const;
 
 const TITLES: Record<ViewKind, string> = {
   main: 'Bienvenida de nuevo',
@@ -23,9 +31,16 @@ export default function Login() {
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
 
-  const goHome = async () => {
-    await signIn();
-    navigate('/main', { replace: true });
+  // Route by approval status and role: pending/rejected are blocked, admins go
+  // to the admin console, approved teachers to the app.
+  const enter = (result: AuthResult) => {
+    const u = result.user;
+    if (u.status !== 'approved') {
+      navigate('/pendiente', { replace: true, state: { status: u.status } });
+      return;
+    }
+    signIn(u);
+    navigate(u.role === 'admin' ? '/admin' : '/main', { replace: true });
   };
 
   const subtitle =
@@ -53,7 +68,7 @@ export default function Login() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {view === 'main' ? (
             <>
-              <SocialButton kind="google" label="Continuar con Google" onClick={goHome} />
+              <SocialButton kind="google" label="Continuar con Google" onClick={() => api.auth.login({ email: '', password: '' }).then(enter)} />
               <SocialButton kind="phone" label="Continuar con teléfono" onClick={() => setView('phone-number')} />
               <Divider />
               <Field label="Correo electrónico" icon="mail" placeholder="correo@ejemplo.com" type="email" autoCapitalize="none" value={email} onChangeText={setEmail} />
@@ -63,7 +78,34 @@ export default function Login() {
                   ¿Olvidaste tu contraseña?
                 </button>
               </div>
-              <PrimaryButton label="Iniciar sesión" onClick={() => api.auth.login({ email, password }).then(goHome)} disabled={!email || !password} />
+              <PrimaryButton label="Iniciar sesión" onClick={() => api.auth.login({ email, password }).then(enter)} disabled={!email || !password} />
+
+              {usingMock ? (
+                <div style={{ marginTop: 4, padding: 14, borderRadius: 14, background: 'var(--nav-bg)', border: '1px solid #DCEDEA' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--brand-dark)', marginBottom: 8 }}>
+                    Cuentas de demostración
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {DEMO_ACCOUNTS.map((a) => (
+                      <button
+                        key={a.email}
+                        onClick={() => {
+                          setEmail(a.email);
+                          setPassword('demo1234');
+                        }}
+                        className="pressable"
+                        style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '10px 8px', borderRadius: 11, background: '#fff', border: '1px solid var(--border-soft)' }}>
+                        <span style={{ fontSize: 18 }}>{a.emoji}</span>
+                        <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-dark)' }}>{a.label}</span>
+                        <span style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>{a.email}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>
+                    Toca una cuenta y presiona "Iniciar sesión" · cualquier contraseña funciona
+                  </div>
+                </div>
+              ) : null}
             </>
           ) : null}
 
@@ -82,7 +124,7 @@ export default function Login() {
               </div>
               <label className="field-label">Código de 6 dígitos</label>
               <OtpInput value={otp} onChange={setOtp} />
-              <PrimaryButton label="Verificar e iniciar sesión" onClick={() => api.auth.verifyOtp(phone, otp).then(goHome)} disabled={otp.length < 6} />
+              <PrimaryButton label="Verificar e iniciar sesión" onClick={() => api.auth.verifyOtp(phone, otp).then(enter)} disabled={otp.length < 6} />
               <button onClick={() => setView('phone-number')} className="center muted" style={{ fontSize: 12.5, padding: 8 }}>
                 ¿No recibiste el código? <span style={{ color: 'var(--brand)', fontWeight: 700 }}>Reenviar</span>
               </button>

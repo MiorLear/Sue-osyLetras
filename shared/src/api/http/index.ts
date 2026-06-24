@@ -12,6 +12,7 @@ import type {
   CreateCommentInput,
   CreateEventInput,
   CreatePostInput,
+  CreateTopicInput,
   Emotion,
   EmotionDetail,
   LoginInput,
@@ -21,7 +22,9 @@ import type {
   ToolsContent,
   UpdateEventInput,
   UpdateProfileInput,
+  UpdateTopicInput,
   UserProfile,
+  UserStatus,
 } from '../../types/index.js';
 
 export interface HttpClientOptions {
@@ -71,6 +74,10 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
     emotions: {
       list: () => request<Emotion[]>('GET', '/emotions'),
       get: (id: string) => request<EmotionDetail | null>('GET', `/emotions/${encodeURIComponent(id)}`),
+      create: (input: EmotionDetail) => request<EmotionDetail>('POST', '/emotions', input),
+      update: (id: string, input: Partial<EmotionDetail>) =>
+        request<EmotionDetail>('PUT', `/emotions/${encodeURIComponent(id)}`, input),
+      remove: (id: string) => request<void>('DELETE', `/emotions/${encodeURIComponent(id)}`),
     },
     posts: {
       list: (emotion?: string) => request<Post[]>('GET', `/posts${q({ emotion })}`),
@@ -87,9 +94,14 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
     },
     learning: {
       topics: () => request<Topic[]>('GET', '/learning/topics'),
+      createTopic: (input: CreateTopicInput) => request<Topic>('POST', '/learning/topics', input),
+      updateTopic: (id: string, input: UpdateTopicInput) =>
+        request<Topic>('PUT', `/learning/topics/${encodeURIComponent(id)}`, input),
+      removeTopic: (id: string) => request<void>('DELETE', `/learning/topics/${encodeURIComponent(id)}`),
     },
     tools: {
       get: () => request<ToolsContent>('GET', '/tools'),
+      update: (input: ToolsContent) => request<ToolsContent>('PUT', '/tools', input),
     },
     profile: {
       get: () => request<UserProfile>('GET', '/me'),
@@ -97,6 +109,13 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
     },
     misc: {
       schools: () => request<string[]>('GET', '/schools'),
+    },
+    admin: {
+      users: {
+        list: (status?: UserStatus) => request<UserProfile[]>('GET', `/admin/users${q({ status })}`),
+        approve: (id: string) => request<UserProfile>('POST', `/admin/users/${encodeURIComponent(id)}/approve`),
+        reject: (id: string) => request<UserProfile>('POST', `/admin/users/${encodeURIComponent(id)}/reject`),
+      },
     },
   };
 }

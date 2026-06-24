@@ -100,6 +100,11 @@ export interface Topic {
   subtopics: SubTopic[];
 }
 
+/** Payload to create a learning topic (id is assigned by the server). */
+export type CreateTopicInput = Omit<Topic, 'id'>;
+/** Payload to update a learning topic. */
+export type UpdateTopicInput = Partial<Omit<Topic, 'id'>>;
+
 // ── Teacher toolkit ─────────────────────────────────────────────────────────
 
 export interface ToolsContent {
@@ -111,12 +116,22 @@ export interface ToolsContent {
 
 // ── Profile / auth ────────────────────────────────────────────────────────────
 
+/** Account type. Teachers use the app; admins approve users and manage content. */
+export type UserRole = 'teacher' | 'admin';
+
+/** Approval state of a teacher account. Admins are always 'approved'. */
+export type UserStatus = 'pending' | 'approved' | 'rejected';
+
 export interface UserProfile {
+  /** stable user id (slug or uuid) */
+  id: string;
   name: string;
   lastname: string;
   email: string;
   phone: string;
   school: string;
+  role: UserRole;
+  status: UserStatus;
   /** data/object URL of the profile photo, or null */
   photo?: string | null;
 }

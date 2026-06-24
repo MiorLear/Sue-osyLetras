@@ -11,6 +11,7 @@ import type {
   CreateCommentInput,
   CreateEventInput,
   CreatePostInput,
+  CreateTopicInput,
   Emotion,
   EmotionDetail,
   LoginInput,
@@ -20,7 +21,9 @@ import type {
   ToolsContent,
   UpdateEventInput,
   UpdateProfileInput,
+  UpdateTopicInput,
   UserProfile,
+  UserStatus,
 } from '../types/index.js';
 
 export interface AuthApi {
@@ -41,6 +44,12 @@ export interface EmotionsApi {
   list(): Promise<Emotion[]>;
   /** GET /emotions/:id */
   get(id: string): Promise<EmotionDetail | null>;
+  /** POST /emotions — admin */
+  create(input: EmotionDetail): Promise<EmotionDetail>;
+  /** PUT /emotions/:id — admin */
+  update(id: string, input: Partial<EmotionDetail>): Promise<EmotionDetail>;
+  /** DELETE /emotions/:id — admin */
+  remove(id: string): Promise<void>;
 }
 
 export interface PostsApi {
@@ -68,11 +77,32 @@ export interface EventsApi {
 export interface LearningApi {
   /** GET /learning/topics */
   topics(): Promise<Topic[]>;
+  /** POST /learning/topics — admin */
+  createTopic(input: CreateTopicInput): Promise<Topic>;
+  /** PUT /learning/topics/:id — admin */
+  updateTopic(id: string, input: UpdateTopicInput): Promise<Topic>;
+  /** DELETE /learning/topics/:id — admin */
+  removeTopic(id: string): Promise<void>;
 }
 
 export interface ToolsApi {
   /** GET /tools */
   get(): Promise<ToolsContent>;
+  /** PUT /tools — admin (replaces the whole content) */
+  update(input: ToolsContent): Promise<ToolsContent>;
+}
+
+export interface AdminUsersApi {
+  /** GET /admin/users?status= */
+  list(status?: UserStatus): Promise<UserProfile[]>;
+  /** POST /admin/users/:id/approve */
+  approve(id: string): Promise<UserProfile>;
+  /** POST /admin/users/:id/reject */
+  reject(id: string): Promise<UserProfile>;
+}
+
+export interface AdminApi {
+  users: AdminUsersApi;
 }
 
 export interface ProfileApi {
@@ -96,4 +126,5 @@ export interface ApiClient {
   tools: ToolsApi;
   profile: ProfileApi;
   misc: MiscApi;
+  admin: AdminApi;
 }

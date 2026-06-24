@@ -5,8 +5,9 @@ import { api } from '@/lib/api';
 interface AuthState {
   user: UserProfile | null;
   authed: boolean;
-  /** mark the session as logged in and load the profile */
-  signIn: () => Promise<void>;
+  isAdmin: boolean;
+  /** mark the session as logged in with the authenticated user */
+  signIn: (user: UserProfile) => void;
   signOut: () => void;
   setUser: (u: UserProfile) => void;
 }
@@ -14,36 +15,48 @@ interface AuthState {
 const AuthContext = createContext<AuthState | null>(null);
 
 const TOKEN_KEY = 'explorarte_token';
+const USER_KEY = 'explorarte_user';
+
+function readStoredUser(): UserProfile | null {
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? (JSON.parse(raw) as UserProfile) : null;
+  } catch {
+    return null;
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [user, setUserState] = useState<UserProfile | null>(() => readStoredUser());
   const [authed, setAuthed] = useState<boolean>(() => !!localStorage.getItem(TOKEN_KEY));
 
-  const loadProfile = async () => {
-    const p = await api.profile.get();
-    setUser(p);
-  };
-
-  // restore profile if a session token is already present
+  // restore the profile if a token exists but the user wasn't persisted (e.g. older session)
   useEffect(() => {
-    if (authed && !user) loadProfile();
+    if (authed && !user) api.profile.get().then(setUserState);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const signIn = async () => {
+  const setUser = (u: UserProfile) => {
+    setUserState(u);
+    localStorage.setItem(USER_KEY, JSON.stringify(u));
+  };
+
+  const signIn = (u: UserProfile) => {
     localStorage.setItem(TOKEN_KEY, 'mock-token');
     setAuthed(true);
-    await loadProfile();
+    setUser(u);
   };
 
   const signOut = () => {
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
     setAuthed(false);
-    setUser(null);
+    setUserState(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, authed, signIn, signOut, setUser }}>
+    <AuthContext.Provider
+      value={{ user, authed, isAdmin: user?.role === 'admin', signIn, signOut, setUser }}>
       {children}
     </AuthContext.Provider>
   );

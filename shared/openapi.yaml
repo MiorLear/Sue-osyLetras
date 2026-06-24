@@ -23,6 +23,8 @@ tags:
   - name: Tools
   - name: Profile
   - name: Misc
+  - name: Admin
+    description: Admin-only endpoints (user approval and content management).
 
 paths:
   /auth/login:
@@ -137,6 +139,20 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/Emotion' }
+    post:
+      tags: [Admin]
+      summary: Create an emotion (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmotionDetail' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmotionDetail' }
 
   /emotions/{id}:
     get:
@@ -154,6 +170,35 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/EmotionDetail' }
         '404': { description: Not found }
+    put:
+      tags: [Admin]
+      summary: Update an emotion (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmotionDetail' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmotionDetail' }
+    delete:
+      tags: [Admin]
+      summary: Delete an emotion (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Deleted }
 
   /posts:
     get:
@@ -294,6 +339,51 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/Topic' }
+    post:
+      tags: [Admin]
+      summary: Create a learning topic (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateTopicInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Topic' }
+
+  /learning/topics/{id}:
+    put:
+      tags: [Admin]
+      summary: Update a learning topic (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateTopicInput' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Topic' }
+    delete:
+      tags: [Admin]
+      summary: Delete a learning topic (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Deleted }
 
   /tools:
     get:
@@ -302,6 +392,20 @@ paths:
       responses:
         '200':
           description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ToolsContent' }
+    put:
+      tags: [Admin]
+      summary: Replace the teacher toolkit content (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ToolsContent' }
+      responses:
+        '200':
+          description: Updated
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ToolsContent' }
@@ -343,6 +447,55 @@ paths:
               schema:
                 type: array
                 items: { type: string }
+
+  /admin/users:
+    get:
+      tags: [Admin]
+      summary: List users, optionally filtered by approval status (admin)
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, enum: [pending, approved, rejected] }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/UserProfile' }
+
+  /admin/users/{id}/approve:
+    post:
+      tags: [Admin]
+      summary: Approve a pending teacher account (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserProfile' }
+
+  /admin/users/{id}/reject:
+    post:
+      tags: [Admin]
+      summary: Reject a pending teacher account (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserProfile' }
 
 components:
   schemas:
@@ -458,6 +611,23 @@ components:
         subtopics:
           type: array
           items: { $ref: '#/components/schemas/SubTopic' }
+    CreateTopicInput:
+      type: object
+      required: [emoji, title, subtopics]
+      properties:
+        emoji: { type: string }
+        title: { type: string }
+        subtopics:
+          type: array
+          items: { $ref: '#/components/schemas/SubTopic' }
+    UpdateTopicInput:
+      type: object
+      properties:
+        emoji: { type: string }
+        title: { type: string }
+        subtopics:
+          type: array
+          items: { $ref: '#/components/schemas/SubTopic' }
     ToolsContent:
       type: object
       required: [downloadables, bibliography]
@@ -466,13 +636,16 @@ components:
         bibliography: { type: array, items: { type: string } }
     UserProfile:
       type: object
-      required: [name, lastname, email, phone, school]
+      required: [id, name, lastname, email, phone, school, role, status]
       properties:
+        id: { type: string }
         name: { type: string }
         lastname: { type: string }
         email: { type: string }
         phone: { type: string }
         school: { type: string }
+        role: { type: string, enum: [teacher, admin] }
+        status: { type: string, enum: [pending, approved, rejected] }
         photo: { type: string, nullable: true }
     UpdateProfileInput:
       type: object

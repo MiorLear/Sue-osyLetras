@@ -4,7 +4,6 @@ import { SCHOOLS } from '@explorarte/shared';
 import { GoogleIcon, Icon, type IconName } from '@/components/Icon';
 import { Logo } from '@/components/Logo';
 import { Field, PrimaryButton, Select } from '@/components/ui';
-import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { OtpInput } from './Login';
 
@@ -13,7 +12,6 @@ const TITLES = ['Crear cuenta', 'Verificar identidad', 'Tu información'];
 
 export default function Register() {
   const navigate = useNavigate();
-  const { signIn } = useAuth();
 
   const [step, setStep] = useState(0);
   const [method, setMethod] = useState<Method>(null);
@@ -28,10 +26,11 @@ export default function Register() {
   const [lastname, setLastname] = useState('');
   const [school, setSchool] = useState('');
 
-  const goHome = async () => {
+  // New teachers are created as 'pending'; an admin must approve them before
+  // they can sign in. Send them to the pending notice instead of into the app.
+  const finishRegister = async () => {
     await api.auth.register({ name, lastname, school, email, password, phone });
-    await signIn();
-    navigate('/main', { replace: true });
+    navigate('/pendiente', { replace: true, state: { justRegistered: true } });
   };
 
   const back = () => {
@@ -124,7 +123,7 @@ export default function Register() {
             <Field label="Nombre" icon="user" placeholder="María" value={name} onChangeText={setName} />
             <Field label="Apellido" icon="user" placeholder="García" value={lastname} onChangeText={setLastname} />
             <Select label="Colegio / Ubicación" icon="map-pin" placeholder="Selecciona tu colegio" value={school} options={SCHOOLS} onChange={setSchool} />
-            <PrimaryButton label="Crear cuenta" onClick={goHome} disabled={!name || !lastname || !school} />
+            <PrimaryButton label="Crear cuenta" onClick={finishRegister} disabled={!name || !lastname || !school} />
           </>
         ) : null}
         <div style={{ height: 8 }} />

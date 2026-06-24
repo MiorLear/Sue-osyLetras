@@ -35,4 +35,6 @@ export type {
   ToolsApi,
   ProfileApi,
   MiscApi,
+  AdminApi,
+  AdminUsersApi,
 } from './client.js';

@@ -196,10 +196,63 @@ export const TOOLS: ToolsContent = {
 };
 
 export const PROFILE: UserProfile = {
+  id: 'u-maria',
   name: 'María Reneé',
   lastname: 'García López',
   email: 'maria@ejemplo.com',
   phone: '+502 1234 5678',
   school: 'Colegio Americano',
+  role: 'teacher',
+  status: 'approved',
   photo: null,
 };
+
+// Demo accounts for mock mode. Login resolves the role/status by email; any
+// password is accepted. New registrations are appended as pending teachers.
+export const USERS: UserProfile[] = [
+  {
+    id: 'u-admin',
+    name: 'Carlos',
+    lastname: 'Méndez',
+    email: 'admin@explorarte.org',
+    phone: '+502 5555 0000',
+    school: 'Sueños y Letras',
+    role: 'admin',
+    status: 'approved',
+    photo: null,
+  },
+  PROFILE,
+  {
+    id: 'u-ana',
+    name: 'Ana',
+    lastname: 'Pérez',
+    email: 'ana@ejemplo.com',
+    phone: '+502 2222 1111',
+    school: 'Escuela Nacional Primaria',
+    role: 'teacher',
+    status: 'pending',
+    photo: null,
+  },
+  {
+    id: 'u-lucia',
+    name: 'Lucía',
+    lastname: 'Ramírez',
+    email: 'lucia@ejemplo.com',
+    phone: '+502 3333 2222',
+    school: 'Colegio La Salle',
+    role: 'teacher',
+    status: 'pending',
+    photo: null,
+  },
+  {
+    id: 'u-sofia',
+    name: 'Sofía',
+    lastname: 'Hernández',
+    email: 'sofia@ejemplo.com',
+    phone: '+502 4444 3333',
+    school: 'Instituto Bilingüe',
+    role: 'teacher',
+    status: 'approved',
+    photo: null,
+  },
+];
