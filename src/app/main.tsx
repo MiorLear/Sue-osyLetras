@@ -21,6 +21,16 @@ interface NavCard {
 
 const CARDS: NavCard[] = [
   {
+    emoji: 'ℹ️',
+    title: 'Sobre ExplorArte',
+    description: 'Conoce más sobre la metodología y Sueños y Letras.',
+    cta: 'Conocer más',
+    ctaIcon: 'chevron-right',
+    href: '/sobre',
+    bg: '#E6F8F7',
+    accent: colors.brandDark,
+  },
+  {
     emoji: '📚',
     title: 'Biblioteca de emociones',
     description: 'Recursos para acompañar emociones específicas en el aula.',
@@ -59,16 +69,6 @@ const CARDS: NavCard[] = [
     href: '/comunidad',
     bg: '#F5F0FF',
     accent: '#7C3AED',
-  },
-  {
-    emoji: 'ℹ️',
-    title: 'Sobre ExplorArte',
-    description: 'Conoce más sobre la metodología y Sueños y Letras.',
-    cta: 'Conocer más',
-    ctaIcon: 'chevron-right',
-    href: '/sobre',
-    bg: '#E6F8F7',
-    accent: colors.brandDark,
   },
 ];
 

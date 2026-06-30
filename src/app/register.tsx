@@ -5,8 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GoogleIcon, Icon, IconName } from '@/components/icon';
 import { Logo } from '@/components/logo';
-import { Field, PrimaryButton, Select } from '@/components/ui';
-import { colors, SCHOOLS } from '@/constants/theme';
+import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
+import { colors, INSTITUCIONES } from '@/constants/theme';
 
 type Method = 'google' | 'phone' | 'email' | null;
 const TITLES = ['Crear cuenta', 'Verificar identidad', 'Tu información'];
@@ -26,7 +26,8 @@ export default function RegisterScreen() {
   const [otp, setOtp] = useState('');
   const [name, setName] = useState('');
   const [lastname, setLastname] = useState('');
-  const [school, setSchool] = useState('');
+  const [institucion, setInstitucion] = useState('');
+  const [ubicacion, setUbicacion] = useState('');
 
   const goHome = () => router.replace('/main');
 
@@ -250,18 +251,25 @@ export default function RegisterScreen() {
               value={lastname}
               onChangeText={setLastname}
             />
-            <Select
-              label="Colegio / Ubicación"
+            <SelectOrAdd
+              label="Institución"
               icon="map-pin"
-              placeholder="Selecciona tu colegio"
-              value={school}
-              options={SCHOOLS}
-              onChange={setSchool}
+              placeholder="Selecciona tu institución"
+              value={institucion}
+              options={INSTITUCIONES}
+              onChange={setInstitucion}
+              newPlaceholder="Nombre de la institución"
+            />
+            <LocationAutocomplete
+              label="Ubicación"
+              value={ubicacion}
+              placeholder="Busca tu ubicación"
+              onChange={setUbicacion}
             />
             <PrimaryButton
               label="Crear cuenta"
               onPress={goHome}
-              disabled={!name || !lastname || !school}
+              disabled={!name || !lastname || !institucion || !ubicacion}
             />
           </>
         ) : null}

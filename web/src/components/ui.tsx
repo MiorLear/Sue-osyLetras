@@ -1,4 +1,5 @@
-import { useState, type InputHTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type InputHTMLAttributes, type ReactNode } from 'react';
+import { searchPlaces } from '@explorarte/shared';
 import { Icon, type IconName } from './Icon';
 
 export function PrimaryButton({
@@ -113,6 +114,181 @@ export function Select({
           ))}
         </select>
       </div>
+    </div>
+  );
+}
+
+const ADD_NEW_LABEL = '➕ Agregar nueva…';
+
+/**
+ * Desplegable de opciones con la posibilidad de "Agregar nueva…": al elegir esa
+ * opción se cambia a un campo de texto libre. El valor escrito se guarda igual
+ * que cualquier opción (se reutiliza para los KPIs).
+ */
+export function SelectOrAdd({
+  label,
+  icon,
+  value,
+  placeholder,
+  options,
+  onChange,
+  addLabel = ADD_NEW_LABEL,
+  newPlaceholder = 'Escribe el nombre',
+}: {
+  label?: string;
+  icon?: IconName;
+  value: string;
+  placeholder?: string;
+  options: string[];
+  onChange: (v: string) => void;
+  addLabel?: string;
+  newPlaceholder?: string;
+}) {
+  const [adding, setAdding] = useState(() => !!value && !options.includes(value));
+
+  if (adding) {
+    return (
+      <div>
+        <Field label={label} icon={icon} placeholder={newPlaceholder} value={value} autoFocus onChangeText={onChange} />
+        <button
+          type="button"
+          onClick={() => {
+            setAdding(false);
+            onChange('');
+          }}
+          style={{ marginTop: 6, fontSize: 12, color: 'var(--brand)', fontWeight: 700 }}>
+          ← Elegir de la lista
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <Select
+      label={label}
+      icon={icon}
+      value={options.includes(value) ? value : ''}
+      placeholder={placeholder}
+      options={[...options, addLabel]}
+      onChange={(v) => (v === addLabel ? setAdding(true) : onChange(v))}
+    />
+  );
+}
+
+/**
+ * Autocompletado de ubicación (tipo Google Maps) con una API gratuita y sin key.
+ * Permite además texto libre: lo que se escribe se guarda aunque no se elija una
+ * sugerencia. Ver shared/src/geo/places.ts.
+ */
+export function LocationAutocomplete({
+  label,
+  icon = 'map-pin',
+  value,
+  placeholder = 'Busca tu ubicación',
+  onChange,
+}: {
+  label?: string;
+  icon?: IconName;
+  value: string;
+  placeholder?: string;
+  onChange: (v: string) => void;
+}) {
+  const [query, setQuery] = useState(value);
+  const [items, setItems] = useState<string[]>([]);
+  const [open, setOpen] = useState(false);
+  const skip = useRef(false);
+
+  // Si el valor cambia desde afuera (p. ej. al cargar el perfil), sincroniza sin
+  // disparar una búsqueda automática.
+  useEffect(() => {
+    if (value !== query) {
+      skip.current = true;
+      setQuery(value);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  useEffect(() => {
+    if (skip.current) {
+      skip.current = false;
+      return;
+    }
+    const q = query.trim();
+    if (q.length < 2) {
+      setItems([]);
+      setOpen(false);
+      return;
+    }
+    const t = setTimeout(async () => {
+      const res = await searchPlaces(q);
+      setItems(res);
+      setOpen(true);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const choose = (s: string) => {
+    skip.current = true;
+    onChange(s);
+    setQuery(s);
+    setItems([]);
+    setOpen(false);
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <Field
+        label={label}
+        icon={icon}
+        placeholder={placeholder}
+        value={query}
+        autoComplete="off"
+        onChangeText={(v) => {
+          setQuery(v);
+          onChange(v);
+        }}
+        onFocus={() => items.length > 0 && setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+      />
+      {open && items.length > 0 ? (
+        <div
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            zIndex: 20,
+            marginTop: 4,
+            background: '#fff',
+            border: '1px solid var(--border)',
+            borderRadius: 12,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
+            overflow: 'hidden',
+          }}>
+          {items.map((s, i) => (
+            <button
+              key={s}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => choose(s)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                width: '100%',
+                textAlign: 'left',
+                padding: '10px 14px',
+                fontSize: 13,
+                color: 'var(--text-dark)',
+                background: '#fff',
+                borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+              }}>
+              <Icon name="map-pin" size={14} color="var(--text-muted)" />
+              {s}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

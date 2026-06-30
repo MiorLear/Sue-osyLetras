@@ -25,7 +25,7 @@ import type {
   UserProfile,
   UserStatus,
 } from '../../types/index.js';
-import { SCHOOLS } from '../../design/tokens.js';
+import { INSTITUCIONES } from '../../design/tokens.js';
 import {
   EMOTION_CONTENT,
   EMOTIONS,
@@ -70,11 +70,13 @@ export function createMockClient(): ApiClient {
           id: 'u-' + Date.now(),
           name: input.name,
           lastname: input.lastname,
-          school: input.school,
+          institucion: input.institucion,
+          ubicacion: input.ubicacion,
           email: input.email ?? '',
           phone: input.phone ?? '',
           role: 'teacher',
-          status: 'pending',
+          // Los registros ya no necesitan aprobación: entran activos de inmediato.
+          status: 'approved',
           photo: null,
         };
         users.push(newUser);
@@ -260,7 +262,7 @@ export function createMockClient(): ApiClient {
     misc: {
       async schools(): Promise<string[]> {
         await delay();
-        return [...SCHOOLS];
+        return [...INSTITUCIONES];
       },
     },
 

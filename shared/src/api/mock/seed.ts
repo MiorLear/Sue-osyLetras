@@ -200,23 +200,26 @@ export const PROFILE: UserProfile = {
   name: 'María Reneé',
   lastname: 'García López',
   email: 'maria@ejemplo.com',
-  phone: '+502 1234 5678',
-  school: 'Colegio Americano',
+  phone: '+503 7000 1234',
+  institucion: 'Colegio Americano',
+  ubicacion: 'San Salvador, San Salvador',
   role: 'teacher',
   status: 'approved',
   photo: null,
 };
 
 // Demo accounts for mock mode. Login resolves the role/status by email; any
-// password is accepted. New registrations are appended as pending teachers.
+// password is accepted. New registrations are appended as active teachers
+// (registration no longer requires approval).
 export const USERS: UserProfile[] = [
   {
     id: 'u-admin',
     name: 'Carlos',
     lastname: 'Méndez',
     email: 'admin@explorarte.org',
-    phone: '+502 5555 0000',
-    school: 'Sueños y Letras',
+    phone: '+503 7000 0000',
+    institucion: 'Sueños y Letras',
+    ubicacion: 'San Salvador, San Salvador',
     role: 'admin',
     status: 'approved',
     photo: null,
@@ -227,10 +230,11 @@ export const USERS: UserProfile[] = [
     name: 'Ana',
     lastname: 'Pérez',
     email: 'ana@ejemplo.com',
-    phone: '+502 2222 1111',
-    school: 'Escuela Nacional Primaria',
+    phone: '+503 7222 1111',
+    institucion: 'Escuela Nacional Primaria',
+    ubicacion: 'Santa Tecla, La Libertad',
     role: 'teacher',
-    status: 'pending',
+    status: 'approved',
     photo: null,
   },
   {
@@ -238,10 +242,11 @@ export const USERS: UserProfile[] = [
     name: 'Lucía',
     lastname: 'Ramírez',
     email: 'lucia@ejemplo.com',
-    phone: '+502 3333 2222',
-    school: 'Colegio La Salle',
+    phone: '+503 7333 2222',
+    institucion: 'Colegio La Salle',
+    ubicacion: 'Soyapango, San Salvador',
     role: 'teacher',
-    status: 'pending',
+    status: 'approved',
     photo: null,
   },
   {
@@ -249,8 +254,9 @@ export const USERS: UserProfile[] = [
     name: 'Sofía',
     lastname: 'Hernández',
     email: 'sofia@ejemplo.com',
-    phone: '+502 4444 3333',
-    school: 'Instituto Bilingüe',
+    phone: '+503 7444 3333',
+    institucion: 'Instituto Bilingüe',
+    ubicacion: 'Antiguo Cuscatlán, La Libertad',
     role: 'teacher',
     status: 'approved',
     photo: null,

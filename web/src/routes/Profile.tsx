@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { SCHOOLS } from '@explorarte/shared';
+import { INSTITUCIONES } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
-import { Field, PrimaryButton, Select } from '@/components/ui';
+import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 
@@ -16,8 +16,9 @@ export default function Profile() {
   const [name, setName] = useState('María Reneé');
   const [lastname, setLastname] = useState('García López');
   const [email, setEmail] = useState('maria@ejemplo.com');
-  const [phone, setPhone] = useState('+502 1234 5678');
-  const [school, setSchool] = useState('Colegio Americano');
+  const [phone, setPhone] = useState('+503 7000 1234');
+  const [institucion, setInstitucion] = useState('Colegio Americano');
+  const [ubicacion, setUbicacion] = useState('San Salvador, San Salvador');
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -26,7 +27,8 @@ export default function Profile() {
     setLastname(user.lastname);
     setEmail(user.email);
     setPhone(user.phone);
-    setSchool(user.school);
+    setInstitucion(user.institucion);
+    setUbicacion(user.ubicacion);
     setPhoto(user.photo ?? null);
   }, [user]);
 
@@ -38,7 +40,7 @@ export default function Profile() {
   };
 
   const handleSave = async () => {
-    const updated = await api.profile.update({ name, lastname, email, phone, school, photo });
+    const updated = await api.profile.update({ name, lastname, email, phone, institucion, ubicacion, photo });
     setUser(updated);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
@@ -93,7 +95,8 @@ export default function Profile() {
         <Field label="Teléfono" icon="phone" value={phone} onChangeText={setPhone} placeholder="+502 1234 5678" />
 
         <SectionLabel>Institución</SectionLabel>
-        <Select label="Colegio / Ubicación" icon="map-pin" value={school} options={SCHOOLS} onChange={setSchool} />
+        <SelectOrAdd label="Institución" icon="map-pin" value={institucion} options={INSTITUCIONES} onChange={setInstitucion} newPlaceholder="Nombre de la institución" />
+        <LocationAutocomplete label="Ubicación" value={ubicacion} onChange={setUbicacion} />
 
         <PrimaryButton label="Guardar cambios" onClick={handleSave} />
 

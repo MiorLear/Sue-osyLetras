@@ -8,6 +8,7 @@ interface NavItem {
 }
 
 const TEACHER_NAV: NavItem[] = [
+  { emoji: 'ℹ️', label: 'Sobre ExplorArte', href: '/sobre' },
   { emoji: '🏠', label: 'Inicio', href: '/main' },
   { emoji: '💛', label: 'Biblioteca de emociones', href: '/emociones' },
   { emoji: '🧰', label: 'Caja de herramientas', href: '/herramientas' },
@@ -15,17 +16,16 @@ const TEACHER_NAV: NavItem[] = [
   { emoji: '💬', label: 'Comunidad', href: '/comunidad' },
   { emoji: '🗓️', label: 'Calendario', href: '/calendar' },
   { emoji: '👤', label: 'Perfil', href: '/profile' },
-  { emoji: 'ℹ️', label: 'Sobre ExplorArte', href: '/sobre' },
 ];
 
 const ADMIN_NAV: NavItem[] = [
+  { emoji: 'ℹ️', label: 'Sobre ExplorArte', href: '/sobre' },
   { emoji: '🛠️', label: 'Panel', href: '/admin' },
   { emoji: '✅', label: 'Usuarios', href: '/admin/usuarios' },
   { emoji: '💛', label: 'Emociones', href: '/admin/emociones' },
   { emoji: '🧰', label: 'Herramientas', href: '/admin/herramientas' },
   { emoji: '🌱', label: 'Aprendiendo', href: '/admin/aprendiendo' },
   { emoji: '👤', label: 'Perfil', href: '/profile' },
-  { emoji: 'ℹ️', label: 'Sobre ExplorArte', href: '/sobre' },
 ];
 
 export function Sidebar() {
@@ -37,7 +37,7 @@ export function Sidebar() {
   const initials = user
     ? ((user.name.charAt(0) || '') + (user.lastname.charAt(0) || '')).toUpperCase()
     : 'MR';
-  const roleLabel = isAdmin ? 'Administradora' : user ? `Docente · ${user.school}` : 'Docente';
+  const roleLabel = isAdmin ? 'Administradora' : user ? `Docente · ${user.institucion}` : 'Docente';
 
   return (
     <aside className="sidebar">

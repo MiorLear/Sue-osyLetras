@@ -22,14 +22,13 @@ export const colors = {
 /** Brand gradient used in headers and primary buttons (135deg in the design). */
 export const brandGradient = ['#3DBFB8', '#2A9A95'] as const;
 
-export const SCHOOLS = [
+export const INSTITUCIONES = [
   'Colegio Americano',
   'Escuela Nacional Primaria',
   'Colegio La Salle',
   'Instituto Bilingüe',
   'Escuela Pública Central',
   'Colegio San Francisco',
-  'Otro',
 ];
 
 /** Colors per calendar event type. */

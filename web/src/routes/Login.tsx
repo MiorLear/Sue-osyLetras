@@ -31,11 +31,12 @@ export default function Login() {
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
 
-  // Route by approval status and role: pending/rejected are blocked, admins go
-  // to the admin console, approved teachers to the app.
+  // Los registros ya no requieren aprobación. Solo se bloquea a quien una
+  // administradora le quitó el acceso ('rejected'); el resto entra: admins a la
+  // consola y docentes a la app.
   const enter = (result: AuthResult) => {
     const u = result.user;
-    if (u.status !== 'approved') {
+    if (u.status === 'rejected') {
       navigate('/pendiente', { replace: true, state: { status: u.status } });
       return;
     }

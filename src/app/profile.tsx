@@ -8,8 +8,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
 import { Icon } from '@/components/icon';
-import { Field, PrimaryButton, Select } from '@/components/ui';
-import { brandGradient, colors, SCHOOLS } from '@/constants/theme';
+import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
+import { brandGradient, colors, INSTITUCIONES } from '@/constants/theme';
 
 function SectionLabel({ children }: { children: string }) {
   return (
@@ -36,8 +36,9 @@ export default function ProfileScreen() {
   const [name, setName] = useState('María Reneé');
   const [lastname, setLastname] = useState('García López');
   const [email, setEmail] = useState('maria@ejemplo.com');
-  const [phone, setPhone] = useState('+502 1234 5678');
-  const [school, setSchool] = useState('Colegio Americano');
+  const [phone, setPhone] = useState('+503 7000 1234');
+  const [institucion, setInstitucion] = useState('Colegio Americano');
+  const [ubicacion, setUbicacion] = useState('San Salvador, San Salvador');
   const [saved, setSaved] = useState(false);
 
   const initials = ((name.charAt(0) || '') + (lastname.charAt(0) || '')).toUpperCase();
@@ -187,7 +188,15 @@ export default function ProfileScreen() {
         />
 
         <SectionLabel>Institución</SectionLabel>
-        <Select label="Colegio / Ubicación" icon="map-pin" value={school} options={SCHOOLS} onChange={setSchool} />
+        <SelectOrAdd
+          label="Institución"
+          icon="map-pin"
+          value={institucion}
+          options={INSTITUCIONES}
+          onChange={setInstitucion}
+          newPlaceholder="Nombre de la institución"
+        />
+        <LocationAutocomplete label="Ubicación" value={ubicacion} onChange={setUbicacion} />
 
         <PrimaryButton label="Guardar cambios" onPress={handleSave} />
 

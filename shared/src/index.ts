@@ -2,6 +2,7 @@
 
 export * from './types/index.js';
 export * from './design/tokens.js';
+export * from './geo/places.js';
 export * from './api/index.js';
 
 // seed data is exported too, so a backend can import it to seed its DB

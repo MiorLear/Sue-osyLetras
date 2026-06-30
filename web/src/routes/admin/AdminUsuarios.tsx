@@ -5,22 +5,22 @@ import { Masthead } from '@/components/Masthead';
 import { AdminBtn } from '@/components/admin/ui';
 import { api } from '@/lib/api';
 
-type FilterId = 'pending' | 'approved' | 'all';
+type FilterId = 'approved' | 'rejected' | 'all';
 
 const FILTERS: { id: FilterId; label: string }[] = [
-  { id: 'pending', label: '⏳ Pendientes' },
-  { id: 'approved', label: '✅ Aprobadas' },
+  { id: 'approved', label: '✅ Con acceso' },
+  { id: 'rejected', label: '🚫 Sin acceso' },
   { id: 'all', label: 'Todas' },
 ];
 
 const STATUS_TAG: Record<UserStatus, { label: string; color: string; bg: string }> = {
-  pending: { label: 'Pendiente', color: '#A4691F', bg: '#FBEFD9' },
-  approved: { label: 'Aprobada', color: '#1E7E78', bg: '#E1F1EF' },
-  rejected: { label: 'Rechazada', color: 'var(--danger)', bg: '#FBEAE6' },
+  pending: { label: 'Con acceso', color: '#1E7E78', bg: '#E1F1EF' },
+  approved: { label: 'Con acceso', color: '#1E7E78', bg: '#E1F1EF' },
+  rejected: { label: 'Sin acceso', color: 'var(--danger)', bg: '#FBEAE6' },
 };
 
 export default function AdminUsuarios() {
-  const [filter, setFilter] = useState<FilterId>('pending');
+  const [filter, setFilter] = useState<FilterId>('approved');
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -43,7 +43,7 @@ export default function AdminUsuarios() {
     setBusy(u.id);
     try {
       await api.admin.users[action](u.id);
-      showToast(action === 'approve' ? `Aprobaste a ${u.name}` : `Rechazaste a ${u.name}`);
+      showToast(action === 'approve' ? `Diste acceso a ${u.name}` : `Quitaste el acceso a ${u.name}`);
       load(filter);
     } finally {
       setBusy(null);
@@ -54,9 +54,9 @@ export default function AdminUsuarios() {
     <div className="page page-narrow">
       <Masthead
         eyebrow="Usuarios"
-        title="Aprobación de"
+        title="Directorio de"
         accent="docentes"
-        lede="Revisa las solicitudes de registro y decide quién puede acceder a ExplorArte."
+        lede="Consulta a las docentes registradas y gestiona quién tiene acceso a ExplorArte."
       />
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 22, flexWrap: 'wrap' }}>
@@ -83,6 +83,7 @@ export default function AdminUsuarios() {
           {users.map((u) => {
             const tag = STATUS_TAG[u.status];
             const initials = ((u.name[0] ?? '') + (u.lastname[0] ?? '')).toUpperCase();
+            const sinAcceso = u.status === 'rejected';
             return (
               <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 18, borderRadius: 18, background: '#fff', border: '1px solid var(--border)' }}>
                 <span style={{ width: 46, height: 46, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(150deg,var(--clay),var(--clay-dark))', color: '#fff', fontSize: 15, fontWeight: 800, flexShrink: 0 }}>{initials}</span>
@@ -92,25 +93,20 @@ export default function AdminUsuarios() {
                     <span style={{ borderRadius: 8, padding: '2px 9px', fontSize: 10.5, fontWeight: 700, color: tag.color, background: tag.bg }}>{tag.label}</span>
                   </div>
                   <div style={{ marginTop: 4, fontSize: 12.5, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="map-pin" size={12} color="var(--text-muted)" />{u.school}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="map-pin" size={12} color="var(--text-muted)" />{u.institucion}</span>
+                    <span>·</span>
+                    <span>{u.ubicacion}</span>
                     <span>·</span>
                     <span>{u.email}</span>
                   </div>
                 </div>
-                {u.status === 'pending' ? (
-                  <div style={{ display: 'flex', gap: 8, flexShrink: 0, width: 200 }}>
-                    <AdminBtn label="Rechazar" variant="outline" onClick={() => decide(u, 'reject')} disabled={busy === u.id} />
-                    <AdminBtn label="Aprobar" onClick={() => decide(u, 'approve')} disabled={busy === u.id} />
-                  </div>
-                ) : u.status === 'rejected' ? (
-                  <div style={{ flexShrink: 0, width: 130 }}>
-                    <AdminBtn label="Aprobar" onClick={() => decide(u, 'approve')} disabled={busy === u.id} />
-                  </div>
-                ) : (
-                  <div style={{ flexShrink: 0, width: 130 }}>
+                <div style={{ flexShrink: 0, width: 130 }}>
+                  {sinAcceso ? (
+                    <AdminBtn label="Dar acceso" onClick={() => decide(u, 'approve')} disabled={busy === u.id} />
+                  ) : (
                     <AdminBtn label="Quitar acceso" variant="outline" onClick={() => decide(u, 'reject')} disabled={busy === u.id} />
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             );
           })}

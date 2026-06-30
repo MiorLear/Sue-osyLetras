@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { SCHOOLS } from '@explorarte/shared';
+import { INSTITUCIONES } from '@explorarte/shared';
 import { GoogleIcon, Icon, type IconName } from '@/components/Icon';
 import { Logo } from '@/components/Logo';
-import { Field, PrimaryButton, Select } from '@/components/ui';
+import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
+import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { OtpInput } from './Login';
 
@@ -12,6 +13,7 @@ const TITLES = ['Crear cuenta', 'Verificar identidad', 'Tu información'];
 
 export default function Register() {
   const navigate = useNavigate();
+  const { signIn } = useAuth();
 
   const [step, setStep] = useState(0);
   const [method, setMethod] = useState<Method>(null);
@@ -24,13 +26,15 @@ export default function Register() {
   const [otp, setOtp] = useState('');
   const [name, setName] = useState('');
   const [lastname, setLastname] = useState('');
-  const [school, setSchool] = useState('');
+  const [institucion, setInstitucion] = useState('');
+  const [ubicacion, setUbicacion] = useState('');
 
-  // New teachers are created as 'pending'; an admin must approve them before
-  // they can sign in. Send them to the pending notice instead of into the app.
+  // Los registros ya no necesitan aprobación: la cuenta queda activa y entra
+  // directo a la app.
   const finishRegister = async () => {
-    await api.auth.register({ name, lastname, school, email, password, phone });
-    navigate('/pendiente', { replace: true, state: { justRegistered: true } });
+    const { user } = await api.auth.register({ name, lastname, institucion, ubicacion, email, password, phone });
+    signIn(user);
+    navigate('/main', { replace: true });
   };
 
   const back = () => {
@@ -122,8 +126,9 @@ export default function Register() {
             ) : null}
             <Field label="Nombre" icon="user" placeholder="María" value={name} onChangeText={setName} />
             <Field label="Apellido" icon="user" placeholder="García" value={lastname} onChangeText={setLastname} />
-            <Select label="Colegio / Ubicación" icon="map-pin" placeholder="Selecciona tu colegio" value={school} options={SCHOOLS} onChange={setSchool} />
-            <PrimaryButton label="Crear cuenta" onClick={finishRegister} disabled={!name || !lastname || !school} />
+            <SelectOrAdd label="Institución" icon="map-pin" placeholder="Selecciona tu institución" value={institucion} options={INSTITUCIONES} onChange={setInstitucion} newPlaceholder="Nombre de la institución" />
+            <LocationAutocomplete label="Ubicación" value={ubicacion} placeholder="Busca tu ubicación" onChange={setUbicacion} />
+            <PrimaryButton label="Crear cuenta" onClick={finishRegister} disabled={!name || !lastname || !institucion || !ubicacion} />
           </>
         ) : null}
         <div style={{ height: 8 }} />

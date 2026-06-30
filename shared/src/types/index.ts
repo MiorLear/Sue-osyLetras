@@ -129,7 +129,10 @@ export interface UserProfile {
   lastname: string;
   email: string;
   phone: string;
-  school: string;
+  /** name of the school / institution the teacher belongs to */
+  institucion: string;
+  /** location (municipality/zone) used for the admin KPIs */
+  ubicacion: string;
   role: UserRole;
   status: UserStatus;
   /** data/object URL of the profile photo, or null */
@@ -152,7 +155,8 @@ export interface LoginInput {
 export interface RegisterInput {
   name: string;
   lastname: string;
-  school: string;
+  institucion: string;
+  ubicacion: string;
   email?: string;
   password?: string;
   phone?: string;

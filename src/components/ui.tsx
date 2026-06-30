@@ -1,9 +1,10 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, Text, TextInput, TextInputProps, View } from 'react-native';
 
 import { Icon, IconName } from '@/components/icon';
 import { brandGradient, colors } from '@/constants/theme';
+import { searchPlaces } from '@/lib/places';
 
 // Botón principal con degradado de marca y estado deshabilitado.
 export function PrimaryButton({
@@ -222,6 +223,160 @@ export function Select({
           </View>
         </Pressable>
       </Modal>
+    </View>
+  );
+}
+
+const ADD_NEW_LABEL = '➕ Agregar nueva…';
+
+// Desplegable con opción "Agregar nueva…": al elegirla cambia a un campo de
+// texto libre. El valor escrito se guarda igual que cualquier opción.
+export function SelectOrAdd({
+  label,
+  icon,
+  value,
+  placeholder,
+  options,
+  onChange,
+  addLabel = ADD_NEW_LABEL,
+  newPlaceholder = 'Escribe el nombre',
+}: {
+  label?: string;
+  icon?: IconName;
+  value: string;
+  placeholder?: string;
+  options: string[];
+  onChange: (v: string) => void;
+  addLabel?: string;
+  newPlaceholder?: string;
+}) {
+  const [adding, setAdding] = useState(() => !!value && !options.includes(value));
+
+  if (adding) {
+    return (
+      <View>
+        <Field label={label} icon={icon} placeholder={newPlaceholder} value={value} autoFocus onChangeText={onChange} />
+        <Pressable
+          onPress={() => {
+            setAdding(false);
+            onChange('');
+          }}
+          style={{ marginTop: 6 }}>
+          <Text style={{ fontSize: 12, color: colors.brand, fontWeight: '700' }}>← Elegir de la lista</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  return (
+    <Select
+      label={label}
+      icon={icon}
+      value={options.includes(value) ? value : ''}
+      placeholder={placeholder}
+      options={[...options, addLabel]}
+      onChange={(v) => (v === addLabel ? setAdding(true) : onChange(v))}
+    />
+  );
+}
+
+// Autocompletado de ubicación (tipo Google Maps) con API gratuita y sin key.
+// Permite texto libre: lo escrito se guarda aunque no se elija una sugerencia.
+export function LocationAutocomplete({
+  label,
+  icon = 'map-pin',
+  value,
+  placeholder = 'Busca tu ubicación',
+  onChange,
+}: {
+  label?: string;
+  icon?: IconName;
+  value: string;
+  placeholder?: string;
+  onChange: (v: string) => void;
+}) {
+  const [query, setQuery] = useState(value);
+  const [items, setItems] = useState<string[]>([]);
+  const [open, setOpen] = useState(false);
+  const skip = useRef(false);
+
+  useEffect(() => {
+    if (value !== query) {
+      skip.current = true;
+      setQuery(value);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  useEffect(() => {
+    if (skip.current) {
+      skip.current = false;
+      return;
+    }
+    const q = query.trim();
+    if (q.length < 2) {
+      setItems([]);
+      setOpen(false);
+      return;
+    }
+    const t = setTimeout(async () => {
+      const res = await searchPlaces(q);
+      setItems(res);
+      setOpen(true);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const choose = (s: string) => {
+    skip.current = true;
+    onChange(s);
+    setQuery(s);
+    setItems([]);
+    setOpen(false);
+  };
+
+  return (
+    <View>
+      <Field
+        label={label}
+        icon={icon}
+        placeholder={placeholder}
+        value={query}
+        autoCapitalize="words"
+        onChangeText={(v) => {
+          setQuery(v);
+          onChange(v);
+        }}
+      />
+      {open && items.length > 0 ? (
+        <View
+          style={{
+            marginTop: 4,
+            backgroundColor: '#fff',
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: colors.border,
+            overflow: 'hidden',
+          }}>
+          {items.map((s, i) => (
+            <Pressable
+              key={s}
+              onPress={() => choose(s)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                paddingVertical: 12,
+                paddingHorizontal: 14,
+                borderTopWidth: i === 0 ? 0 : 1,
+                borderTopColor: colors.border,
+              }}>
+              <Icon name="map-pin" size={14} color={colors.textMuted} />
+              <Text style={{ fontSize: 13, color: colors.textDark }}>{s}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }

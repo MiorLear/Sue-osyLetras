@@ -4,7 +4,9 @@ Framework-agnostic core shared by the ExplorArte **web** and **mobile** apps:
 
 - **`src/types`** — domain models (Emotion, Post, CalEvent, Topic, ToolsContent,
   UserProfile, …). One source of truth for both apps and the backend DTOs.
-- **`src/design/tokens.ts`** — colors, brand gradient, schools, event colors.
+- **`src/design/tokens.ts`** — colors, brand gradient, instituciones, event colors.
+- **`src/geo/places.ts`** — location autocomplete via a free, key-less API
+  (Photon/OpenStreetMap), scoped to El Salvador through `GEO_CONFIG`.
 - **`src/api`** — the `ApiClient` interface plus two adapters:
   - `mock/` — serves the app's seed data in memory (default during development).
   - `http/` — fetch-based client for the real REST backend.

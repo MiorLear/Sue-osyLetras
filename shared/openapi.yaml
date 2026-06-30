@@ -636,14 +636,15 @@ components:
         bibliography: { type: array, items: { type: string } }
     UserProfile:
       type: object
-      required: [id, name, lastname, email, phone, school, role, status]
+      required: [id, name, lastname, email, phone, institucion, ubicacion, role, status]
       properties:
         id: { type: string }
         name: { type: string }
         lastname: { type: string }
         email: { type: string }
         phone: { type: string }
-        school: { type: string }
+        institucion: { type: string }
+        ubicacion: { type: string }
         role: { type: string, enum: [teacher, admin] }
         status: { type: string, enum: [pending, approved, rejected] }
         photo: { type: string, nullable: true }
@@ -654,7 +655,8 @@ components:
         lastname: { type: string }
         email: { type: string }
         phone: { type: string }
-        school: { type: string }
+        institucion: { type: string }
+        ubicacion: { type: string }
         photo: { type: string, nullable: true }
     LoginInput:
       type: object
@@ -664,11 +666,12 @@ components:
         password: { type: string }
     RegisterInput:
       type: object
-      required: [name, lastname, school]
+      required: [name, lastname, institucion, ubicacion]
       properties:
         name: { type: string }
         lastname: { type: string }
-        school: { type: string }
+        institucion: { type: string }
+        ubicacion: { type: string }
         email: { type: string }
         password: { type: string }
         phone: { type: string }
