@@ -1,0 +1,46 @@
+# Render Blueprint — ExplorArte (Sueños y Letras)
+# Despliega DOS demos estáticas desde este monorepo. Ambas corren contra el
+# cliente mock en memoria (sin backend), así que no requieren variables de entorno.
+#
+# Para publicar: en Render → New → Blueprint → conecta este repo.
+# Render detecta este archivo y crea ambos sitios automáticamente.
+services:
+  # --- Demo WEB (escritorio) — Vite + React, carpeta /web ---
+  - type: web
+    name: explorarte-web
+    runtime: static
+    rootDir: web
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    pullRequestPreviewsEnabled: true
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+    routes:
+      # Fallback SPA: las rutas sin archivo estático van a index.html
+      # (React Router resuelve la navegación del lado del cliente).
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: SAMEORIGIN
+
+  # --- Demo MOBILE (vista de móvil en el navegador) — Expo web export ---
+  - type: web
+    name: explorarte-mobile
+    runtime: static
+    rootDir: .
+    buildCommand: npm install && npx expo export -p web
+    staticPublishPath: ./dist
+    pullRequestPreviewsEnabled: true
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+    routes:
+      # Expo prerenderiza un .html por ruta; este rewrite solo actúa como
+      # fallback para deep-links de rutas dinámicas (p. ej. /emociones/:id).
+      - type: rewrite
+        source: /*
+        destination: /index.html

@@ -16,6 +16,24 @@ Luego:
 - **Emulador Android:** presiona `a` en la terminal (requiere Android Studio configurado).
 - **Web (vista rápida):** presiona `w`.
 
+## Demos en Render (sin backend)
+
+El repo incluye un **blueprint** [`render.yaml`](./render.yaml) que publica **dos
+demos estáticas** en [Render](https://render.com), ambas contra el cliente **mock
+en memoria** (no requieren backend ni variables de entorno):
+
+| Sitio | Origen | Qué es |
+|-------|--------|--------|
+| `explorarte-web` | `/web` (Vite + React) | Demo **web de escritorio** (sidebar, multi-columna) |
+| `explorarte-mobile` | raíz (Expo web export) | Demo **mobile** (vista de móvil en el navegador) |
+
+**Publicar:** en Render → **New → Blueprint** → conecta este repositorio. Render
+detecta `render.yaml` y crea ambos sitios automáticamente. Cada push a la rama
+re-despliega; los Pull Requests generan previews.
+
+> Login demo: cualquier contraseña sirve. Usa `admin@explorarte.org` (admin),
+> `maria@ejemplo.com` (docente aprobada) o `ana@ejemplo.com` (docente pendiente).
+
 ## Estructura
 
 ```
