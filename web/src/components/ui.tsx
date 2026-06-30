@@ -196,7 +196,10 @@ export function LocationAutocomplete({
   const [query, setQuery] = useState(value);
   const [items, setItems] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
-  const skip = useRef(false);
+  // Arranca en true para saltar la corrida del montaje: query inicia con `value`
+  // (p. ej. "San Salvador"), y sin esto el efecto de abajo buscaría y abriría el
+  // dropdown solo al entrar a la pantalla.
+  const skip = useRef(true);
 
   // Si el valor cambia desde afuera (p. ej. al cargar el perfil), sincroniza sin
   // disparar una búsqueda automática.
