@@ -38,7 +38,7 @@ export default function ProfileScreen() {
   const [email, setEmail] = useState('maria@ejemplo.com');
   const [phone, setPhone] = useState('+503 7000 1234');
   const [institucion, setInstitucion] = useState('Colegio Americano');
-  const [ubicacion, setUbicacion] = useState('San Salvador, San Salvador');
+  const [ubicacion, setUbicacion] = useState('San Salvador');
   const [saved, setSaved] = useState(false);
 
   const initials = ((name.charAt(0) || '') + (lastname.charAt(0) || '')).toUpperCase();

@@ -18,7 +18,7 @@ export default function Profile() {
   const [email, setEmail] = useState('maria@ejemplo.com');
   const [phone, setPhone] = useState('+503 7000 1234');
   const [institucion, setInstitucion] = useState('Colegio Americano');
-  const [ubicacion, setUbicacion] = useState('San Salvador, San Salvador');
+  const [ubicacion, setUbicacion] = useState('San Salvador');
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
