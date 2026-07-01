@@ -1,0 +1,574 @@
+/* css/foro.css — Foro Comunitario | ExplorArte
+   ─────────────────────────────────────────────────────────────
+   Optimizado para:
+   · iOS (Safari, PWA, notch/Dynamic Island, safe-area)
+   · Android (Chrome, WebView, bordes redondeados)
+   · Web desktop (pantalla completa, hover states)
+
+   Enfoque mobile-first: base = móvil, @media = tablet/desktop.
+   ───────────────────────────────────────────────────────────── */
+
+/* ── Variables ───────────────────────────────────────────────*/
+:root {
+  --teal: #0e7490;
+  --teal-dark: #0c5f75;
+  --teal-light: #e0f2f7;
+  --surface: #ffffff;
+  --fondo: #f0f4f8;
+  --ink: #1a2e3b;
+  --muted: #5a7080;
+  --line: #dde5eb;
+  --peligro: #c0392b;
+  --pendiente: #f39c12;
+  --shadow-card: 0 1px 4px rgba(14, 116, 144, 0.08), 0 2px 12px rgba(0,0,0,0.06);
+  --radio: 14px;
+  --radio-sm: 8px;
+  --radio-pill: 999px;
+
+  /* Safe area para iOS (notch, home bar) */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  /* Tap target mínimo recomendado por Apple/Google: 44px */
+  --tap-min: 44px;
+}
+
+/* ── Reset ───────────────────────────────────────────────────*/
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  /* Evita que iOS agrande texto automáticamente */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--fondo);
+  color: var(--ink);
+  min-height: 100dvh;  /* dvh: más preciso en móvil que vh */
+  /* Scroll suave en iOS */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Banner offline ──────────────────────────────────────────*/
+.offline-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  padding: 10px 16px;
+  padding-top: calc(10px + var(--safe-top));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+  /* Evita que tape el contenido al aparecer */
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+.offline-banner.offline       { background: #f39c12; color: #fff; }
+.offline-banner.sincronizando { background: var(--teal); color: #fff; }
+.offline-banner.exito         { background: #27ae60; color: #fff; }
+.offline-banner.error         { background: var(--peligro); color: #fff; }
+
+/* ── App Shell ───────────────────────────────────────────────*/
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  max-width: 680px;
+  margin: 0 auto;
+  /* Padding safe-area para iOS */
+  padding-bottom: var(--safe-bottom);
+}
+
+/* ── Header ──────────────────────────────────────────────────*/
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  /* Safe area para notch */
+  padding-top: calc(12px + var(--safe-top));
+  background: var(--teal);
+  color: #fff;
+  /* Sombra sutil para separar del contenido */
+  box-shadow: 0 2px 8px rgba(14, 116, 144, 0.3);
+}
+
+.header-left { display: flex; align-items: center; gap: 10px; }
+
+.btn-back {
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.15);
+  border: none;
+  border-radius: var(--radio-sm);
+  color: #fff;
+  font-size: 1.2rem;
+  cursor: pointer;
+  /* Feedback táctil en iOS */
+  -webkit-tap-highlight-color: rgba(255,255,255,0.2);
+  transition: background 0.15s;
+}
+.btn-back:active { background: rgba(255,255,255,0.3); }
+
+.app-name { font-size: 0.7rem; opacity: 0.8; letter-spacing: 0.06em; text-transform: uppercase; }
+.header-title { font-size: 1.05rem; font-weight: 700; }
+
+/* ── Notificaciones ──────────────────────────────────────────*/
+.notif-wrapper { position: relative; }
+
+.btn-notif {
+  position: relative;
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  cursor: pointer;
+  border-radius: var(--radio-sm);
+  -webkit-tap-highlight-color: rgba(255,255,255,0.2);
+  transition: background 0.15s;
+}
+.btn-notif:active { background: rgba(255,255,255,0.2); }
+
+.badge-notif {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  background: #e74c3c;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  border-radius: var(--radio-pill);
+  align-items: center;
+  justify-content: center;
+}
+
+.panel-notif {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(320px, 90vw);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radio);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+  display: none;
+  flex-direction: column;
+  max-height: 400px;
+  overflow: hidden;
+  z-index: 200;
+}
+.panel-notif.abierto { display: flex; }
+
+.panel-notif-header {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.panel-notif-header h2 { font-size: 0.95rem; color: var(--ink); }
+
+.lista-notif { overflow-y: auto; padding: 8px 0; flex: 1; }
+
+.notif-item {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  transition: background 0.1s;
+}
+.notif-item:last-child { border-bottom: none; }
+.notif-item.no-leida { background: var(--teal-light); }
+.notif-item:hover { background: #f5f9fb; }
+
+.notif-texto { font-size: 0.88rem; color: var(--ink); line-height: 1.4; }
+.notif-tiempo { font-size: 0.75rem; color: var(--muted); display: block; margin-top: 3px; }
+.sin-notif { padding: 16px; text-align: center; color: var(--muted); font-size: 0.88rem; }
+
+/* ── Main ────────────────────────────────────────────────────*/
+.foro-main { flex: 1; padding: 14px 12px; display: flex; flex-direction: column; gap: 12px; }
+
+/* ── Caja publicar ───────────────────────────────────────────*/
+.caja-publicar {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radio);
+  padding: 14px;
+  box-shadow: var(--shadow-card);
+}
+
+.publicar-inner { display: flex; gap: 10px; align-items: flex-start; }
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 50%;
+  background: var(--teal);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  user-select: none;
+}
+.avatar-sm { width: 30px; height: 30px; flex: 0 0 30px; font-size: 0.65rem; }
+
+.publicar-campo { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+
+.input-nuevo-hilo {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radio-sm);
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 0.93rem;
+  color: var(--ink);
+  background: var(--fondo);
+  resize: none;
+  outline: none;
+  /* Smooth resize en iOS */
+  transition: border-color 0.15s, box-shadow 0.15s;
+  /* Evita zoom en iOS al hacer focus (necesita font-size >= 16px en iOS)*/
+  font-size: max(16px, 0.93rem);
+}
+.input-nuevo-hilo:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(14, 116, 144, 0.12);
+  background: var(--surface);
+}
+
+.publicar-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.contador-chars { font-size: 0.75rem; color: var(--muted); }
+
+.btn-publicar {
+  min-height: var(--tap-min);
+  padding: 0 18px;
+  background: var(--teal);
+  color: #fff;
+  border: none;
+  border-radius: var(--radio-pill);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, transform 0.1s;
+}
+.btn-publicar:hover { background: var(--teal-dark); }
+.btn-publicar:active { transform: scale(0.97); }
+.btn-publicar:disabled { opacity: 0.5; cursor: wait; }
+
+/* ── Lista de hilos ──────────────────────────────────────────*/
+.seccion-hilos { display: flex; flex-direction: column; gap: 10px; }
+.lista-hilos { display: flex; flex-direction: column; gap: 10px; }
+
+/* ── Hilo (card) ─────────────────────────────────────────────*/
+.hilo {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radio);
+  padding: 14px;
+  box-shadow: var(--shadow-card);
+  /* Animación de entrada */
+  animation: fadeIn 0.2s ease;
+}
+
+/* Estado pendiente (offline) */
+.hilo.pendiente { border-left: 3px solid var(--pendiente); opacity: 0.85; }
+.comentario.pendiente { border-left: 3px solid var(--pendiente); opacity: 0.85; }
+
+.badge-pendiente {
+  display: inline-block;
+  font-size: 0.72rem;
+  color: var(--pendiente);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+/* Animación al eliminar */
+.hilo.eliminando, .comentario.eliminando {
+  opacity: 0;
+  transform: scaleY(0.8);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hilo-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.hilo-meta { flex: 1; }
+.autor-nombre { display: block; font-size: 0.9rem; font-weight: 700; color: var(--ink); }
+.tiempo { font-size: 0.75rem; color: var(--muted); }
+
+.btn-eliminar-hilo, .btn-eliminar-com {
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  border-radius: var(--radio-sm);
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s, background 0.15s;
+}
+.btn-eliminar-hilo:hover, .btn-eliminar-com:hover {
+  color: var(--peligro);
+  background: #fdecea;
+}
+
+.hilo-texto {
+  font-size: 0.93rem;
+  line-height: 1.55;
+  color: var(--ink);
+  margin-bottom: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ── Reacciones ──────────────────────────────────────────────*/
+.reacciones-barra {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.btn-reaccion {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 32px;
+  padding: 4px 8px;
+  background: var(--fondo);
+  border: 1px solid var(--line);
+  border-radius: var(--radio-pill);
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
+}
+.btn-reaccion .emoji { font-size: 1rem; line-height: 1; }
+.btn-reaccion .count { font-weight: 700; font-size: 0.78rem; }
+.btn-reaccion:hover { background: var(--teal-light); border-color: var(--teal); color: var(--teal); }
+.btn-reaccion:active { transform: scale(0.93); }
+.btn-reaccion.activa { background: var(--teal-light); border-color: var(--teal); color: var(--teal); font-weight: 700; }
+
+/* ── Sección comentarios ─────────────────────────────────────*/
+.seccion-comentarios { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 2px; }
+
+.btn-ver-comentarios {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--tap-min);
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--teal);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-ver-comentarios:hover { text-decoration: underline; }
+
+.lista-comentarios { display: flex; flex-direction: column; gap: 8px; padding: 10px 0 6px; }
+.lista-comentarios.oculto { display: none; }
+
+/* ── Comentario ──────────────────────────────────────────────*/
+.comentario {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--fondo);
+  border-radius: var(--radio-sm);
+  animation: fadeIn 0.15s ease;
+}
+
+.comentario-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.comentario-meta { flex: 1; }
+.comentario-texto { font-size: 0.88rem; line-height: 1.5; color: var(--ink); word-break: break-word; }
+
+/* ── Form comentario ─────────────────────────────────────────*/
+.form-comentario {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.input-comentario {
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: var(--radio-pill);
+  padding: 10px 14px;
+  font: inherit;
+  /* font-size >= 16px para evitar zoom en iOS */
+  font-size: max(16px, 0.88rem);
+  color: var(--ink);
+  background: var(--fondo);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  min-height: var(--tap-min);
+}
+.input-comentario:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(14, 116, 144, 0.1);
+  background: var(--surface);
+}
+
+.btn-enviar-com {
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--teal);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  font-size: 1rem;
+  cursor: pointer;
+  flex: 0 0 auto;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, transform 0.1s;
+}
+.btn-enviar-com:hover { background: var(--teal-dark); }
+.btn-enviar-com:active { transform: scale(0.93); }
+
+/* ── Estados vacíos y de carga ───────────────────────────────*/
+.cargando-texto, .sin-contenido, .error-texto {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding: 32px 16px;
+  line-height: 1.6;
+}
+.error-texto { color: var(--peligro); }
+
+/* ─────────────────────────────────────────────────────────────
+   TABLET / DESKTOP (≥ 600px)
+   ───────────────────────────────────────────────────────────── */
+@media (min-width: 600px) {
+  body {
+    background: linear-gradient(135deg, #e8f4f8 0%, #f5fafc 60%, #e8f2ee 100%);
+    padding: 24px 16px;
+    align-items: flex-start;
+  }
+
+  .app-shell {
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    box-shadow: 0 12px 40px rgba(14, 116, 144, 0.12);
+    overflow: hidden;
+    min-height: auto;
+  }
+
+  .app-header { border-radius: 0; }
+
+  .foro-main { padding: 18px; }
+
+  .hilo, .caja-publicar { padding: 18px; }
+
+  .btn-reaccion { font-size: 0.82rem; }
+
+  /* En desktop el panel de notificaciones es más alto */
+  .panel-notif { max-height: 500px; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   iOS ESPECÍFICO
+   Ajustes para Safari y PWA en iPhone/iPad
+   ───────────────────────────────────────────────────────────── */
+@supports (-webkit-touch-callout: none) {
+  /* Inputs sin borde redondeado extra de iOS */
+  input, textarea { -webkit-appearance: none; border-radius: var(--radio-sm); }
+
+  /* Botón sin estilo default de Safari */
+  button { -webkit-appearance: none; }
+
+  /* Scroll nativo en iOS dentro de contenedores */
+  .lista-notif, .lista-hilos { -webkit-overflow-scrolling: touch; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   ACCESIBILIDAD — movimiento reducido
+   ───────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   DARK MODE — respeta preferencia del sistema
+   ───────────────────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #1a2530;
+    --fondo: #111c24;
+    --ink: #e8f0f5;
+    --muted: #7a9aaa;
+    --line: #253545;
+    --shadow-card: 0 1px 4px rgba(0,0,0,0.3);
+    --teal-light: #0e3040;
+  }
+
+  .input-nuevo-hilo, .input-comentario {
+    background: #1a2530;
+    color: var(--ink);
+    border-color: var(--line);
+  }
+
+  .comentario { background: #15212c; }
+
+  .btn-reaccion { background: #15212c; border-color: var(--line); color: var(--muted); }
+  .btn-reaccion:hover, .btn-reaccion.activa { background: var(--teal-light); }
+
+  .panel-notif { background: #1a2530; border-color: var(--line); }
+  .notif-item.no-leida { background: #0e3040; }
+}

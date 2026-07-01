@@ -1,0 +1,11 @@
+{
+  "name": "foro-explorarte",
+  "version": "1.0.0",
+  "description": "Módulo de Foro Comunitario para ExplorArte — con soporte offline, reacciones y notificaciones.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/smoke-test.js"
+  },
+  "license": "MIT"
+}

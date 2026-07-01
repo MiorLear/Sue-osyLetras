@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0e7490" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <title>Foro — ExplorArte</title>
+    <link rel="stylesheet" href="css/foro.css" />
+  </head>
+  <body>
+
+    <!-- Banner offline — se inyecta y controla desde offline.js -->
+
+    <!-- ── App Shell ───────────────────────────────────────── -->
+    <div class="app-shell">
+
+      <!-- Header sticky -->
+      <header class="app-header">
+        <div class="header-left">
+          <button class="btn-back" aria-label="Volver">&#8592;</button>
+          <div class="header-info">
+            <p class="app-name">ExplorArte</p>
+            <h1 class="header-title">Comunidad</h1>
+          </div>
+        </div>
+        <div class="notif-wrapper">
+          <button class="btn-notif" id="btnNotif" aria-label="Notificaciones" aria-haspopup="true">
+            🔔
+            <span class="badge-notif" id="badgeNotif" style="display:none">0</span>
+          </button>
+          <!-- Panel de notificaciones desplegable -->
+          <div class="panel-notif" id="panelNotif" role="dialog" aria-label="Notificaciones">
+            <div class="panel-notif-header">
+              <h2>Notificaciones</h2>
+            </div>
+            <div class="lista-notif" id="listaNotif">
+              <p class="sin-notif">Cargando...</p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Contenido principal -->
+      <main class="foro-main">
+
+        <!-- ── Caja para publicar ─────────────────────────── -->
+        <section class="caja-publicar" aria-label="Nueva publicación">
+          <div class="publicar-inner">
+            <div class="avatar"
+              aria-hidden="true"
+              id="avatarPublicar">MA</div>
+            <div class="publicar-campo">
+              <textarea
+                id="inputNuevoHilo"
+                class="input-nuevo-hilo"
+                placeholder="Compartí algo con la comunidad..."
+                maxlength="1000"
+                rows="2"
+                aria-label="Nueva publicación"
+              ></textarea>
+              <div class="publicar-footer">
+                <span class="contador-chars" id="contadorChars">0/1000</span>
+                <button class="btn-publicar" id="btnPublicar">Publicar</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── Lista de hilos ─────────────────────────────── -->
+        <section class="seccion-hilos" aria-label="Publicaciones del foro">
+          <div class="lista-hilos" id="listaHilos">
+            <p class="cargando-texto">Cargando publicaciones...</p>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <!-- offline.js primero porque foro.js depende de window.offlineManager -->
+    <script src="js/offline.js"></script>
+    <script src="js/foro.js"></script>
+  </body>
+</html>
