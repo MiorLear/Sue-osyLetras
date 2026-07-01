@@ -1,23 +1,17 @@
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import type { ToolsContent } from '@explorarte/shared';
 import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
 import { GradientHeader } from '@/components/gradient-header';
 import { Icon, IconName } from '@/components/icon';
 import { Logo } from '@/components/logo';
 import { VideoPlaceholder } from '@/components/video-placeholder';
 import { colors } from '@/constants/theme';
+import { api } from '@/lib/api';
 
 const proximamente = () => Alert.alert('Próximamente disponible');
-
-const DESCARGABLES = ['Plantillas', 'Fichas de trabajo', 'Materiales de apoyo', 'Herramientas para facilitación'];
-
-const BIBLIOGRAFIA = [
-  'El cerebro del niño — Daniel J. Siegel y Tina Payne Bryson',
-  'Educar las emociones — Mireia Cabero',
-  'Emocionario — Cristina Núñez Pereira',
-  'La inteligencia emocional — Daniel Goleman',
-];
 
 function SectionCard({
   emoji,
@@ -77,6 +71,11 @@ function ActionButton({ label, icon }: { label: string; icon: IconName }) {
 
 export default function CajaDeHerramientasScreen() {
   const insets = useSafeAreaInsets();
+  const [tools, setTools] = useState<ToolsContent>({ downloadables: [], bibliography: [] });
+
+  useEffect(() => {
+    api.tools.get().then(setTools);
+  }, []);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -111,7 +110,7 @@ export default function CajaDeHerramientasScreen() {
 
         <SectionCard emoji="📥" title="Recursos descargables">
           <View style={{ gap: 8 }}>
-            {DESCARGABLES.map((item) => (
+            {tools.downloadables.map((item) => (
               <View
                 key={item}
                 style={{
@@ -153,7 +152,7 @@ export default function CajaDeHerramientasScreen() {
           title="Bibliografía recomendada"
           subtitle="Selección de lecturas para profundizar en bienestar emocional, desarrollo socioemocional y educación.">
           <View style={{ gap: 8 }}>
-            {BIBLIOGRAFIA.map((b) => (
+            {tools.bibliography.map((b) => (
               <View key={b} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <Icon name="book-open" size={15} color={colors.brand} />
                 <Text style={{ flex: 1, fontSize: 12.5, color: colors.textBody, lineHeight: 18 }}>{b}</Text>

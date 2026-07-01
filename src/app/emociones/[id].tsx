@@ -1,103 +1,14 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import type { EmotionDetail } from '@explorarte/shared';
 import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
 import { Icon } from '@/components/icon';
-import { colors, emotionById } from '@/constants/theme';
-
-interface EmotionContent {
-  description: string;
-  classroom: string;
-  questions: string[];
-  activities: string[];
-  stories: string[];
-}
-
-const emotionData: Record<string, EmotionContent> = {
-  alegria: {
-    description:
-      'La alegría es una emoción positiva que surge cuando algo bueno nos sucede o anticipamos algo agradable.',
-    classroom: 'Puede verse en risas, energía elevada, deseos de compartir con otros.',
-    questions: [
-      '¿Qué cosas te hacen sentir alegría?',
-      '¿Cómo compartes tu alegría con los demás?',
-      '¿Puedes recordar un momento muy feliz?',
-    ],
-    activities: ['Dibuja un momento feliz', 'Crea un mural de cosas que te alegran', 'Comparte una buena noticia con el grupo'],
-    stories: ['El Principito — Antoine de Saint-Exupéry', 'Pollyanna — Eleanor H. Porter'],
-  },
-  tristeza: {
-    description:
-      'La tristeza aparece ante una pérdida, decepción o cuando algo importante no sale como esperábamos.',
-    classroom: 'Puede verse en quietud, llanto, aislamiento o falta de energía.',
-    questions: [
-      '¿Qué haces cuando te sientes triste?',
-      '¿A quién buscas cuando estás triste?',
-      '¿Qué te ayuda a sentirte mejor?',
-    ],
-    activities: ['Carta a un amigo que está triste', 'Rincón de la calma', 'Dibuja lo que sientes hoy'],
-    stories: ['El árbol generoso — Shel Silverstein', 'La vasija agrietada (cuento popular)'],
-  },
-  enojo: {
-    description:
-      'El enojo surge cuando sentimos que algo es injusto o cuando algo importante para nosotros es amenazado.',
-    classroom: 'Puede verse en tensión muscular, voz elevada, dificultad para escuchar.',
-    questions: ['¿Qué te hace enojar?', '¿Qué haces con tu cuerpo cuando te enojas?', '¿Cómo te tranquilizas?'],
-    activities: ['Respiración del globo', 'El semáforo de las emociones', 'Botella de la calma'],
-    stories: ['¡Fernando Furioso! — Hiawyn Oram', 'Vaya rabieta — Mireille d’Allancé'],
-  },
-  miedo: {
-    description: 'El miedo nos alerta ante situaciones de peligro real o percibido, protegiéndonos.',
-    classroom: 'Puede verse en parálisis, llanto, evitar situaciones o buscar refugio.',
-    questions: ['¿A qué le tienes miedo?', '¿Qué haces cuando sientes miedo?', '¿Quién te ayuda cuando tienes miedo?'],
-    activities: ['Mapa de mis miedos', 'El cofre del valor', 'Dibuja un escudo protector'],
-    stories: ['Donde viven los monstruos — Maurice Sendak', 'El monstruo de colores — Anna Llenas'],
-  },
-  frustracion: {
-    description:
-      'La frustración aparece cuando no podemos lograr algo que queremos o cuando nos bloqueamos.',
-    classroom: 'Puede verse en rendirse rápido, reacciones impulsivas o dificultad para pedir ayuda.',
-    questions: [
-      '¿Cuándo te frustraste recientemente?',
-      '¿Qué hiciste?',
-      '¿Cómo puedes pedir ayuda cuando algo se te hace difícil?',
-    ],
-    activities: ['El paso a paso para no rendirme', 'Lista de pequeñas metas', 'Juego de intentarlo de nuevo'],
-    stories: ['La pequeña oruga glotona — Eric Carle', 'Lo que escuchó la mariquita (cuento de constancia)'],
-  },
-  verguenza: {
-    description:
-      'La vergüenza surge cuando sentimos que hemos fallado ante los demás o que no somos suficientes.',
-    classroom: 'Puede verse en evitar hablar, esconderse, no querer participar.',
-    questions: [
-      '¿Cuándo sentiste vergüenza?',
-      '¿Qué piensas de ti mismo en ese momento?',
-      '¿Qué te gustaría que los demás supieran?',
-    ],
-    activities: ['Mis cualidades en un espejo', 'Círculo de aprecio del grupo', 'Diario de mis logros'],
-    stories: ['Orejas de mariposa — Luisa Aguilar', 'El patito feo — Hans Christian Andersen'],
-  },
-  decepcion: {
-    description: 'La decepción ocurre cuando la realidad no cumple nuestras expectativas.',
-    classroom: 'Puede verse en resignación, tristeza tranquila, o pérdida de motivación.',
-    questions: ['¿Qué esperabas que pasara?', '¿Cómo te sentiste cuando no fue así?', '¿Qué aprendiste de eso?'],
-    activities: ['De la expectativa al aprendizaje', 'Caja de los planes B', 'Conversación sobre intentar otra vez'],
-    stories: ['Por cuatro esquinitas de nada — Jérôme Ruillier', 'El jardín curioso — Peter Brown'],
-  },
-  ansiedad: {
-    description: 'La ansiedad es una preocupación intensa ante situaciones futuras o inciertas.',
-    classroom: 'Puede verse en dificultad para concentrarse, nerviosismo, quejas físicas.',
-    questions: [
-      '¿Qué te preocupa mucho?',
-      '¿Qué pasa en tu cuerpo cuando te sientes ansioso?',
-      '¿Qué te ayuda a calmarte?',
-    ],
-    activities: ['Respiración 4-4-4', 'Frasco de las preocupaciones', 'Anclaje de los 5 sentidos'],
-    stories: ['Tranquilos — Lemniscates', 'Respira — Inês Castel-Branco'],
-  },
-};
+import { colors } from '@/constants/theme';
+import { api } from '@/lib/api';
 
 function Divider() {
   return <View style={{ height: 1, backgroundColor: colors.borderSoft, marginVertical: 18 }} />;
@@ -111,9 +22,14 @@ export default function EmotionDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const [emotion, setEmotion] = useState<EmotionDetail | null>(null);
 
-  const emotion = emotionById(id ?? '');
-  const data = id ? emotionData[id] : undefined;
+  useEffect(() => {
+    if (!id) return;
+    api.emotions.get(id).then(setEmotion);
+  }, [id]);
+
+  const data = emotion?.content;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>

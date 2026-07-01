@@ -1,10 +1,49 @@
 # Render Blueprint — ExplorArte (Sueños y Letras)
-# Despliega DOS demos estáticas desde este monorepo. Ambas corren contra el
-# cliente mock en memoria (sin backend), así que no requieren variables de entorno.
+# Despliega DOS demos estáticas (mock, sin backend) MÁS un backend real:
+# la API en Java (Spring Boot, mismo Dockerfile que usa docker-compose
+# localmente) y su base de datos Postgres. El backend real es útil como una
+# URL fija y siempre-disponible para apuntar mobile/web durante desarrollo,
+# sin depender de que la laptop de alguien esté prendida ni de túneles.
 #
 # Para publicar: en Render → New → Blueprint → conecta este repo.
-# Render detecta este archivo y crea ambos sitios automáticamente.
+# Render detecta este archivo y crea todo automáticamente.
+#
+# Plan gratuito — limitaciones a tener en cuenta:
+#   - El servicio web (API) se "duerme" tras 15 min sin tráfico; el primer
+#     request después de eso tarda ~30-60s en responder (cold start).
+#   - La base de datos gratuita de Render expira a los 30 días — hay que
+#     recrearla (o subir a un plan pago) para que no se borren los datos.
+databases:
+  - name: explorarte-db
+    plan: free
+    postgresMajorVersion: "16"
+
 services:
+  # --- API real en Java (Spring Boot) — mismo Dockerfile que docker-compose ---
+  - type: web
+    name: explorarte-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./api/Dockerfile
+    dockerContext: ./api
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: explorarte-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRATION_MINUTES
+        value: "1440"
+      # Contraseña de las cuentas de ejemplo en este backend compartido de
+      # equipo — documentada en COMO-EMPEZAR.md, no es un secreto real.
+      - key: SEED_USER_PASSWORD
+        value: explorarte-team-2026
+      - key: APP_CORS_ALLOWED_ORIGINS
+        value: https://explorarte-web.onrender.com,http://localhost:5173,http://localhost:8081,http://localhost:19006
+
+
   # --- Demo WEB (escritorio) — Vite + React, carpeta /web ---
   - type: web
     name: explorarte-web

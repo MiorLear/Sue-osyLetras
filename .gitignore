@@ -31,7 +31,15 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+
+# Java backend build output
+api/target/
+
+# Firebase CLI local deploy cache (not the config — firebase.json/.firebaserc are committed)
+.firebase/
+firebase-debug.log
 
 # typescript
 *.tsbuildinfo

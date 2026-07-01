@@ -1,7 +1,17 @@
 # Sueños y Letras 📚
 
 App móvil (React Native + Expo) de alfabetización infantil basada en módulos de emociones.
-Construida con **Expo SDK 56**, **Expo Router** (navegación por archivos), **react-native-svg** y **expo-linear-gradient**.
+Construida con **Expo SDK 54**, **Expo Router** (navegación por archivos), **react-native-svg** y **expo-linear-gradient**.
+
+> 🆕 **¿Es tu primera vez con este proyecto, en una computadora nueva?** Sigue
+> [`COMO-EMPEZAR.md`](./COMO-EMPEZAR.md) — guía paso a paso desde cero, sin dar por hecho que
+> conoces Docker, Java o Expo.
+>
+> 🧭 **¿Ya lo tienes corriendo y quieres saber cómo trabajamos como equipo?** Ve a
+> [`COMO-TRABAJAMOS.md`](./COMO-TRABAJAMOS.md) (arquitectura, cómo agregar una funcionalidad,
+> convenciones). Para el plan de despliegue a producción (Firebase Hosting + Cloud Run), ve a
+> [`DESPLIEGUE.md`](./DESPLIEGUE.md). Para cómo funciona (o funcionará) el acceso sin internet a
+> documentos y videos descargados, ve a [`OFFLINE.md`](./OFFLINE.md).
 
 ## Cómo levantar el proyecto
 
@@ -15,6 +25,64 @@ Luego:
 - **En tu teléfono (lo más fácil):** instala la app **Expo Go** (Android/iOS) y escanea el código QR que aparece en la terminal. Tu teléfono y la PC deben estar en la misma red Wi-Fi.
 - **Emulador Android:** presiona `a` en la terminal (requiere Android Studio configurado).
 - **Web (vista rápida):** presiona `w`.
+
+Por defecto, tanto mobile como web corren contra un **cliente mock en memoria** (sin backend,
+sin variables de entorno). Para conectarlos a la API real, sigue la siguiente sección.
+
+## Backend + web (Docker) — no necesitas instalar Java
+
+La API REST está hecha en **Java (Spring Boot)** y vive en [`api/`](./api). No necesitas tener
+Java, Maven ni PostgreSQL instalados — todo corre dentro de Docker.
+
+```bash
+cp .env.example .env      # solo la primera vez — los valores por defecto ya funcionan
+docker compose up --build
+```
+
+Esto levanta tres servicios:
+
+| Servicio | URL | Qué es |
+|---|---|---|
+| `web` | http://localhost:5173 | La app web (Vite), ya conectada a la API real |
+| `api` | http://localhost:8000 | La API Java, con datos de ejemplo precargados |
+| `api` (docs) | http://localhost:8000/swagger-ui.html | Explora y prueba cada endpoint sin leer una línea de Java |
+| `db` | localhost:5432 | PostgreSQL (Postgres), solo si necesitas conectarte con un cliente SQL |
+
+Cuentas de ejemplo precargadas por la API (misma contraseña para todas:
+`explorarte123`, o la que pongas en `SEED_USER_PASSWORD` dentro de `.env`):
+
+- `admin@explorarte.org` — administrador
+- `maria@ejemplo.com`, `ana@ejemplo.com`, `lucia@ejemplo.com`, `sofia@ejemplo.com` — docentes
+
+Comandos útiles (equivalentes a `docker compose ...`, agregados a `package.json`):
+
+```bash
+npm run dev:stack             # docker compose up --build
+npm run dev:stack:down        # apaga los contenedores
+npm run dev:stack:reset-db    # borra la base de datos y la vuelve a poblar desde cero
+npm run dev:stack:logs        # sigue los logs de todos los servicios
+```
+
+Ver [`api/README.md`](./api/README.md) para más detalle (hot reload, cómo resetear la BD, etc.).
+
+### Conectar mobile a la API real
+
+Mobile (Expo) sigue corriendo con `npm start`, **fuera** de Docker — así el teléfono puede
+conectarse directo a tu red vía QR, igual que hoy. Para que use la API real en vez del mock,
+copia `.env.example` a `.env` y ajusta:
+
+```bash
+# Si usas Expo Go en un teléfono físico, "localhost" no funciona — usa la IP
+# de tu PC en la red local (ej. http://192.168.1.23:8000). Si vas a probar en
+# el navegador o un emulador en la misma máquina, localhost sí funciona.
+EXPO_PUBLIC_API_URL=http://192.168.1.23:8000
+```
+
+Tanto mobile como web soportan además `EXPO_PUBLIC_API_MOCK_MODULES` /
+`VITE_API_MOCK_MODULES`: una lista separada por comas de módulos
+(`auth,emotions,posts,events,learning,tools,profile,misc,admin`) que se
+quedan en el mock aunque la URL de la API esté configurada — útil para seguir
+trabajando en una pantalla sin depender de que esa parte de la API ya esté lista.
 
 ## Demos en Render (sin backend)
 

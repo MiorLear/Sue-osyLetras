@@ -1,12 +1,15 @@
 import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { EVENT_COLORS } from '@explorarte/shared';
 import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
 import { GradientHeader } from '@/components/gradient-header';
 import { Icon, IconName } from '@/components/icon';
 import { Logo } from '@/components/logo';
 import { colors } from '@/constants/theme';
+import { api } from '@/lib/api';
 
 interface NavCard {
   emoji: string;
@@ -72,15 +75,62 @@ const CARDS: NavCard[] = [
   },
 ];
 
-const EVENTS = [
-  { group: 'Grupo 1', time: '10:00 AM', label: 'En 30 min', color: '#3DBFB8', urgent: true },
-  { group: 'Grupo 2', time: '2:00 PM', label: 'En 4h', color: '#7C3AED', urgent: false },
-  { group: 'Grupo 3', time: '4:30 PM', label: 'En 6h 30min', color: '#D97706', urgent: false },
-];
+interface DashboardEvent {
+  key: string;
+  group: string;
+  time: string;
+  label: string;
+  color: string;
+  urgent: boolean;
+}
+
+const fmtTime12 = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  const ap = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${ap}`;
+};
+
+const minutesUntil = (dateStr: string, hhmm: string) => {
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  const [h, mi] = hhmm.split(':').map(Number);
+  const target = new Date(y, mo - 1, d, h, mi).getTime();
+  return Math.round((target - Date.now()) / 60000);
+};
+
+const fmtCountdown = (minutes: number) => {
+  if (minutes <= 0) return 'Ahora';
+  if (minutes < 60) return `En ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest > 0 ? `En ${hours}h ${rest}min` : `En ${hours}h`;
+};
 
 export default function MainScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [firstName, setFirstName] = useState('');
+  const [events, setEvents] = useState<DashboardEvent[]>([]);
+
+  useEffect(() => {
+    api.profile.get().then((p) => setFirstName(p.name));
+    api.events.list().then((data) => {
+      const upcoming = data
+        .map((e) => ({ e, minutes: minutesUntil(e.date, e.startTime) }))
+        .filter(({ minutes }) => minutes > -60)
+        .sort((a, b) => a.minutes - b.minutes)
+        .slice(0, 3)
+        .map(({ e, minutes }) => ({
+          key: e.id,
+          group: e.title,
+          time: fmtTime12(e.startTime),
+          label: fmtCountdown(minutes),
+          color: EVENT_COLORS[e.type] ?? colors.brand,
+          urgent: minutes <= 30,
+        }));
+      setEvents(upcoming);
+    });
+  }, []);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -90,7 +140,7 @@ export default function MainScreen() {
           <View>
             <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12 }}>Sueños y Letras</Text>
             <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 15 }}>Bienvenida,</Text>
-            <Text style={{ color: '#fff', fontSize: 19, fontWeight: '800' }}>María Reneé</Text>
+            <Text style={{ color: '#fff', fontSize: 19, fontWeight: '800' }}>{firstName}</Text>
           </View>
         </View>
       </GradientHeader>
@@ -167,16 +217,16 @@ export default function MainScreen() {
               borderWidth: 1.5,
               borderColor: '#E4F4F3',
             }}>
-            {EVENTS.map((ev, i) => (
+            {events.map((ev, i) => (
               <View
-                key={ev.group}
+                key={ev.key}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
                   gap: 12,
                   paddingVertical: 12,
                   paddingHorizontal: 16,
-                  borderBottomWidth: i < EVENTS.length - 1 ? 1 : 0,
+                  borderBottomWidth: i < events.length - 1 ? 1 : 0,
                   borderBottomColor: '#F0F5F5',
                 }}>
                 <View style={{ width: 4, height: 36, borderRadius: 9, backgroundColor: ev.color }} />

@@ -7,6 +7,7 @@ import { GoogleIcon, Icon } from '@/components/icon';
 import { Logo } from '@/components/logo';
 import { Field, PrimaryButton } from '@/components/ui';
 import { colors } from '@/constants/theme';
+import { api, setAuthToken } from '@/lib/api';
 
 type View_ = 'main' | 'phone-number' | 'phone-otp';
 
@@ -24,6 +25,8 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const showBack = view !== 'main';
   const subtitle =
@@ -34,6 +37,45 @@ export default function LoginScreen() {
         : 'Código enviado a ' + phone;
 
   const goHome = () => router.replace('/main');
+
+  const handleEmailLogin = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await api.auth.login({ email, password });
+      await setAuthToken(result.token);
+      goHome();
+    } catch {
+      setError('Correo o contraseña incorrectos');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendCode = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await api.auth.requestOtp(phone);
+      setView('phone-otp');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await api.auth.verifyOtp(phone, otp);
+      await setAuthToken(result.token);
+      goHome();
+    } catch {
+      setError('Código incorrecto');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -114,7 +156,14 @@ export default function LoginScreen() {
                   </Text>
                 </Pressable>
               </View>
-              <PrimaryButton label="Iniciar sesión" onPress={goHome} disabled={!email || !password} />
+              {error ? (
+                <Text style={{ fontSize: 12.5, color: '#E53E3E', textAlign: 'center' }}>{error}</Text>
+              ) : null}
+              <PrimaryButton
+                label={loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+                onPress={handleEmailLogin}
+                disabled={!email || !password || loading}
+              />
             </>
           ) : null}
 
@@ -129,9 +178,9 @@ export default function LoginScreen() {
                 onChangeText={setPhone}
               />
               <PrimaryButton
-                label="Enviar código"
-                onPress={() => setView('phone-otp')}
-                disabled={phone.length < 8}
+                label={loading ? 'Enviando...' : 'Enviar código'}
+                onPress={handleSendCode}
+                disabled={phone.length < 8 || loading}
               />
             </>
           ) : null}
@@ -173,12 +222,15 @@ export default function LoginScreen() {
                   letterSpacing: 12,
                 }}
               />
+              {error ? (
+                <Text style={{ fontSize: 12.5, color: '#E53E3E', textAlign: 'center' }}>{error}</Text>
+              ) : null}
               <PrimaryButton
-                label="Verificar e iniciar sesión"
-                onPress={goHome}
-                disabled={otp.length < 6}
+                label={loading ? 'Verificando...' : 'Verificar e iniciar sesión'}
+                onPress={handleVerifyOtp}
+                disabled={otp.length < 6 || loading}
               />
-              <Pressable onPress={() => setView('phone-number')} style={{ alignItems: 'center', padding: 8 }}>
+              <Pressable onPress={handleSendCode} style={{ alignItems: 'center', padding: 8 }}>
                 <Text style={{ fontSize: 12.5, color: colors.textMuted }}>
                   ¿No recibiste el código? <Text style={{ color: colors.brand, fontWeight: '700' }}>Reenviar</Text>
                 </Text>
