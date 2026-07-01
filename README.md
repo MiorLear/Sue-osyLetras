@@ -1,11 +1,17 @@
 # Sueños y Letras 📚
 
 App móvil (React Native + Expo) de alfabetización infantil basada en módulos de emociones.
-Construida con **Expo SDK 56**, **Expo Router** (navegación por archivos), **react-native-svg** y **expo-linear-gradient**.
+Construida con **Expo SDK 54**, **Expo Router** (navegación por archivos), **react-native-svg** y **expo-linear-gradient**.
 
 > 🆕 **¿Es tu primera vez con este proyecto, en una computadora nueva?** Sigue
 > [`COMO-EMPEZAR.md`](./COMO-EMPEZAR.md) — guía paso a paso desde cero, sin dar por hecho que
 > conoces Docker, Java o Expo.
+>
+> 🧭 **¿Ya lo tienes corriendo y quieres saber cómo trabajamos como equipo?** Ve a
+> [`COMO-TRABAJAMOS.md`](./COMO-TRABAJAMOS.md) (arquitectura, cómo agregar una funcionalidad,
+> convenciones). Para el plan de despliegue a producción (Firebase Hosting + Cloud Run), ve a
+> [`DESPLIEGUE.md`](./DESPLIEGUE.md). Para cómo funciona (o funcionará) el acceso sin internet a
+> documentos y videos descargados, ve a [`OFFLINE.md`](./OFFLINE.md).
 
 ## Cómo levantar el proyecto
 

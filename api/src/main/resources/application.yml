@@ -20,7 +20,9 @@ spring:
     locations: classpath:db/migration
 
 server:
-  port: 8000
+  # Cloud Run injects PORT and requires the container to listen on it; local
+  # dev / docker-compose don't set PORT, so this still defaults to 8000.
+  port: ${PORT:8000}
 
 management:
   endpoints:
