@@ -42,6 +42,7 @@
     "typescript": "~5.9.2"
   },
   "scripts": {
+    "postinstall": "npm --prefix shared run build",
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
