@@ -7,6 +7,7 @@ import { GoogleIcon, Icon, IconName } from '@/components/icon';
 import { Logo } from '@/components/logo';
 import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
 import { colors, INSTITUCIONES } from '@/constants/theme';
+import { api, setAuthToken } from '@/lib/api';
 
 type Method = 'google' | 'phone' | 'email' | null;
 const TITLES = ['Crear cuenta', 'Verificar identidad', 'Tu información'];
@@ -28,8 +29,34 @@ export default function RegisterScreen() {
   const [lastname, setLastname] = useState('');
   const [institucion, setInstitucion] = useState('');
   const [ubicacion, setUbicacion] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const goHome = () => router.replace('/main');
+
+  const handleSendCode = async () => {
+    setLoading(true);
+    try {
+      await api.auth.requestOtp(phone);
+      setPhoneStep('otp');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateAccount = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await api.auth.register({ name, lastname, institucion, ubicacion, email, password, phone });
+      await setAuthToken(result.token);
+      goHome();
+    } catch {
+      setError('No se pudo crear la cuenta. Intenta de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const back = () => {
     if (step === 0) router.push('/login');
@@ -186,9 +213,9 @@ export default function RegisterScreen() {
               onChangeText={setPhone}
             />
             <PrimaryButton
-              label="Enviar código"
-              onPress={() => setPhoneStep('otp')}
-              disabled={phone.length < 8}
+              label={loading ? 'Enviando...' : 'Enviar código'}
+              onPress={handleSendCode}
+              disabled={phone.length < 8 || loading}
             />
           </>
         ) : null}
@@ -213,7 +240,7 @@ export default function RegisterScreen() {
             </Text>
             <OtpInput value={otp} onChange={setOtp} />
             <PrimaryButton label="Verificar código" onPress={() => setStep(2)} disabled={otp.length < 6} />
-            <Pressable onPress={() => setPhoneStep('number')} style={{ alignItems: 'center', padding: 8 }}>
+            <Pressable onPress={handleSendCode} style={{ alignItems: 'center', padding: 8 }}>
               <Text style={{ fontSize: 12.5, color: colors.textMuted }}>
                 ¿No recibiste el código?{' '}
                 <Text style={{ color: colors.brand, fontWeight: '700' }}>Reenviar</Text>
@@ -266,10 +293,13 @@ export default function RegisterScreen() {
               placeholder="Busca tu ubicación"
               onChange={setUbicacion}
             />
+            {error ? (
+              <Text style={{ fontSize: 12.5, color: '#E53E3E', textAlign: 'center' }}>{error}</Text>
+            ) : null}
             <PrimaryButton
-              label="Crear cuenta"
-              onPress={goHome}
-              disabled={!name || !lastname || !institucion || !ubicacion}
+              label={loading ? 'Creando cuenta...' : 'Crear cuenta'}
+              onPress={handleCreateAccount}
+              disabled={!name || !lastname || !institucion || !ubicacion || loading}
             />
           </>
         ) : null}

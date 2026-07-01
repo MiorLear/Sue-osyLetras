@@ -3,6 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
+    "@explorarte/shared": "file:./shared",
     "@expo/ui": "~56.0.18",
     "@react-native-community/datetimepicker": "9.1.0",
     "expo": "~56.0.12",
@@ -15,6 +16,7 @@
     "expo-linear-gradient": "~56.0.4",
     "expo-linking": "~56.0.14",
     "expo-router": "~56.2.11",
+    "expo-secure-store": "~56.0.4",
     "expo-splash-screen": "~56.0.10",
     "expo-status-bar": "~56.0.4",
     "expo-symbols": "~56.0.6",
@@ -42,7 +44,11 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "dev:stack": "docker compose up --build",
+    "dev:stack:down": "docker compose down",
+    "dev:stack:reset-db": "docker compose down -v && docker compose up --build",
+    "dev:stack:logs": "docker compose logs -f"
   },
   "private": true
 }

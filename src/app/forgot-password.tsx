@@ -7,6 +7,7 @@ import { Icon } from '@/components/icon';
 import { Logo } from '@/components/logo';
 import { Field, PrimaryButton } from '@/components/ui';
 import { colors } from '@/constants/theme';
+import { api } from '@/lib/api';
 import { OtpInput } from './register';
 
 type Tab = 'email' | 'phone';
@@ -22,9 +23,40 @@ export default function ForgotPasswordScreen() {
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [phoneStep, setPhoneStep] = useState<PhoneStep>('number');
+  const [loading, setLoading] = useState(false);
 
   const goLogin = () => router.push('/login');
   const showTabs = !emailSent && phoneStep !== 'success';
+
+  const handleSendEmail = async () => {
+    setLoading(true);
+    try {
+      await api.auth.forgotPassword(email);
+      setEmailSent(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendPhoneCode = async () => {
+    setLoading(true);
+    try {
+      await api.auth.requestOtp(phone);
+      setPhoneStep('otp');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyPhoneCode = async () => {
+    setLoading(true);
+    try {
+      await api.auth.verifyOtp(phone, otp);
+      setPhoneStep('success');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -73,9 +105,9 @@ export default function ForgotPasswordScreen() {
               onChangeText={setEmail}
             />
             <PrimaryButton
-              label="Enviar enlace de recuperación"
-              onPress={() => setEmailSent(true)}
-              disabled={!email.includes('@')}
+              label={loading ? 'Enviando...' : 'Enviar enlace de recuperación'}
+              onPress={handleSendEmail}
+              disabled={!email.includes('@') || loading}
             />
           </>
         ) : null}
@@ -105,9 +137,9 @@ export default function ForgotPasswordScreen() {
               onChangeText={setPhone}
             />
             <PrimaryButton
-              label="Enviar código"
-              onPress={() => setPhoneStep('otp')}
-              disabled={phone.length < 8}
+              label={loading ? 'Enviando...' : 'Enviar código'}
+              onPress={handleSendPhoneCode}
+              disabled={phone.length < 8 || loading}
             />
           </>
         ) : null}
@@ -132,11 +164,11 @@ export default function ForgotPasswordScreen() {
             </Text>
             <OtpInput value={otp} onChange={setOtp} />
             <PrimaryButton
-              label="Verificar código"
-              onPress={() => setPhoneStep('success')}
-              disabled={otp.length < 6}
+              label={loading ? 'Verificando...' : 'Verificar código'}
+              onPress={handleVerifyPhoneCode}
+              disabled={otp.length < 6 || loading}
             />
-            <Pressable onPress={() => setPhoneStep('number')} style={{ alignItems: 'center', padding: 8 }}>
+            <Pressable onPress={handleSendPhoneCode} style={{ alignItems: 'center', padding: 8 }}>
               <Text style={{ fontSize: 12.5, color: colors.textMuted }}>
                 ¿No recibiste el código?{' '}
                 <Text style={{ color: colors.brand, fontWeight: '700' }}>Reenviar</Text>

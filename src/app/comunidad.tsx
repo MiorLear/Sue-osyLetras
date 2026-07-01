@@ -1,68 +1,14 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import type { Post } from '@explorarte/shared';
 import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
 import { Icon } from '@/components/icon';
 import { brandGradient, colors } from '@/constants/theme';
-
-interface Comment {
-  user: string;
-  initials: string;
-  avatarBg: string;
-  time: string;
-  text: string;
-}
-interface Post {
-  id: number;
-  user: string;
-  handle: string;
-  verified: boolean;
-  time: string;
-  avatarBg: string;
-  module: string | null;
-  text: string;
-  likes: number;
-  liked: boolean;
-  reposts: number;
-  comments: Comment[];
-}
-
-const SEED: Post[] = [
-  {
-    id: 1, user: 'Maestra Ana', handle: '@ana_maestro', verified: true, time: 'hace 2h', avatarBg: '#7C3AED', module: 'alegria',
-    text: '¡Trabajamos la alegría con mi grupo! 🎉 Los niños aprendieron palabras nuevas: alegría, sonrisa, abrazo... ¿Cuál es su favorita? 📚',
-    likes: 12, liked: false, reposts: 2,
-    comments: [
-      { user: 'Coordinadora Lucía', initials: 'CL', avatarBg: '#D97706', time: '1h', text: "¡Qué maravilla! Mi grupo favoritó 'abrazo' 🤗" },
-      { user: 'Prof. Roberto', initials: 'PR', avatarBg: '#2B6CB0', time: '45min', text: 'Excelente trabajo Ana, se nota el progreso.' },
-    ],
-  },
-  {
-    id: 2, user: 'Coordinadora Lucía', handle: '@lucia_coord', verified: true, time: 'hace 5h', avatarBg: '#D97706', module: null,
-    text: 'Recordatorio: lectura grupal mañana a las 10:00 AM. ¡No olviden traer sus libros favoritos! 📖✨',
-    likes: 8, liked: false, reposts: 3,
-    comments: [{ user: 'Maestra Ana', initials: 'MA', avatarBg: '#7C3AED', time: '3h', text: '¡Ahí estaremos! 🙌' }],
-  },
-  {
-    id: 3, user: 'Prof. Roberto', handle: '@roberto_lee', verified: false, time: 'hace 8h', avatarBg: '#2B6CB0', module: 'enojo',
-    text: 'Conversamos sobre el enojo hoy. Es importante que los niños aprendan a reconocer y expresar esta emoción de forma sana. 💙',
-    likes: 15, liked: true, reposts: 5, comments: [],
-  },
-  {
-    id: 4, user: 'Mamá de Sofía', handle: '@familia_sofia', verified: false, time: 'hace 1d', avatarBg: '#DD6B20', module: 'alegria',
-    text: 'Mi hija no para de hablar de las historias que leyeron en clase. ¡Gracias por inspirar el amor por la lectura! ❤️',
-    likes: 24, liked: false, reposts: 7,
-    comments: [{ user: 'Maestra Ana', initials: 'MA', avatarBg: '#7C3AED', time: '20h', text: '¡Eso nos llena de alegría! 🥰' }],
-  },
-  {
-    id: 5, user: 'Director Carlos', handle: '@dir_carlos', verified: true, time: 'hace 2d', avatarBg: '#319795', module: null,
-    text: 'Orgulloso del equipo de Sueños y Letras. Cada día acercamos más letras a más niños. ¡Más letras, más libres! 🌟',
-    likes: 42, liked: false, reposts: 12, comments: [],
-  },
-];
+import { api } from '@/lib/api';
 
 const FILTERS = [
   { id: 'todos', label: 'Todos' },
@@ -92,38 +38,40 @@ export default function ComunidadExplorArteScreen() {
   const insets = useSafeAreaInsets();
   const { module } = useLocalSearchParams<{ module?: string }>();
 
-  const [posts, setPosts] = useState<Post[]>(SEED);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [filter, setFilter] = useState(module || 'todos');
   const [openThread, setOpenThread] = useState<number | null>(null);
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeText, setComposeText] = useState('');
 
-  const visible = useMemo(
-    () => (filter === 'todos' ? posts : posts.filter((p) => p.module === filter)),
-    [posts, filter],
-  );
+  useEffect(() => {
+    let active = true;
+    api.posts.list(filter === 'todos' ? undefined : filter).then((data) => {
+      if (active) setPosts(data);
+    });
+    return () => {
+      active = false;
+    };
+  }, [filter]);
 
-  const toggleLike = (id: number) =>
-    setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, liked: !p.liked, likes: p.liked ? p.likes - 1 : p.likes + 1 } : p)));
+  const toggleLike = async (id: number) => {
+    const updated = await api.posts.toggleLike(id);
+    setPosts((ps) => ps.map((p) => (p.id === id ? updated : p)));
+  };
 
-  const sendComment = (id: number) => {
+  const sendComment = async (id: number) => {
     const text = (drafts[id] || '').trim();
     if (!text) return;
-    setPosts((ps) =>
-      ps.map((p) =>
-        p.id === id ? { ...p, comments: [...p.comments, { user: 'María Reneé', initials: 'MR', avatarBg: '#3DBFB8', time: 'ahora', text }] } : p,
-      ),
-    );
+    const comment = await api.posts.addComment(id, { text });
+    setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, comments: [...p.comments, comment] } : p)));
     setDrafts((d) => ({ ...d, [id]: '' }));
   };
 
-  const submitPost = () => {
+  const submitPost = async () => {
     const text = composeText.trim();
     if (!text) return;
-    const np: Post = {
-      id: Date.now(), user: 'María Reneé', handle: '@maria_r', verified: false, time: 'ahora', avatarBg: '#3DBFB8', module: null, text, likes: 0, liked: false, reposts: 0, comments: [],
-    };
+    const np = await api.posts.create({ text, module: null });
     setPosts((ps) => [np, ...ps]);
     setComposeOpen(false);
     setComposeText('');
@@ -161,7 +109,7 @@ export default function ComunidadExplorArteScreen() {
       </LinearGradient>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 12, gap: 10 }} showsVerticalScrollIndicator={false}>
-        {visible.map((p) => {
+        {posts.map((p) => {
           const tag = p.module ? MODTAG[p.module] : null;
           const initials = p.user.split(' ').map((w) => w.charAt(0)).slice(0, 2).join('').toUpperCase();
           const threadOpen = openThread === p.id;

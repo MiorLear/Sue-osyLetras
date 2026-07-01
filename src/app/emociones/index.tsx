@@ -1,16 +1,24 @@
 import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import type { Emotion } from '@explorarte/shared';
 import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
 import { GradientHeader } from '@/components/gradient-header';
 import { Logo } from '@/components/logo';
 import { VideoPlaceholder } from '@/components/video-placeholder';
-import { colors, EMOTIONS } from '@/constants/theme';
+import { colors } from '@/constants/theme';
+import { api } from '@/lib/api';
 
 export default function BibliotecaDeEmocionesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [emotions, setEmotions] = useState<Emotion[]>([]);
+
+  useEffect(() => {
+    api.emotions.list().then(setEmotions);
+  }, []);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -40,7 +48,7 @@ export default function BibliotecaDeEmocionesScreen() {
         <VideoPlaceholder caption="Video de introducción – ¿Por qué es importante reconocer las emociones? (~1 minuto)" />
 
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-          {EMOTIONS.map((e) => (
+          {emotions.map((e) => (
             <Pressable
               key={e.id}
               onPress={() => router.push(`/emociones/${e.id}` as never)}

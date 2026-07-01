@@ -4,10 +4,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import type { CalEvent as ApiCalEvent } from '@explorarte/shared';
 import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
 import { Icon } from '@/components/icon';
 import { Select } from '@/components/ui';
 import { colors } from '@/constants/theme';
+import { api } from '@/lib/api';
 
 type ViewMode = 'día' | 'semana' | 'mes';
 type EventType = 'sesión' | 'tarea' | 'recordatorio' | 'evento';
@@ -36,7 +38,6 @@ const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 
 const TYPES: EventType[] = ['sesión', 'tarea', 'recordatorio', 'evento'];
 const REMINDERS = ['ninguno', '10 minutos antes', '30 minutos antes', '1 hora antes', '1 día antes'];
 
-const d = (m: number, day: number) => new Date(2026, m, day);
 const sameDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 const addDays = (date: Date, n: number) => {
@@ -51,6 +52,19 @@ const fromISO = (s: string) => {
   const [y, m, dd] = s.split('-').map(Number);
   return new Date(y, m - 1, dd);
 };
+
+// The API represents dates as "YYYY-MM-DD" strings; the screen's date-math
+// helpers above all work with JS Date objects, so convert at the boundary.
+const fromApiEvent = (e: ApiCalEvent): CalEvent => ({
+  id: e.id,
+  title: e.title,
+  type: e.type as EventType,
+  date: fromISO(e.date),
+  startTime: e.startTime,
+  endTime: e.endTime,
+  reminder: e.reminder,
+  completed: e.completed ?? undefined,
+});
 
 const TODAY = new Date(2026, 5, 4);
 
@@ -77,19 +91,16 @@ export default function CalendarScreen() {
 
   const [view, setView] = useState<ViewMode>('día');
   const [selDate, setSelDate] = useState(new Date(2026, 5, 4));
-  const [events, setEvents] = useState<CalEvent[]>([
-    { id: '1', title: 'Sesión de lectura Grupo 1', type: 'sesión', date: d(5, 4), startTime: '10:00', endTime: '11:00', reminder: '30 minutos antes' },
-    { id: '2', title: 'Preparar material del módulo', type: 'tarea', date: d(5, 4), startTime: '13:00', endTime: '13:30', reminder: 'ninguno', completed: false },
-    { id: '3', title: 'Actividad Grupo 2', type: 'sesión', date: d(5, 4), startTime: '14:00', endTime: '15:00', reminder: '10 minutos antes' },
-    { id: '4', title: 'Audiocuento con Grupo 3', type: 'sesión', date: d(5, 4), startTime: '16:30', endTime: '17:30', reminder: '1 hora antes' },
-    { id: '5', title: 'Reunión de coordinación', type: 'evento', date: d(5, 6), startTime: '09:00', endTime: '10:30', reminder: '1 día antes' },
-    { id: '6', title: 'Entregar informe mensual', type: 'tarea', date: d(5, 9), startTime: '15:00', endTime: '15:30', reminder: 'ninguno', completed: false },
-  ]);
+  const [events, setEvents] = useState<CalEvent[]>([]);
   const [modal, setModal] = useState<ModalMode>(null);
   const [selEvent, setSelEvent] = useState<CalEvent | null>(null);
   const [form, setForm] = useState<Form>(blankForm(new Date(2026, 5, 4)));
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    api.events.list().then((data) => setEvents(data.map(fromApiEvent)));
+  }, []);
 
   useEffect(() => () => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -126,32 +137,51 @@ export default function CalendarScreen() {
     });
     setModal('edit');
   };
-  const submitForm = () => {
+  const submitForm = async () => {
     if (!form.title.trim()) {
       showToast('Por favor ingresa un título');
       return;
     }
     if (modal === 'edit' && selEvent) {
-      setEvents((es) =>
-        es.map((e) =>
-          e.id === selEvent.id ? { ...e, title: form.title, type: form.type, date: fromISO(form.dateStr), startTime: form.startTime, endTime: form.endTime, reminder: form.reminder } : e,
-        ),
-      );
+      const updated = await api.events.update(selEvent.id, {
+        title: form.title,
+        type: form.type,
+        date: form.dateStr,
+        startTime: form.startTime,
+        endTime: form.endTime,
+        reminder: form.reminder,
+      });
+      setEvents((es) => es.map((e) => (e.id === selEvent.id ? fromApiEvent(updated) : e)));
       showToast('Evento actualizado correctamente');
     } else {
-      const ne: CalEvent = { id: Date.now().toString(), title: form.title, type: form.type, date: fromISO(form.dateStr), startTime: form.startTime, endTime: form.endTime, reminder: form.reminder, completed: false };
-      setEvents((es) => [...es, ne]);
+      const created = await api.events.create({
+        title: form.title,
+        type: form.type,
+        date: form.dateStr,
+        startTime: form.startTime,
+        endTime: form.endTime,
+        reminder: form.reminder,
+        completed: false,
+      });
+      setEvents((es) => [...es, fromApiEvent(created)]);
       showToast('Evento creado correctamente');
     }
     closeModal();
   };
-  const confirmDelete = () => {
-    if (selEvent) setEvents((es) => es.filter((e) => e.id !== selEvent.id));
+  const confirmDelete = async () => {
+    if (selEvent) {
+      await api.events.remove(selEvent.id);
+      setEvents((es) => es.filter((e) => e.id !== selEvent.id));
+    }
     closeModal();
     showToast('Evento eliminado');
   };
-  const toggleTask = (id: string) =>
-    setEvents((es) => es.map((e) => (e.id === id && e.type === 'tarea' ? { ...e, completed: !e.completed } : e)));
+  const toggleTask = async (id: string) => {
+    const current = events.find((e) => e.id === id);
+    if (!current || current.type !== 'tarea') return;
+    const updated = await api.events.update(id, { completed: !current.completed });
+    setEvents((es) => es.map((e) => (e.id === id ? fromApiEvent(updated) : e)));
+  };
 
   const dayEvents = events.filter((e) => sameDay(e.date, selDate));
 

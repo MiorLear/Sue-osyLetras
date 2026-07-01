@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,6 +10,7 @@ import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
 import { Icon } from '@/components/icon';
 import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
 import { brandGradient, colors, INSTITUCIONES } from '@/constants/theme';
+import { api, setAuthToken } from '@/lib/api';
 
 function SectionLabel({ children }: { children: string }) {
   return (
@@ -33,13 +34,25 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
 
   const [photo, setPhoto] = useState<string | null>(null);
-  const [name, setName] = useState('María Reneé');
-  const [lastname, setLastname] = useState('García López');
-  const [email, setEmail] = useState('maria@ejemplo.com');
-  const [phone, setPhone] = useState('+503 7000 1234');
-  const [institucion, setInstitucion] = useState('Colegio Americano');
-  const [ubicacion, setUbicacion] = useState('San Salvador');
+  const [name, setName] = useState('');
+  const [lastname, setLastname] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [institucion, setInstitucion] = useState('');
+  const [ubicacion, setUbicacion] = useState('');
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    api.profile.get().then((profile) => {
+      setPhoto(profile.photo ?? null);
+      setName(profile.name);
+      setLastname(profile.lastname);
+      setEmail(profile.email);
+      setPhone(profile.phone);
+      setInstitucion(profile.institucion);
+      setUbicacion(profile.ubicacion);
+    });
+  }, []);
 
   const initials = ((name.charAt(0) || '') + (lastname.charAt(0) || '')).toUpperCase();
 
@@ -53,9 +66,15 @@ export default function ProfileScreen() {
     if (!result.canceled) setPhoto(result.assets[0].uri);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    await api.profile.update({ name, lastname, email, phone, institucion, ubicacion, photo });
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
+  };
+
+  const handleLogout = async () => {
+    await setAuthToken(null);
+    router.replace('/login');
   };
 
   return (
@@ -221,7 +240,7 @@ export default function ProfileScreen() {
         </Pressable>
 
         <Pressable
-          onPress={() => router.replace('/login')}
+          onPress={handleLogout}
           style={{
             flexDirection: 'row',
             alignItems: 'center',
