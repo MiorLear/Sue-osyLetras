@@ -21,6 +21,7 @@ SueñosyLetras/
 |---|---|
 | Levantar el proyecto por primera vez | [`COMO-EMPEZAR.md`](./COMO-EMPEZAR.md) |
 | Entender el backend en Java (sin saber Java) | [`api/README.md`](./api/README.md) |
+| Conectar mobile a la API sin correr Docker local | [`COMO-EMPEZAR.md`](./COMO-EMPEZAR.md#opción-a-recomendada-usar-la-api-compartida-del-equipo-en-render) (API compartida en Render) |
 | Desplegar a producción (Firebase/Cloud Run) | [`DESPLIEGUE.md`](./DESPLIEGUE.md) |
 | Acceso offline a documentos/videos descargados | [`OFFLINE.md`](./OFFLINE.md) |
 | Ver qué endpoints existen y qué forma tienen | [`shared/openapi.yaml`](./shared/openapi.yaml) |

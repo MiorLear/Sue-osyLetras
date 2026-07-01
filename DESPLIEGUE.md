@@ -4,6 +4,13 @@ Este documento describe **cómo se va a hospedar el proyecto en producción**. T
 desplegado — esto es el plan de destino, para que cualquiera que trabaje en el proyecto sepa
 hacia dónde vamos y qué decisiones de diseño ya están tomadas pensando en esto.
 
+> **Esto no es lo mismo que la API de Render.** `render.yaml` ya despliega la API + Postgres en
+> Render como un **backend compartido de equipo para desarrollo** (para que mobile no dependa de
+> túneles ni de que la laptop de alguien esté prendida — ver `COMO-EMPEZAR.md`). Render es
+> práctico para desarrollo diario, pero el plan real de producción sigue siendo Firebase/Cloud
+> Run/Cloud SQL, descrito abajo — con dominio propio, sin cold-starts del plan gratuito, y sin
+> el límite de 30 días de la base de datos gratuita de Render.
+
 ## Resumen: qué va dónde
 
 "Hospedar todo en Firebase" en la práctica significa tres piezas de Google Cloud que se

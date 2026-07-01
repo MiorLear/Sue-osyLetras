@@ -115,8 +115,28 @@ Esto abre una pantalla en la terminal con un **código QR**. Tienes tres formas 
 ### Por defecto, mobile usa datos de ejemplo (no la API real)
 
 Así puedes empezar a ver la app de inmediato sin depender de que el backend esté corriendo.
-Para conectar mobile a la API real de Docker, edita el archivo `.env` que creaste en el paso 2
-y agrega tu **IP local**:
+Hay dos formas de conectarlo a datos reales — la primera no requiere que tengas nada corriendo
+en tu computadora:
+
+#### Opción A (recomendada): usar la API compartida del equipo en Render
+
+El equipo tiene una API ya desplegada en Render con una URL fija — no necesitas Docker
+corriendo en tu laptop ni preocuparte por tu red Wi-Fi. Solo edita tu `.env`:
+
+```
+EXPO_PUBLIC_API_URL=https://explorarte-api.onrender.com
+```
+
+> Cuentas de ejemplo en este backend compartido: mismas que las locales (ver arriba), pero con
+> la contraseña `explorarte-team-2026` (documentada también en `render.yaml`).
+>
+> ⚠️ Es un plan gratuito de Render: si nadie lo usó en un rato, el primer request tarda
+> ~30-60 segundos en responder (se estaba "durmiendo"). Es normal, solo espera.
+
+#### Opción B: usar tu propio backend local (Docker)
+
+Si prefieres correr tu propio backend (por ejemplo, para probar cambios que aún no subiste),
+sigue el paso 2 de arriba y edita `.env` con tu **IP local**:
 
 ```
 EXPO_PUBLIC_API_URL=http://TU-IP-LOCAL:8000
@@ -131,6 +151,36 @@ EXPO_PUBLIC_API_URL=http://TU-IP-LOCAL:8000
 
 Después de editar `.env`, para que el cambio se aplique detén `npm start` (Ctrl+C) y vuelve a
 correrlo.
+
+##### Si tu teléfono no puede llegar a tu IP local (Opción B)
+
+A veces el firewall de Windows bloquea conexiones entrantes al puerto 8000 aunque el teléfono
+esté en la misma Wi-Fi (te va a salir `Network request failed` en la app). Antes de pelear con
+esto, considera si la **Opción A** (Render) ya te resuelve el problema — es la razón por la que
+existe. Si de verdad necesitas tu backend local:
+
+1. **Abrir el puerto en el firewall, solo para ti** (PowerShell como administrador):
+   ```powershell
+   New-NetFirewallRule -DisplayName "ExplorArte API dev (8000)" -Direction Inbound -LocalPort 8000 -Protocol TCP -Action Allow -Profile Any
+   ```
+   Esto no afecta a nadie más del equipo — cada persona lo corre una vez en su propia máquina
+   si le hace falta.
+
+2. **Un túnel público (ngrok/cloudflared)** — funciona desde cualquier red (hasta datos
+   móviles), sin tocar el firewall, pero es más trabajo que usar la Opción A:
+   ```bash
+   ngrok http 8000
+   ```
+   Te da una URL como `https://xxxx.ngrok-free.app` — ponla en `EXPO_PUBLIC_API_URL` en vez de
+   la IP local.
+
+   > ⚠️ **Esto expone tu API local a todo internet.** Antes de usar un túnel público, **cambia
+   > `JWT_SECRET` y `SEED_USER_PASSWORD` en tu `.env`** a valores random (no los que vienen en
+   > `.env.example`, que están documentados en este mismo README) — si no, cualquiera que
+   > encuentre la URL del túnel puede entrar como admin con la contraseña de ejemplo. Después de
+   > cambiarlos, resetea la base de datos (`docker compose down -v && docker compose up --build`)
+   > para que las cuentas de ejemplo se vuelvan a crear con la contraseña nueva. Cuando termines
+   > de probar, cierra el túnel (Ctrl+C) — no lo dejes corriendo.
 
 ---
 
