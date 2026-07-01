@@ -1,0 +1,11 @@
+{
+  "id": "perfil-usuario",
+  "fullName": "",
+  "email": "",
+  "phone": "",
+  "role": "",
+  "location": "",
+  "bio": "",
+  "avatar": "",
+  "updatedAt": null
+}

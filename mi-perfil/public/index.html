@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mi Perfil</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <!-- Panel principal: contiene la informacion visible del perfil y el formulario editable. -->
+      <section class="profile-panel" aria-labelledby="page-title">
+        <header class="profile-header">
+          <!-- Si el usuario aun no tiene foto, mostramos iniciales como respaldo visual. -->
+          <div class="avatar-wrapper">
+            <img id="avatarPreview" class="avatar" alt="Imagen de perfil" />
+            <span id="avatarInitials" class="avatar-initials">RV</span>
+          </div>
+
+          <div class="header-text">
+            <p class="eyebrow">Cuenta personal</p>
+            <h1 id="page-title">Mi Perfil</h1>
+            <p id="lastUpdated" class="muted">Cargando informacion...</p>
+          </div>
+        </header>
+
+        <div id="statusMessage" class="status-message" role="status" aria-live="polite"></div>
+
+        <!-- El formulario se llena desde /api/profile y al guardar envia un PUT al backend. -->
+        <form id="profileForm" class="profile-form">
+          <label>
+            Nombre completo
+            <input id="fullName" name="fullName" type="text" autocomplete="name" required />
+          </label>
+
+          <label>
+            Correo electronico
+            <input id="email" name="email" type="email" autocomplete="email" required />
+          </label>
+
+          <label>
+            Telefono
+            <input id="phone" name="phone" type="tel" autocomplete="tel" required />
+          </label>
+
+          <label>
+            Tipo de usuario
+            <input id="role" name="role" type="text" required />
+          </label>
+
+          <label class="full-row">
+            Ubicacion
+            <input id="location" name="location" type="text" autocomplete="address-level2" required />
+          </label>
+
+          <label class="full-row">
+            Descripcion
+            <textarea id="bio" name="bio" maxlength="240" rows="4"></textarea>
+          </label>
+
+          <label class="full-row file-control">
+            Imagen de perfil
+            <input id="avatarInput" name="avatar" type="file" accept="image/*" />
+          </label>
+
+          <div class="actions full-row">
+            <button type="submit" class="primary-button">Guardar cambios</button>
+            <button id="logoutButton" type="button" class="secondary-button">Cerrar sesion</button>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>

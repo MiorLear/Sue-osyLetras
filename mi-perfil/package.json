@@ -1,0 +1,19 @@
+{
+  "name": "mi-perfil-app",
+  "version": "1.0.0",
+  "description": "Modulo de Mi Perfil con backend en Node.js y frontend web responsive.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/smoke-test.js"
+  },
+  "keywords": [
+    "perfil",
+    "backend",
+    "node",
+    "web",
+    "mobile"
+  ],
+  "author": "",
+  "license": "MIT"
+}
