@@ -96,6 +96,14 @@ npm install
 npm start
 ```
 
+> ⚠️ **Este proyecto usa Expo SDK 54 a propósito** (no la versión más nueva). Las apps Expo Go
+> que se descargan de Play Store / App Store van un paso atrás de las versiones más recientes
+> del SDK — si alguien sube el proyecto a un SDK más nuevo, la mayoría del equipo va a ver el
+> error `Incompatible SDK version` al escanear el QR y no va a poder probar la app. Si en algún
+> momento hay que actualizar el SDK, primero confirma en [expo.dev/changelog](https://expo.dev/changelog)
+> qué versión ya está disponible en las tiendas para todos, y usa `npx expo install --fix`
+> después de cambiar la versión de `expo` en `package.json` (no edites cada paquete a mano).
+
 Esto abre una pantalla en la terminal con un **código QR**. Tienes tres formas de verla:
 
 - **En tu teléfono (lo más fácil):** instala la app **Expo Go** (búscala en App Store / Play
@@ -127,6 +135,14 @@ correrlo.
 ---
 
 ## Problemas comunes
+
+**Expo Go dice "Incompatible SDK version" al escanear el QR**
+Esto pasa cuando el proyecto usa una versión de Expo SDK más nueva que la que trae la app
+Expo Go que bajaste de Play Store/App Store (las tiendas van un paso atrás de los lanzamientos
+del SDK). No es que tengas una versión vieja — es que la tienda todavía no tiene la nueva.
+Este proyecto ya está fijado en **SDK 54**, que sí está disponible en ambas tiendas, así que
+si ves este error, probablemente tu `node_modules` está desactualizado: corre `npm install`
+de nuevo y vuelve a intentar `npm start`.
 
 **"Docker Desktop no abre" / "no reconoce el comando `docker`"**
 Abre la aplicación Docker Desktop manualmente y espera a que el ícono de la ballena en la
