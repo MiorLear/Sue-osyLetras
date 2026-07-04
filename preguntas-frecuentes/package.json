@@ -1,0 +1,11 @@
+{
+  "name": "preguntas-frecuentes-explorarte",
+  "version": "1.0.0",
+  "description": "Módulo de Preguntas Frecuentes con acordeón animado y asistente de IA para ExplorArte.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/smoke-test.js"
+  },
+  "license": "MIT"
+}

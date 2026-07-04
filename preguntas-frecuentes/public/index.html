@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Preguntas Frecuentes</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="faq-panel" aria-labelledby="page-title">
+
+        <!-- ── Encabezado ────────────────────────────────── -->
+        <header class="faq-header">
+          <div class="header-icon" aria-hidden="true">?</div>
+          <div class="header-text">
+            <p class="eyebrow">Centro de ayuda</p>
+            <h1 id="page-title">Preguntas Frecuentes</h1>
+            <p class="muted">Encontrá respuestas rápidas sobre el uso de ExplorArte.</p>
+          </div>
+        </header>
+
+        <!-- ── Lista de FAQs (acordeón) ──────────────────── -->
+        <section class="faqs-section" aria-label="Preguntas frecuentes">
+          <div id="faqList" class="faq-list" role="list">
+            <p class="loading-text" id="faqLoading">Cargando preguntas...</p>
+          </div>
+        </section>
+
+        <!-- ── Asistente ───────────────────────────────────
+             Sin ícono de robot para mantener el tono formal
+             de una app institucional para maestras.         -->
+        <section class="chat-section" aria-label="Asistente virtual">
+          <div class="chat-header">
+            <div>
+              <h2 class="chat-title">¿Tenés alguna otra pregunta?</h2>
+              <p class="muted">Nuestro asistente puede ayudarte con dudas específicas sobre ExplorArte.</p>
+            </div>
+          </div>
+
+          <div id="chatMessages" class="chat-messages" role="log" aria-live="polite" aria-label="Conversación con el asistente">
+            <!-- Mensaje de bienvenida — tono formal, sin emoji de robot -->
+            <div class="chat-bubble asistente">
+              ¡Hola! Soy el asistente de ExplorArte. ¿Cómo puedo ayudarte?
+            </div>
+          </div>
+
+          <div class="chat-input-area">
+            <input
+              id="chatInput"
+              class="chat-input"
+              type="text"
+              placeholder="Escribí tu pregunta aquí..."
+              maxlength="500"
+              autocomplete="off"
+              aria-label="Escribí tu pregunta"
+            />
+            <button id="chatSendBtn" class="chat-send-btn" aria-label="Enviar pregunta">
+              Enviar
+            </button>
+          </div>
+
+          <div id="chatStatus" class="chat-status" role="status" aria-live="polite"></div>
+        </section>
+
+      </section>
+    </main>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>

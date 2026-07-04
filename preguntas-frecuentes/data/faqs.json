@@ -1,0 +1,110 @@
+[
+  {
+    "id": 1,
+    "pregunta": "¿Qué es ExplorArte?",
+    "respuesta": "ExplorArte es una metodología creada por Sueños y Letras para fortalecer la salud mental y el bienestar emocional en comunidades educativas a través de la lectura, el arte y experiencias participativas.",
+    "categoria": "general"
+  },
+  {
+  "id": 2,
+  "pregunta": "¿Qué pilares fundamentales tiene ExplorArte?",
+  "respuesta": {
+    "tipo": "secciones",
+    "contenido": [
+      {
+        "titulo": "Salud mental",
+        "texto": "Promovemos herramientas que fortalecen el bienestar psicológico y emocional."
+      },
+      {
+        "titulo": "Desarrollo emocional",
+        "texto": "Facilitamos espacios para reconocer, comprender y expresar emociones de manera saludable."
+      },
+      {
+        "titulo": "Desarrollo social",
+        "texto": "Fortalecemos habilidades que favorecen relaciones positivas y comunidades más empáticas."
+      }
+    ]
+  },
+  "categoria": "general"
+},
+{
+  "id": 3,
+  "pregunta": "¿Cómo funciona?",
+  "respuesta": {
+    "tipo": "secciones",
+    "contenido": [
+      {
+        "titulo": "1. Reconocer",
+        "texto": "Comprender emociones, pensamientos y comportamientos."
+      },
+      {
+        "titulo": "2. Expresar",
+        "texto": "Utilizar la lectura, el arte y el diálogo para expresar experiencias y emociones."
+      },
+      {
+        "titulo": "3. Conectar",
+        "texto": "Fortalecer la empatía, la convivencia y las relaciones saludables."
+      },
+      {
+        "titulo": "4. Crecer",
+        "texto": "Desarrollar herramientas para el bienestar personal y comunitario."
+      }
+    ]
+  },
+  "categoria": "general"
+},
+  {
+    "id": 4,
+    "pregunta": "¿Cómo accedo a los módulos de contenido?",
+    "respuesta": "Desde la pantalla de inicio, tocá el botón Ver Módulos. Ahí verás todos los módulos disponibles. Al seleccionar uno, podrás acceder a sus PDFs, videos y audiocuentos organizados por secciones.",
+    "categoria": "modulos"
+  },
+  {
+    "id": 5,
+    "pregunta": "¿Qué tipos de archivos están disponibles en los módulos?",
+    "respuesta": "Cada módulo puede contener PDFs, videos (MP4, MOV, AVI) y audiocuentos. Los materiales están organizados en secciones como Introducción, Historias, Actividades Creativas y Evaluación.",
+    "categoria": "modulos"
+  },
+  {
+    "id": 6,
+    "pregunta": "¿Puedo descargar los materiales para usarlos sin conexión?",
+    "respuesta": "Algunos materiales están disponibles para descarga directa desde el módulo. Para visualizar videos o contenido multimedia en tiempo real sí necesitás conexión a internet.",
+    "categoria": "modulos"
+  },
+  {
+    "id": 7,
+    "pregunta": "¿Cómo funciona el foro de la comunidad?",
+    "respuesta": "El foro es un espacio donde las maestras pueden compartir experiencias, publicar comentarios sobre los módulos y mantenerse al tanto de avisos de la coordinación. Podés acceder desde el botón Ver Foro en la pantalla de inicio.",
+    "categoria": "comunidad"
+  },
+  {
+    "id": 8,
+    "pregunta": "¿Cómo edito mi información de perfil?",
+    "respuesta": "Desde la barra inferior de la app tocá Mi Perfil. Ahí podés actualizar tu nombre, correo, teléfono y foto de perfil. Recordá presionar Guardar cambios cuando termines.",
+    "categoria": "perfil"
+  },
+  {
+    "id": 9,
+    "pregunta": "¿Qué es el Panel de Administración?",
+    "respuesta": "Es un área exclusiva para administradores donde se gestiona el contenido multimedia de los módulos emocionales. Desde ahí se suben PDFs, videos, documentos e imágenes que luego ven las maestras en la app.",
+    "categoria": "admin"
+  },
+  {
+    "id": 10,
+    "pregunta": "¿Cómo cierro sesión en la app?",
+    "respuesta": "Ve a la sección Mi Perfil desde el menú inferior y desplázate hasta el final. Encontrarás el botón Cerrar sesión. Al confirmarlo, saldrás de tu cuenta de forma segura.",
+    "categoria": "cuenta"
+  },
+  {
+    "id": 11,
+    "pregunta": "¿Qué hago si un material no carga correctamente?",
+    "respuesta": "Primero verificá tu conexión a internet. Si el problema persiste, intentá cerrar y volver a abrir la sección. Si sigue fallando, podés reportarlo desde la sección de Preguntas Frecuentes usando el asistente.",
+    "categoria": "soporte"
+  },
+  {
+    "id": 12,
+    "pregunta": "¿Con quién me contacto si tengo un problema técnico?",
+    "respuesta": "Podés escribirle directamente al equipo de soporte de ExplorArte usando el asistente en esta sección o contactando a tu coordinadora, quien puede escalar el problema al equipo técnico.",
+    "categoria": "soporte"
+  }
+]

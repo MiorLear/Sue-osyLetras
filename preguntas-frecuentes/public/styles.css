@@ -1,0 +1,391 @@
+/* css/styles.css — Preguntas Frecuentes | ExplorArte
+   ─────────────────────────────────────────────────────────────
+   Optimizado para:
+   · iOS (Safari, PWA, notch/Dynamic Island, safe-area)
+   · Android (Chrome, WebView, tap targets)
+   · Web desktop (hover states, card centrada)
+   · Dark mode automático
+   · prefers-reduced-motion para accesibilidad
+   ───────────────────────────────────────────────────────────── */
+
+:root {
+  color-scheme: light;
+  --background: #f3f6f8;
+  --surface: #ffffff;
+  --ink: #1e2933;
+  --muted: #637083;
+  --line: #d8e0e7;
+  --accent: #146c94;
+  --accent-dark: #0f526f;
+  --accent-light: #e7f2f6;
+  --success: #0f766e;
+  --danger: #b42318;
+  --sidebar: #f6fafb;
+  --shadow: 0 18px 40px rgba(20, 43, 64, 0.12);
+  --radio: 8px;
+
+  --bubble-user: #146c94;
+  --bubble-user-text: #ffffff;
+  --bubble-bot: #f0f4f7;
+  --bubble-bot-text: #1e2933;
+
+  /* Safe area iOS (notch, home bar) */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  /* Tap target mínimo Apple/Google: 44px */
+  --tap-min: 44px;
+}
+
+/* ── Reset ───────────────────────────────────────────────────*/
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  /* Evita que iOS agrande el texto automáticamente */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh; /* dvh es más preciso que vh en móvil */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--ink);
+  background: linear-gradient(135deg, #eef4f8 0%, #f8fafc 55%, #e9f1ee 100%);
+  /* Scroll nativo suave en iOS */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Shell ───────────────────────────────────────────────────*/
+.app-shell {
+  width: min(820px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 42px 0;
+  /* Safe area lateral para iPhone en landscape */
+  padding-left: max(0px, var(--safe-left));
+  padding-right: max(0px, var(--safe-right));
+}
+
+.faq-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radio);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+/* ── Encabezado ──────────────────────────────────────────────*/
+.faq-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 28px 30px;
+  background: var(--sidebar);
+  border-bottom: 1px solid var(--line);
+}
+
+.header-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  border-radius: 50%;
+  background: var(--accent-light);
+  color: var(--accent);
+  font-size: 1.8rem;
+  font-weight: 700;
+  user-select: none;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+h1 { margin: 0 0 4px; font-size: clamp(1.4rem, 3vw, 2rem); line-height: 1.1; }
+.muted { margin: 0; color: var(--muted); font-size: 0.9rem; }
+
+/* ── Sección FAQs ────────────────────────────────────────────*/
+.faqs-section {
+  padding: 28px 30px;
+  border-bottom: 1px solid var(--line);
+}
+
+.faq-list { display: flex; flex-direction: column; gap: 10px; }
+
+.loading-text {
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 20px 0;
+}
+
+/* ── Acordeón ────────────────────────────────────────────────*/
+.faq-item {
+  border: 1px solid var(--line);
+  border-radius: var(--radio);
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+.faq-item:hover { box-shadow: 0 2px 12px rgba(20, 43, 64, 0.08); }
+
+.faq-question {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  /* Tap target mínimo 44px */
+  min-height: var(--tap-min);
+  padding: 14px 18px;
+  background: none;
+  border: none;
+  text-align: left;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  /* Sin highlight azul en Android/iOS al tocar */
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+.faq-question:hover { background: var(--accent-light); }
+.faq-question:active { background: var(--accent-light); }
+
+.faq-arrow {
+  flex: 0 0 20px;
+  font-size: 0.75rem;
+  color: var(--accent);
+  transition: transform 0.25s ease;
+  user-select: none;
+  pointer-events: none;
+}
+
+.faq-item.abierto .faq-arrow { transform: rotate(180deg); }
+.faq-item.abierto .faq-question { background: var(--accent-light); color: var(--accent-dark); }
+
+/* Animación del acordeón */
+.faq-answer {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.3s ease, opacity 0.25s ease, padding 0.25s ease;
+  padding: 0 18px;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--muted);
+  background: #fafcfd;
+}
+.faq-item.abierto .faq-answer {
+  max-height: 500px;
+  opacity: 1;
+  padding: 14px 18px 16px;
+  border-top: 1px solid var(--line);
+}
+
+/* ── Chat asistente ──────────────────────────────────────────*/
+.chat-section { padding: 28px 30px; }
+
+.chat-header { margin-bottom: 20px; }
+.chat-title { margin: 0 0 4px; font-size: 1.1rem; }
+
+.chat-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 140px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--sidebar);
+  border: 1px solid var(--line);
+  border-radius: var(--radio);
+  margin-bottom: 14px;
+  scroll-behavior: smooth;
+  /* Scroll nativo iOS */
+  -webkit-overflow-scrolling: touch;
+}
+
+.chat-bubble {
+  max-width: 82%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  word-break: break-word;
+  animation: slideIn 0.2s ease;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.chat-bubble.usuario {
+  align-self: flex-end;
+  background: var(--bubble-user);
+  color: var(--bubble-user-text);
+  border-bottom-right-radius: 4px;
+}
+.chat-bubble.asistente {
+  align-self: flex-start;
+  background: var(--bubble-bot);
+  color: var(--bubble-bot-text);
+  border-bottom-left-radius: 4px;
+}
+.chat-bubble.escribiendo {
+  align-self: flex-start;
+  background: var(--bubble-bot);
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ── Input y botón enviar ────────────────────────────────────*/
+.chat-input-area { display: flex; gap: 10px; }
+
+.chat-input {
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: var(--radio);
+  padding: 12px 14px;
+  min-height: var(--tap-min);
+  font: inherit;
+  /* font-size >= 16px evita zoom automático en iOS Safari */
+  font-size: max(16px, 0.92rem);
+  color: var(--ink);
+  background: #fbfdfe;
+  outline: none;
+  /* Sin borde redondeado extra de iOS */
+  -webkit-appearance: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.chat-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(20, 108, 148, 0.16);
+}
+
+.chat-send-btn {
+  min-height: var(--tap-min);
+  min-width: var(--tap-min);
+  padding: 0 20px;
+  border: none;
+  border-radius: var(--radio);
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  /* Sin highlight en móvil */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-appearance: none;
+  transition: background 0.15s, transform 0.1s;
+  white-space: nowrap;
+}
+.chat-send-btn:hover { background: var(--accent-dark); }
+.chat-send-btn:active { transform: scale(0.96); }
+.chat-send-btn:disabled { opacity: 0.6; cursor: wait; }
+
+.chat-status {
+  min-height: 20px;
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--danger);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   MÓVIL (≤ 600px) — ajustes específicos para teléfonos
+   ───────────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .app-shell {
+    width: 100%;
+    padding: 0;
+    /* Safe area top para barra de estado del teléfono */
+    padding-top: var(--safe-top);
+    /* Safe area bottom para home bar de iPhone */
+    padding-bottom: var(--safe-bottom);
+  }
+
+  .faq-panel {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    min-height: 100dvh;
+    box-shadow: none;
+  }
+
+  .faq-header { padding: 16px; gap: 12px; }
+  .header-icon { width: 44px; height: 44px; font-size: 1.4rem; }
+  h1 { font-size: 1.25rem; }
+
+  .faqs-section { padding: 16px; }
+  .chat-section { padding: 16px; }
+
+  .faq-question { font-size: 0.9rem; padding: 12px 14px; }
+  .faq-answer { font-size: 0.88rem; }
+  .faq-answer.abierto { padding: 12px 14px 14px; }
+
+  .chat-messages { max-height: 220px; padding: 12px; }
+  .chat-bubble { max-width: 88%; font-size: 0.88rem; }
+
+  .chat-send-btn { padding: 0 14px; font-size: 0.88rem; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TABLET / DESKTOP (≥ 600px)
+   ───────────────────────────────────────────────────────────── */
+@media (min-width: 600px) {
+  body { padding: 40px 16px; }
+
+  .faq-panel {
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   iOS ESPECÍFICO — Safari y PWA
+   ───────────────────────────────────────────────────────────── */
+@supports (-webkit-touch-callout: none) {
+  input, textarea { -webkit-appearance: none; border-radius: var(--radio); }
+  button { -webkit-appearance: none; }
+  .chat-messages { -webkit-overflow-scrolling: touch; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   DARK MODE — respeta preferencia del sistema
+   ───────────────────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #111c24;
+    --surface: #1a2530;
+    --ink: #e8f0f5;
+    --muted: #7a9aaa;
+    --line: #253545;
+    --sidebar: #15212c;
+    --accent-light: #0e3040;
+    --bubble-bot: #1e2e3a;
+    --bubble-bot-text: #e8f0f5;
+    --shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  }
+
+  .chat-input { background: #1a2530; color: var(--ink); border-color: var(--line); }
+  .faq-answer { background: #15212c; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   ACCESIBILIDAD — movimiento reducido
+   ───────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
