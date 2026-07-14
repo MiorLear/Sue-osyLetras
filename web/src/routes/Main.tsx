@@ -1,6 +1,9 @@
 import { useNavigate } from 'react-router-dom';
+import { EVENT_COLORS } from '@explorarte/shared';
 import { Masthead } from '@/components/Masthead';
 import { useAuth } from '@/context/AuthContext';
+import { api } from '@/lib/api';
+import { useAsync } from '@/lib/useAsync';
 
 interface HubCard {
   emoji: string;
@@ -19,21 +22,79 @@ const CARDS: HubCard[] = [
   { emoji: '💬', title: 'Comunidad', desc: 'Comparte experiencias con otras docentes.', cta: 'Ver comunidad', href: '/comunidad', bg: '#F8E8DE', accent: 'var(--clay-dark)' },
 ];
 
-const EVENTS = [
-  { group: 'Grupo 1 · Lectura', time: '10:00 AM', label: 'En 30 min', color: '#2FA7A0', urgent: true },
-  { group: 'Grupo 2 · Emociones', time: '2:00 PM', label: 'En 4 h', color: '#7E6BB8', urgent: false },
-  { group: 'Grupo 3 · Taller', time: '4:30 PM', label: 'En 6 h 30', color: '#D98763', urgent: false },
-];
+const DOW_SHORT = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+const MONTHS_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+const fmtTime12 = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  const ap = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${ap}`;
+};
+
+const minutesUntil = (dateStr: string, hhmm: string) => {
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  const [h, mi] = hhmm.split(':').map(Number);
+  const target = new Date(y, mo - 1, d, h, mi).getTime();
+  return Math.round((target - Date.now()) / 60000);
+};
+
+const fmtCountdown = (minutes: number) => {
+  if (minutes <= 0) return 'Ahora';
+  if (minutes < 60) return `En ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest > 0 ? `En ${hours} h ${rest} min` : `En ${hours} h`;
+};
+
+const greeting = (d: Date) => {
+  const h = d.getHours();
+  if (h < 12) return 'Buenos días,';
+  if (h < 19) return 'Buenas tardes,';
+  return 'Buenas noches,';
+};
+
+interface RailEvent {
+  key: string;
+  group: string;
+  time: string;
+  label: string;
+  color: string;
+  urgent: boolean;
+}
 
 export default function Main() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { data: events } = useAsync(() => api.events.list(), []);
+
+  const today = new Date();
+
+  // Only the next few upcoming/ongoing events, mirroring the mobile home rail.
+  const upcoming: RailEvent[] = (events ?? [])
+    .map((e) => ({ e, minutes: minutesUntil(e.date, e.startTime) }))
+    .filter(({ minutes }) => minutes > -60)
+    .sort((a, b) => a.minutes - b.minutes)
+    .slice(0, 3)
+    .map(({ e, minutes }) => ({
+      key: e.id,
+      group: e.title,
+      time: fmtTime12(e.startTime),
+      label: fmtCountdown(minutes),
+      color: EVENT_COLORS[e.type] ?? 'var(--brand)',
+      urgent: minutes <= 30,
+    }));
+
+  const heroLede =
+    upcoming.length > 0
+      ? `Tienes ${upcoming.length} ${upcoming.length === 1 ? 'evento próximo' : 'eventos próximos'} en tu agenda y recursos por descubrir en tu caja de herramientas.`
+      : 'No tienes eventos próximos. Explora los recursos de tu caja de herramientas.';
 
   return (
     <div className="page">
       <Masthead
         eyebrow="Panel principal"
-        title="Buenos días,"
+        title={greeting(today)}
         accent={user?.name ?? 'María'}
         lede="Tu espacio para acompañar el bienestar emocional en el aula, todo en un solo lugar."
       />
@@ -66,7 +127,7 @@ export default function Main() {
             Hoy es un buen día para <span style={{ fontStyle: 'italic', color: 'var(--brand)' }}>acompañar</span> emociones.
           </div>
           <p style={{ marginTop: 14, fontSize: 14.5, lineHeight: 1.6, color: 'var(--text-body)', maxWidth: 380, position: 'relative' }}>
-            Tienes 3 sesiones programadas y 2 recursos nuevos en tu caja de herramientas.
+            {heroLede}
           </p>
           <div style={{ display: 'flex', gap: 10, marginTop: 24, position: 'relative' }}>
             <button onClick={() => navigate('/emociones')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '13px 20px', borderRadius: 13, background: 'var(--brand-gradient)', color: '#fff', fontSize: 14, fontWeight: 700, boxShadow: '0 10px 22px -8px rgba(31,126,118,.6)' }}>
@@ -124,19 +185,25 @@ export default function Main() {
         <section>
           <div className="section-head">
             <h2 className="section-title">Mi calendario</h2>
-            <span style={{ fontSize: 12, color: 'var(--brand)', fontWeight: 700 }}>Hoy</span>
+            <span style={{ fontSize: 12, color: 'var(--brand)', fontWeight: 700 }}>Hoy · {DOW_SHORT[today.getDay()]} {today.getDate()} {MONTHS_SHORT[today.getMonth()]}</span>
           </div>
           <div style={{ borderRadius: 20, background: '#fff', border: '1px solid var(--border)', overflow: 'hidden' }}>
-            {EVENTS.map((ev, i) => (
-              <div key={ev.group} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '14px 16px', borderBottom: i < EVENTS.length - 1 ? '1px solid #F3ECDD' : 'none' }}>
-                <span style={{ width: 3.5, height: 42, borderRadius: 9, background: ev.color, flexShrink: 0 }} />
-                <span style={{ flex: 1 }}>
-                  <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: 'var(--text-dark)' }}>{ev.group}</span>
-                  <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginTop: 1 }}>{ev.time}</span>
-                </span>
-                <span style={{ fontSize: 11.5, fontWeight: 700, padding: '4px 10px', borderRadius: 20, color: ev.urgent ? 'var(--clay-dark)' : 'var(--text-muted)', background: ev.urgent ? '#F8E8DE' : '#F4EEE2' }}>{ev.label}</span>
+            {upcoming.length === 0 ? (
+              <div style={{ padding: '22px 16px', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
+                No tienes eventos próximos.
               </div>
-            ))}
+            ) : (
+              upcoming.map((ev, i) => (
+                <div key={ev.key} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '14px 16px', borderBottom: i < upcoming.length - 1 ? '1px solid #F3ECDD' : 'none' }}>
+                  <span style={{ width: 3.5, height: 42, borderRadius: 9, background: ev.color, flexShrink: 0 }} />
+                  <span style={{ flex: 1 }}>
+                    <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: 'var(--text-dark)' }}>{ev.group}</span>
+                    <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginTop: 1 }}>{ev.time}</span>
+                  </span>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, padding: '4px 10px', borderRadius: 20, color: ev.urgent ? 'var(--clay-dark)' : 'var(--text-muted)', background: ev.urgent ? '#F8E8DE' : '#F4EEE2' }}>{ev.label}</span>
+                </div>
+              ))
+            )}
           </div>
           <button onClick={() => navigate('/calendar')} style={{ width: '100%', marginTop: 12, padding: 13, borderRadius: 14, background: '#F4EEE2', border: '1px solid var(--border-warm)', color: 'var(--brand-dark)', fontSize: 13.5, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             🗓️ Ver calendario completo

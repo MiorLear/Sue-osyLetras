@@ -100,7 +100,7 @@ export default function ComunidadExplorArteScreen() {
     if (!text || submitting) return;
     setSubmitting(true);
     try {
-      const np = await api.posts.create({ text, module: null, attachments: attachment ? [attachment] : [] });
+      const np = await api.posts.create({ text, module: filter === 'todos' ? null : filter, attachments: attachment ? [attachment] : [] });
       setPosts((ps) => [np, ...ps]);
       setComposeOpen(false);
       setComposeText('');
@@ -228,12 +228,7 @@ export default function ComunidadExplorArteScreen() {
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, paddingLeft: 48 }}>
                   <ActionBtn icon="message-circle" value={p.comments.length} onPress={() => setOpenThread(threadOpen ? null : p.id)} />
-                  <ActionBtn icon="repeat" value={p.reposts} />
                   <ActionBtn icon="heart" value={p.likes} active={p.liked} activeColor={colors.danger} fill={p.liked} onPress={() => toggleLike(p.id)} disabled={likingIds.includes(p.id)} />
-                  <View style={{ flex: 1 }} />
-                  <Pressable style={{ padding: 5 }}>
-                    <Icon name="bookmark" size={15} color={colors.textMuted} />
-                  </Pressable>
                 </View>
               </View>
 
@@ -380,7 +375,7 @@ function ActionBtn({
   onPress,
   disabled,
 }: {
-  icon: 'message-circle' | 'repeat' | 'heart';
+  icon: 'message-circle' | 'heart';
   value: number;
   active?: boolean;
   activeColor?: string;

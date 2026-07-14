@@ -15,7 +15,7 @@ const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 
 const TYPES: EventType[] = ['sesión', 'tarea', 'recordatorio', 'evento'];
 const REMINDERS = ['ninguno', '10 minutos antes', '30 minutos antes', '1 hora antes', '1 día antes'];
 
-const TODAY = new Date(2026, 5, 4);
+const TODAY = new Date();
 const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 const addDays = (date: Date, n: number) => { const r = new Date(date); r.setDate(r.getDate() + n); return r; };
 const startOfWeek = (date: Date) => addDays(date, -date.getDay());
@@ -29,12 +29,12 @@ const blankForm = (date: Date): Form => ({ title: '', type: 'sesión', dateStr: 
 export default function CalendarScreen() {
   const navigate = useNavigate();
   const [view, setView] = useState<ViewMode>('día');
-  const [selDate, setSelDate] = useState(new Date(2026, 5, 4));
+  const [selDate, setSelDate] = useState(new Date());
   const { data, loading, error, reload } = useAsync(() => api.events.list(), []);
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [modal, setModal] = useState<ModalMode>(null);
   const [selEvent, setSelEvent] = useState<CalEvent | null>(null);
-  const [form, setForm] = useState<Form>(blankForm(new Date(2026, 5, 4)));
+  const [form, setForm] = useState<Form>(blankForm(new Date()));
   const [toast, setToast] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);

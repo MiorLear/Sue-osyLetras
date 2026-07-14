@@ -4,6 +4,7 @@ import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
 import { api } from '@/lib/api';
 import { useAsync } from '@/lib/useAsync';
+import { useAuth } from '@/context/AuthContext';
 
 const FILTERS = [
   { id: 'todos', label: 'Todos' },
@@ -23,6 +24,10 @@ const SHARE_BULLETS = [
 ];
 
 export default function Comunidad() {
+  const { user } = useAuth();
+  const myInitials = user
+    ? ((user.name.charAt(0) || '') + (user.lastname.charAt(0) || '')).toUpperCase()
+    : 'MR';
   const [filter, setFilter] = useState('todos');
   const { data, loading, error, reload } = useAsync(() => api.posts.list(filter), [filter]);
 
@@ -85,12 +90,14 @@ export default function Comunidad() {
     setSubmitting(true);
     setComposeError(null);
     try {
-      const np = await api.posts.create({ text, attachments: attachment ? [attachment] : [] });
+      // tag the post with the active emotion filter (null under "todos")
+      const module = filter === 'todos' ? null : filter;
+      const np = await api.posts.create({ text, module, attachments: attachment ? [attachment] : [] });
       setComposeOpen(false);
       setComposeText('');
       setAttachment(null);
-      // re-fetch for current filter (new post has no module so only shows under "todos")
-      if (filter === 'todos') setPosts((ps) => [np, ...ps]);
+      // the new post always matches the active filter now, so show it immediately
+      setPosts((ps) => [np, ...ps]);
     } catch {
       setComposeError('No se pudo publicar. Inténtalo de nuevo.');
     } finally {
@@ -180,12 +187,7 @@ export default function Comunidad() {
                     )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 14 }}>
                       <ActionBtn icon="message-circle" value={p.comments.length} onClick={() => setOpenThread(threadOpen ? null : p.id)} />
-                      <ActionBtn icon="repeat" value={p.reposts} />
                       <ActionBtn icon="heart" value={p.likes} active={p.liked} activeColor="var(--danger)" fill={p.liked} disabled={likingId === p.id} onClick={() => toggleLike(p.id)} />
-                      <div style={{ flex: 1 }} />
-                      <button style={{ padding: 5 }} aria-label="Guardar">
-                        <Icon name="bookmark" size={15} color="var(--text-muted)" />
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -255,7 +257,7 @@ export default function Comunidad() {
             </div>
 
             <div style={{ display: 'flex', gap: 10 }}>
-              <span style={{ width: 40, height: 40, borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(150deg,var(--clay),var(--clay-dark))', color: '#fff', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>MR</span>
+              <span style={{ width: 40, height: 40, borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(150deg,var(--clay),var(--clay-dark))', color: '#fff', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>{myInitials}</span>
               <textarea
                 value={composeText}
                 onChange={(e) => setComposeText(e.target.value)}
@@ -301,7 +303,7 @@ export default function Comunidad() {
 }
 
 function ActionBtn({ icon, value, active, activeColor, fill, disabled, onClick }: {
-  icon: 'message-circle' | 'repeat' | 'heart'; value: number; active?: boolean; activeColor?: string; fill?: boolean; disabled?: boolean; onClick?: () => void;
+  icon: 'message-circle' | 'heart'; value: number; active?: boolean; activeColor?: string; fill?: boolean; disabled?: boolean; onClick?: () => void;
 }) {
   const color = active ? activeColor! : 'var(--text-muted)';
   return (

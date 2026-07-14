@@ -25,6 +25,7 @@ export default function Profile() {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -39,9 +40,21 @@ export default function Profile() {
 
   const initials = ((name.charAt(0) || '') + (lastname.charAt(0) || '')).toUpperCase();
 
-  const pickPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const pickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) setPhoto(URL.createObjectURL(file));
+    if (!file) return;
+    setSaveError(null);
+    setUploadingPhoto(true);
+    try {
+      const media = await api.media.upload(file, file.name, 'profile');
+      setPhoto(media.url);
+    } catch (err) {
+      setSaveError(
+        err instanceof Error ? err.message : 'No pudimos subir la foto. Inténtalo de nuevo.',
+      );
+    } finally {
+      setUploadingPhoto(false);
+    }
   };
 
   const handleSave = async () => {
@@ -99,7 +112,10 @@ export default function Profile() {
                 ) : (
                   <div style={{ width: 76, height: 76, borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(150deg,var(--clay),var(--clay-dark))', fontSize: 26, fontWeight: 800, color: '#fff' }}>{initials}</div>
                 )}
-                <button onClick={() => fileRef.current?.click()} style={{ position: 'absolute', bottom: -4, right: -4, width: 30, height: 30, borderRadius: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', border: '1px solid var(--border)', boxShadow: '0 2px 6px rgba(0,0,0,0.12)' }}>
+                {uploadingPhoto ? (
+                  <div style={{ position: 'absolute', inset: 0, borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', fontSize: 10, fontWeight: 700, color: '#fff' }}>Subiendo…</div>
+                ) : null}
+                <button onClick={() => fileRef.current?.click()} disabled={uploadingPhoto} style={{ position: 'absolute', bottom: -4, right: -4, width: 30, height: 30, borderRadius: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', border: '1px solid var(--border)', boxShadow: '0 2px 6px rgba(0,0,0,0.12)', cursor: uploadingPhoto ? 'default' : 'pointer', opacity: uploadingPhoto ? 0.6 : 1 }}>
                   <Icon name="camera" size={14} color="var(--brand)" />
                 </button>
                 <input ref={fileRef} type="file" accept="image/*" hidden onChange={pickPhoto} />

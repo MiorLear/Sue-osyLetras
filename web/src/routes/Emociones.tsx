@@ -29,13 +29,11 @@ export default function Emociones() {
             Las emociones forman parte de nuestra vida cotidiana. Reconocerlas, nombrarlas y comprenderlas es el primer
             paso para desarrollar bienestar emocional y construir relaciones saludables dentro del aula.
           </p>
-          <div style={{ display: 'flex', gap: 18, marginTop: 22, paddingTop: 20, borderTop: '1px solid #F0E7D8' }}>
-            <Stat n={emotions?.length || 8} label="emociones" color="var(--brand)" />
-            <Sep />
-            <Stat n={24} label="actividades" color="var(--clay)" />
-            <Sep />
-            <Stat n={12} label="historias" color="var(--gold)" />
-          </div>
+          {emotions && emotions.length > 0 ? (
+            <div style={{ display: 'flex', gap: 18, marginTop: 22, paddingTop: 20, borderTop: '1px solid #F0E7D8' }}>
+              <Stat n={emotions.length} label="emociones" color="var(--brand)" />
+            </div>
+          ) : null}
         </div>
 
         {videoUrl ? (
@@ -101,8 +99,4 @@ function Stat({ n, label, color }: { n: number; label: string; color: string }) 
       <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{label}</span>
     </span>
   );
-}
-
-function Sep() {
-  return <span style={{ width: 1, background: '#F0E7D8' }} />;
 }

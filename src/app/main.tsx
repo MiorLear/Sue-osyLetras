@@ -106,6 +106,9 @@ const fmtCountdown = (minutes: number) => {
   return rest > 0 ? `En ${hours}h ${rest}min` : `En ${hours}h`;
 };
 
+const fmtToday = () =>
+  new Date().toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' });
+
 export default function MainScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -204,7 +207,7 @@ export default function MainScreen() {
               marginBottom: 12,
             }}>
             <Text style={{ fontSize: 16, fontWeight: '800', color: colors.textDark }}>Mi Calendario</Text>
-            <Text style={{ fontSize: 11, color: colors.brand, fontWeight: '600' }}>Hoy · jue 4 jun</Text>
+            <Text style={{ fontSize: 11, color: colors.brand, fontWeight: '600' }}>Hoy · {fmtToday()}</Text>
           </View>
           {loading ? (
             <ActivityIndicator color={colors.brand} style={{ marginTop: 32, marginBottom: 12 }} />

@@ -67,7 +67,7 @@ const fromApiEvent = (e: ApiCalEvent): CalEvent => ({
   completed: e.completed ?? undefined,
 });
 
-const TODAY = new Date(2026, 5, 4);
+const TODAY = new Date();
 
 interface Form {
   title: string;
@@ -91,12 +91,12 @@ export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
 
   const [view, setView] = useState<ViewMode>('día');
-  const [selDate, setSelDate] = useState(new Date(2026, 5, 4));
+  const [selDate, setSelDate] = useState(TODAY);
   const { data: loadedEvents, loading, error, reload } = useAsync(() => api.events.list(), []);
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [modal, setModal] = useState<ModalMode>(null);
   const [selEvent, setSelEvent] = useState<CalEvent | null>(null);
-  const [form, setForm] = useState<Form>(blankForm(new Date(2026, 5, 4)));
+  const [form, setForm] = useState<Form>(blankForm(TODAY));
   const [toast, setToast] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
