@@ -6,11 +6,14 @@ import { Masthead } from '@/components/Masthead';
 import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
+import { useAsync } from '@/lib/useAsync';
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { user, setUser, signOut } = useAuth();
+  const { setUser, signOut } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const { data: profile, loading, error, reload } = useAsync(() => api.profile.get(), []);
 
   const [photo, setPhoto] = useState<string | null>(null);
   const [name, setName] = useState('María Reneé');
@@ -20,30 +23,55 @@ export default function Profile() {
   const [institucion, setInstitucion] = useState('Colegio Americano');
   const [ubicacion, setUbicacion] = useState('San Salvador');
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
-    setName(user.name);
-    setLastname(user.lastname);
-    setEmail(user.email);
-    setPhone(user.phone);
-    setInstitucion(user.institucion);
-    setUbicacion(user.ubicacion);
-    setPhoto(user.photo ?? null);
-  }, [user]);
+    if (!profile) return;
+    setName(profile.name);
+    setLastname(profile.lastname);
+    setEmail(profile.email);
+    setPhone(profile.phone);
+    setInstitucion(profile.institucion);
+    setUbicacion(profile.ubicacion);
+    setPhoto(profile.photo ?? null);
+  }, [profile]);
 
   const initials = ((name.charAt(0) || '') + (lastname.charAt(0) || '')).toUpperCase();
 
-  const pickPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const pickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) setPhoto(URL.createObjectURL(file));
+    if (!file) return;
+    setSaveError(null);
+    setUploadingPhoto(true);
+    try {
+      const media = await api.media.upload(file, file.name, 'profile');
+      setPhoto(media.url);
+    } catch (err) {
+      setSaveError(
+        err instanceof Error ? err.message : 'No pudimos subir la foto. Inténtalo de nuevo.',
+      );
+    } finally {
+      setUploadingPhoto(false);
+    }
   };
 
   const handleSave = async () => {
-    const updated = await api.profile.update({ name, lastname, email, phone, institucion, ubicacion, photo });
-    setUser(updated);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    setSaveError(null);
+    setSaving(true);
+    try {
+      const updated = await api.profile.update({ name, lastname, email, phone, institucion, ubicacion, photo });
+      setUser(updated);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (e) {
+      setSaveError(
+        e instanceof Error ? e.message : 'No pudimos guardar los cambios. Inténtalo de nuevo.',
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const logout = () => {
@@ -62,43 +90,69 @@ export default function Profile() {
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: 20, borderRadius: 20, background: '#fff', border: '1px solid var(--border)' }}>
-          <div style={{ position: 'relative' }}>
-            {photo ? (
-              <img src={photo} alt="" style={{ width: 76, height: 76, borderRadius: 22, objectFit: 'cover' }} />
-            ) : (
-              <div style={{ width: 76, height: 76, borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(150deg,var(--clay),var(--clay-dark))', fontSize: 26, fontWeight: 800, color: '#fff' }}>{initials}</div>
-            )}
-            <button onClick={() => fileRef.current?.click()} style={{ position: 'absolute', bottom: -4, right: -4, width: 30, height: 30, borderRadius: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', border: '1px solid var(--border)', boxShadow: '0 2px 6px rgba(0,0,0,0.12)' }}>
-              <Icon name="camera" size={14} color="var(--brand)" />
+        {loading ? (
+          <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 14, padding: '40px 0' }}>Cargando…</p>
+        ) : error ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '40px 0' }}>
+            <p style={{ color: 'var(--text-body)', fontSize: 14, textAlign: 'center', margin: 0 }}>
+              No pudimos cargar tu perfil. Revisa tu conexión.
+            </p>
+            <button
+              onClick={reload}
+              style={{ padding: '9px 18px', borderRadius: 10, background: 'var(--brand)', color: '#fff', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer' }}>
+              Reintentar
             </button>
-            <input ref={fileRef} type="file" accept="image/*" hidden onChange={pickPhoto} />
           </div>
-          <div>
-            <div style={{ fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 600, color: 'var(--text-dark)' }}>{name} {lastname}</div>
-            <div style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 2 }}>{email}</div>
-          </div>
-        </div>
-        {saved ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, background: '#F0FFF8', border: '1px solid #C6F6D5' }}>
-            <Icon name="check-circle" size={16} color="var(--success)" />
-            <span style={{ fontSize: 12.5, fontWeight: 600, color: '#276749' }}>Perfil actualizado correctamente</span>
-          </div>
+        ) : profile ? (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: 20, borderRadius: 20, background: '#fff', border: '1px solid var(--border)' }}>
+              <div style={{ position: 'relative' }}>
+                {photo ? (
+                  <img src={photo} alt="" style={{ width: 76, height: 76, borderRadius: 22, objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ width: 76, height: 76, borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(150deg,var(--clay),var(--clay-dark))', fontSize: 26, fontWeight: 800, color: '#fff' }}>{initials}</div>
+                )}
+                {uploadingPhoto ? (
+                  <div style={{ position: 'absolute', inset: 0, borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', fontSize: 10, fontWeight: 700, color: '#fff' }}>Subiendo…</div>
+                ) : null}
+                <button onClick={() => fileRef.current?.click()} disabled={uploadingPhoto} style={{ position: 'absolute', bottom: -4, right: -4, width: 30, height: 30, borderRadius: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', border: '1px solid var(--border)', boxShadow: '0 2px 6px rgba(0,0,0,0.12)', cursor: uploadingPhoto ? 'default' : 'pointer', opacity: uploadingPhoto ? 0.6 : 1 }}>
+                  <Icon name="camera" size={14} color="var(--brand)" />
+                </button>
+                <input ref={fileRef} type="file" accept="image/*" hidden onChange={pickPhoto} />
+              </div>
+              <div>
+                <div style={{ fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 600, color: 'var(--text-dark)' }}>{name} {lastname}</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 2 }}>{email}</div>
+              </div>
+            </div>
+            {saved ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, background: '#F0FFF8', border: '1px solid #C6F6D5' }}>
+                <Icon name="check-circle" size={16} color="var(--success)" />
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: '#276749' }}>Perfil actualizado correctamente</span>
+              </div>
+            ) : null}
+            {saveError ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, background: '#FFF5F5', border: '1px solid #FEB2B2' }}>
+                <Icon name="x" size={16} color="#C53030" />
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: '#C53030' }}>{saveError}</span>
+              </div>
+            ) : null}
+
+            <SectionLabel>Información personal</SectionLabel>
+            <Field label="Nombre" icon="user" value={name} onChangeText={setName} placeholder="Tu nombre" />
+            <Field label="Apellido" icon="user" value={lastname} onChangeText={setLastname} placeholder="Tu apellido" />
+
+            <SectionLabel>Contacto</SectionLabel>
+            <Field label="Correo electrónico" icon="mail" value={email} onChangeText={setEmail} type="email" autoCapitalize="none" placeholder="correo@ejemplo.com" />
+            <Field label="Teléfono" icon="phone" value={phone} onChangeText={setPhone} placeholder="+502 1234 5678" />
+
+            <SectionLabel>Institución</SectionLabel>
+            <SelectOrAdd label="Institución" icon="map-pin" value={institucion} options={INSTITUCIONES} onChange={setInstitucion} newPlaceholder="Nombre de la institución" />
+            <LocationAutocomplete label="Ubicación" value={ubicacion} onChange={setUbicacion} />
+
+            <PrimaryButton label={saving ? 'Guardando…' : 'Guardar cambios'} onClick={handleSave} disabled={saving} />
+          </>
         ) : null}
-
-        <SectionLabel>Información personal</SectionLabel>
-        <Field label="Nombre" icon="user" value={name} onChangeText={setName} placeholder="Tu nombre" />
-        <Field label="Apellido" icon="user" value={lastname} onChangeText={setLastname} placeholder="Tu apellido" />
-
-        <SectionLabel>Contacto</SectionLabel>
-        <Field label="Correo electrónico" icon="mail" value={email} onChangeText={setEmail} type="email" autoCapitalize="none" placeholder="correo@ejemplo.com" />
-        <Field label="Teléfono" icon="phone" value={phone} onChangeText={setPhone} placeholder="+502 1234 5678" />
-
-        <SectionLabel>Institución</SectionLabel>
-        <SelectOrAdd label="Institución" icon="map-pin" value={institucion} options={INSTITUCIONES} onChange={setInstitucion} newPlaceholder="Nombre de la institución" />
-        <LocationAutocomplete label="Ubicación" value={ubicacion} onChange={setUbicacion} />
-
-        <PrimaryButton label="Guardar cambios" onClick={handleSave} />
 
         <button onClick={() => navigate('/sobre')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, background: '#fff', border: '1.5px solid var(--border)' }}>
           <Icon name="help-circle" size={18} color="var(--brand)" />

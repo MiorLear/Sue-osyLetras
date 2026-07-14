@@ -4,7 +4,7 @@ import * as Linking from 'expo-linking';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { MediaItem, Post } from '@explorarte/shared';
@@ -12,6 +12,7 @@ import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
 import { Icon } from '@/components/icon';
 import { brandGradient, colors } from '@/constants/theme';
 import { api } from '@/lib/api';
+import { useAsync } from '@/lib/useAsync';
 
 const FILTERS = [
   { id: 'todos', label: 'Todos' },
@@ -41,46 +42,74 @@ export default function ComunidadExplorArteScreen() {
   const insets = useSafeAreaInsets();
   const { module } = useLocalSearchParams<{ module?: string }>();
 
-  const [posts, setPosts] = useState<Post[]>([]);
   const [filter, setFilter] = useState(module || 'todos');
+  const {
+    data: loadedPosts,
+    loading,
+    error,
+    reload,
+  } = useAsync(() => api.posts.list(filter === 'todos' ? undefined : filter), [filter]);
+
+  const [posts, setPosts] = useState<Post[]>([]);
   const [openThread, setOpenThread] = useState<number | null>(null);
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeText, setComposeText] = useState('');
   const [attachment, setAttachment] = useState<MediaItem | null>(null);
   const [attaching, setAttaching] = useState(false);
+  const [likingIds, setLikingIds] = useState<number[]>([]);
+  const [sendingIds, setSendingIds] = useState<number[]>([]);
+  const [submitting, setSubmitting] = useState(false);
 
+  // Mirror the loaded feed into local state so like/comment/publish mutations
+  // can update posts in place without refetching.
   useEffect(() => {
-    let active = true;
-    api.posts.list(filter === 'todos' ? undefined : filter).then((data) => {
-      if (active) setPosts(data);
-    });
-    return () => {
-      active = false;
-    };
-  }, [filter]);
+    if (loadedPosts) setPosts(loadedPosts);
+  }, [loadedPosts]);
 
   const toggleLike = async (id: number) => {
-    const updated = await api.posts.toggleLike(id);
-    setPosts((ps) => ps.map((p) => (p.id === id ? updated : p)));
+    if (likingIds.includes(id)) return;
+    setLikingIds((ids) => [...ids, id]);
+    try {
+      const updated = await api.posts.toggleLike(id);
+      setPosts((ps) => ps.map((p) => (p.id === id ? updated : p)));
+    } catch {
+      Alert.alert('Error', 'No se pudo actualizar el "me gusta". Intenta de nuevo.');
+    } finally {
+      setLikingIds((ids) => ids.filter((x) => x !== id));
+    }
   };
 
   const sendComment = async (id: number) => {
     const text = (drafts[id] || '').trim();
-    if (!text) return;
-    const comment = await api.posts.addComment(id, { text });
-    setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, comments: [...p.comments, comment] } : p)));
-    setDrafts((d) => ({ ...d, [id]: '' }));
+    if (!text || sendingIds.includes(id)) return;
+    setSendingIds((ids) => [...ids, id]);
+    try {
+      const comment = await api.posts.addComment(id, { text });
+      setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, comments: [...p.comments, comment] } : p)));
+      setDrafts((d) => ({ ...d, [id]: '' }));
+    } catch {
+      Alert.alert('Error', 'No se pudo enviar el comentario. Intenta de nuevo.');
+    } finally {
+      setSendingIds((ids) => ids.filter((x) => x !== id));
+    }
   };
 
   const submitPost = async () => {
     const text = composeText.trim();
-    if (!text) return;
-    const np = await api.posts.create({ text, module: null, attachments: attachment ? [attachment] : [] });
-    setPosts((ps) => [np, ...ps]);
-    setComposeOpen(false);
-    setComposeText('');
-    setAttachment(null);
+    if (!text || submitting) return;
+    setSubmitting(true);
+    try {
+      const np = await api.posts.create({ text, module: filter === 'todos' ? null : filter, attachments: attachment ? [attachment] : [] });
+      setPosts((ps) => [np, ...ps]);
+      setComposeOpen(false);
+      setComposeText('');
+      setAttachment(null);
+    } catch {
+      Alert.alert('Error', 'No se pudo publicar. Intenta de nuevo.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const attachMedia = async (kind: 'image' | 'video') => {
@@ -134,10 +163,29 @@ export default function ComunidadExplorArteScreen() {
       </LinearGradient>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 12, gap: 10 }} showsVerticalScrollIndicator={false}>
-        {posts.map((p) => {
+        {loading ? (
+          <ActivityIndicator color={colors.brand} style={{ marginTop: 32 }} />
+        ) : error ? (
+          <View style={{ marginTop: 32, alignItems: 'center', gap: 12 }}>
+            <Text style={{ fontSize: 13, color: colors.textBody, textAlign: 'center' }}>
+              No pudimos cargar las publicaciones. Revisa tu conexión.
+            </Text>
+            <Pressable
+              onPress={reload}
+              style={{ paddingVertical: 9, paddingHorizontal: 18, borderRadius: 10, backgroundColor: colors.brand }}>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Reintentar</Text>
+            </Pressable>
+          </View>
+        ) : posts.length === 0 ? (
+          <Text style={{ marginTop: 32, fontSize: 13, color: colors.textMuted, textAlign: 'center' }}>
+            Aún no hay publicaciones.
+          </Text>
+        ) : (
+          posts.map((p) => {
           const tag = p.module ? MODTAG[p.module] : null;
           const initials = p.user.split(' ').map((w) => w.charAt(0)).slice(0, 2).join('').toUpperCase();
           const threadOpen = openThread === p.id;
+          const sending = sendingIds.includes(p.id);
           return (
             <View key={p.id} style={{ borderRadius: 16, backgroundColor: '#fff', overflow: 'hidden', borderWidth: 1.5, borderColor: colors.border }}>
               <View style={{ padding: 14 }}>
@@ -180,12 +228,7 @@ export default function ComunidadExplorArteScreen() {
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, paddingLeft: 48 }}>
                   <ActionBtn icon="message-circle" value={p.comments.length} onPress={() => setOpenThread(threadOpen ? null : p.id)} />
-                  <ActionBtn icon="repeat" value={p.reposts} />
-                  <ActionBtn icon="heart" value={p.likes} active={p.liked} activeColor={colors.danger} fill={p.liked} onPress={() => toggleLike(p.id)} />
-                  <View style={{ flex: 1 }} />
-                  <Pressable style={{ padding: 5 }}>
-                    <Icon name="bookmark" size={15} color={colors.textMuted} />
-                  </Pressable>
+                  <ActionBtn icon="heart" value={p.likes} active={p.liked} activeColor={colors.danger} fill={p.liked} onPress={() => toggleLike(p.id)} disabled={likingIds.includes(p.id)} />
                 </View>
               </View>
 
@@ -215,15 +258,17 @@ export default function ComunidadExplorArteScreen() {
                     />
                     <Pressable
                       onPress={() => sendComment(p.id)}
-                      style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: (drafts[p.id] || '').trim() ? colors.brand : colors.disabled }}>
-                      <Icon name="send" size={15} color="#fff" />
+                      disabled={!(drafts[p.id] || '').trim() || sending}
+                      style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: (drafts[p.id] || '').trim() && !sending ? colors.brand : colors.disabled }}>
+                      {sending ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="send" size={15} color="#fff" />}
                     </Pressable>
                   </View>
                 </View>
               ) : null}
             </View>
           );
-        })}
+          })
+        )}
         <View style={{ height: 80 }} />
       </ScrollView>
 
@@ -298,9 +343,13 @@ export default function ComunidadExplorArteScreen() {
               {attaching ? <Text style={{ fontSize: 11.5, color: colors.textMuted }}>Subiendo…</Text> : null}
             </View>
             {composeText.trim() ? (
-              <Pressable onPress={submitPost}>
-                <LinearGradient colors={brandGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 13, borderRadius: 12, alignItems: 'center' }}>
-                  <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Publicar</Text>
+              <Pressable onPress={submitPost} disabled={submitting}>
+                <LinearGradient colors={brandGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 13, borderRadius: 12, alignItems: 'center', opacity: submitting ? 0.7 : 1 }}>
+                  {submitting ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Publicar</Text>
+                  )}
                 </LinearGradient>
               </Pressable>
             ) : (
@@ -324,17 +373,19 @@ function ActionBtn({
   activeColor,
   fill,
   onPress,
+  disabled,
 }: {
-  icon: 'message-circle' | 'repeat' | 'heart';
+  icon: 'message-circle' | 'heart';
   value: number;
   active?: boolean;
   activeColor?: string;
   fill?: boolean;
   onPress?: () => void;
+  disabled?: boolean;
 }) {
   const color = active ? activeColor! : colors.textMuted;
   return (
-    <Pressable onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 5, paddingHorizontal: 8, borderRadius: 9 }}>
+    <Pressable onPress={onPress} disabled={disabled} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 5, paddingHorizontal: 8, borderRadius: 9, opacity: disabled ? 0.5 : 1 }}>
       <Icon name={icon} size={15} color={color} fill={fill ? color : 'none'} />
       <Text style={{ fontSize: 12, fontWeight: '600', color }}>{value}</Text>
     </Pressable>

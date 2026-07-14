@@ -62,6 +62,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/learning/topics/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/tools").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/screen-intro-videos/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/screen-intro-videos/**").hasRole("ADMIN")
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         // everything else requires a valid token
                         .anyRequest().authenticated())

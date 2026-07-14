@@ -94,7 +94,15 @@ export function createMockClient(): ApiClient {
         await delay();
         return authResult();
       },
+      async checkOtp(_phone: string, _code: string) {
+        await delay();
+        return { sent: true as const };
+      },
       async forgotPassword(_emailOrPhone: string) {
+        await delay();
+        return { sent: true as const };
+      },
+      async resetPassword(_emailOrPhone: string, _code: string, _newPassword: string) {
         await delay();
         return { sent: true as const };
       },
@@ -330,6 +338,10 @@ export function createMockClient(): ApiClient {
         const entry: ScreenIntroVideo = { screenKey, video };
         screenIntros[screenKey] = entry;
         return clone(entry);
+      },
+      async remove(screenKey: string): Promise<void> {
+        await delay(40);
+        delete screenIntros[screenKey];
       },
     },
   };

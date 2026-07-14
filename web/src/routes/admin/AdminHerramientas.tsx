@@ -22,9 +22,15 @@ export default function AdminHerramientas() {
 
   const save = async () => {
     if (!tools) return;
+    const clean: ToolsContent = {
+      ...tools,
+      downloadables: tools.downloadables.filter((m) => m.url),
+      activityGuides: tools.activityGuides.filter((m) => m.url),
+      manualDocument: tools.manualDocument && tools.manualDocument.url ? tools.manualDocument : null,
+    };
     setSaving(true);
     try {
-      const saved = await api.tools.update(tools);
+      const saved = await api.tools.update(clean);
       setTools(saved);
       setDirty(false);
       setToast('Cambios guardados');

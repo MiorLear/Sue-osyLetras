@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { MediaItem, Topic } from '@explorarte/shared';
 import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
 import { DownloadableMediaItem } from '@/components/downloadable-media-item';
 import { GradientHeader } from '@/components/gradient-header';
@@ -11,17 +10,14 @@ import { Logo } from '@/components/logo';
 import { VideoPlaceholder } from '@/components/video-placeholder';
 import { colors } from '@/constants/theme';
 import { api } from '@/lib/api';
+import { useAsync } from '@/lib/useAsync';
 
 export default function AprendiendoBienestarScreen() {
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState<string | null>(null);
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [introVideo, setIntroVideo] = useState<MediaItem | null>(null);
-
-  useEffect(() => {
-    api.learning.topics().then(setTopics);
-    api.screenIntros.get('learning').then((v) => setIntroVideo(v?.video ?? null));
-  }, []);
+  const { data: topics, loading, error, reload } = useAsync(() => api.learning.topics(), []);
+  const { data: intro } = useAsync(() => api.screenIntros.get('learning'), []);
+  const introVideo = intro?.video ?? null;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -48,7 +44,8 @@ export default function AprendiendoBienestarScreen() {
 
         <VideoPlaceholder caption="Video de introducción (~1 minuto)" videoItem={introVideo} />
 
-        {topics.map((topic) => (
+        {topics && topics.length > 0 ? (
+          topics.map((topic) => (
           <View key={topic.id}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <Text style={{ fontSize: 20 }}>{topic.emoji}</Text>
@@ -119,7 +116,25 @@ export default function AprendiendoBienestarScreen() {
               })}
             </View>
           </View>
-        ))}
+          ))
+        ) : loading ? (
+          <ActivityIndicator color={colors.brand} style={{ marginTop: 32 }} />
+        ) : error ? (
+          <View style={{ marginTop: 32, alignItems: 'center', gap: 12 }}>
+            <Text style={{ fontSize: 13, color: colors.textBody, textAlign: 'center' }}>
+              No pudimos cargar los temas. Revisa tu conexión.
+            </Text>
+            <Pressable
+              onPress={reload}
+              style={{ paddingVertical: 9, paddingHorizontal: 18, borderRadius: 10, backgroundColor: colors.brand }}>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Reintentar</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Text style={{ fontSize: 12.5, color: colors.textMuted }}>
+            Aún no hay temas disponibles.
+          </Text>
+        )}
       </ScrollView>
 
       <BottomNav items={MAIN_TABS} />

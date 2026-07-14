@@ -57,7 +57,16 @@ public class AuthController {
         user.setLastname(input.lastname());
         user.setInstitucion(input.institucion());
         user.setUbicacion(input.ubicacion());
-        user.setEmail(input.email() == null ? "" : input.email());
+        String email = input.email() == null ? "" : input.email().trim();
+        if (email.isBlank()) {
+            // Phone-only registration: synthesize a unique, non-colliding email so a
+            // second phone signup doesn't violate the UNIQUE constraint on an empty string.
+            String base = input.phone() != null && !input.phone().isBlank()
+                    ? input.phone().replaceAll("[^0-9]", "")
+                    : user.getId();
+            email = "tel-" + base + "@sinemail.explorarte";
+        }
+        user.setEmail(email);
         user.setPhone(input.phone());
         String rawPassword = input.password() == null || input.password().isBlank()
                 ? UUID.randomUUID().toString()
@@ -92,6 +101,36 @@ public class AuthController {
     @PostMapping("/auth/forgot-password")
     public SentResponse forgotPassword(@RequestBody ForgotPasswordInput input) {
         log.info("[dev-forgot-password] reset requested for {}", input.emailOrPhone());
+        return SentResponse.ok();
+    }
+
+    @PostMapping("/auth/otp/check")
+    public SentResponse checkOtp(@RequestBody OtpVerifyInput input) {
+        // Dev stub: validate the code without requiring an existing account, so the
+        // registration phone step can verify before the user is created.
+        if (!DEV_OTP_CODE.equals(input.code())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid code");
+        }
+        return SentResponse.ok();
+    }
+
+    @PostMapping("/auth/reset-password")
+    public SentResponse resetPassword(@RequestBody ResetPasswordInput input) {
+        // Dev stub: the OTP is the fixed dev code (no real SMS/email provider).
+        if (!DEV_OTP_CODE.equals(input.code())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid code");
+        }
+        if (input.newPassword() == null || input.newPassword().length() < 6) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password too short");
+        }
+        String idf = input.emailOrPhone() == null ? "" : input.emailOrPhone().trim();
+        User user = userRepository.findByEmailIgnoreCase(idf)
+                .or(() -> userRepository.findAll().stream()
+                        .filter(u -> idf.equals(u.getPhone()))
+                        .findFirst())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        user.setPasswordHash(passwordEncoder.encode(input.newPassword()));
+        userRepository.save(user);
         return SentResponse.ok();
     }
 

@@ -1,26 +1,21 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { Emotion, MediaItem } from '@explorarte/shared';
 import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
 import { GradientHeader } from '@/components/gradient-header';
 import { Logo } from '@/components/logo';
 import { VideoPlaceholder } from '@/components/video-placeholder';
 import { colors } from '@/constants/theme';
 import { api } from '@/lib/api';
+import { useAsync } from '@/lib/useAsync';
 
 export default function BibliotecaDeEmocionesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [emotions, setEmotions] = useState<Emotion[]>([]);
-  const [introVideo, setIntroVideo] = useState<MediaItem | null>(null);
-
-  useEffect(() => {
-    api.emotions.list().then(setEmotions);
-    api.screenIntros.get('emotions').then((v) => setIntroVideo(v?.video ?? null));
-  }, []);
+  const { data: emotions, loading, error, reload } = useAsync(() => api.emotions.list(), []);
+  const { data: intro } = useAsync(() => api.screenIntros.get('emotions'), []);
+  const introVideo = intro?.video ?? null;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -52,28 +47,47 @@ export default function BibliotecaDeEmocionesScreen() {
           videoItem={introVideo}
         />
 
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-          {emotions.map((e) => (
+        {emotions && emotions.length > 0 ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+            {emotions.map((e) => (
+              <Pressable
+                key={e.id}
+                onPress={() => router.push(`/emociones/${e.id}` as never)}
+                style={({ pressed }) => ({
+                  width: '47.8%',
+                  flexGrow: 1,
+                  borderRadius: 16,
+                  paddingVertical: 22,
+                  alignItems: 'center',
+                  gap: 8,
+                  backgroundColor: e.bg,
+                  borderWidth: 1.5,
+                  borderColor: e.color + '40',
+                  transform: [{ scale: pressed ? 0.96 : 1 }],
+                })}>
+                <Text style={{ fontSize: 44 }}>{e.emoji}</Text>
+                <Text style={{ fontSize: 14, fontWeight: '800', color: colors.textDark }}>{e.name}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : loading ? (
+          <ActivityIndicator color={colors.brand} style={{ marginTop: 32 }} />
+        ) : error ? (
+          <View style={{ marginTop: 32, alignItems: 'center', gap: 12 }}>
+            <Text style={{ fontSize: 13, color: colors.textBody, textAlign: 'center' }}>
+              No pudimos cargar las emociones. Revisa tu conexión.
+            </Text>
             <Pressable
-              key={e.id}
-              onPress={() => router.push(`/emociones/${e.id}` as never)}
-              style={({ pressed }) => ({
-                width: '47.8%',
-                flexGrow: 1,
-                borderRadius: 16,
-                paddingVertical: 22,
-                alignItems: 'center',
-                gap: 8,
-                backgroundColor: e.bg,
-                borderWidth: 1.5,
-                borderColor: e.color + '40',
-                transform: [{ scale: pressed ? 0.96 : 1 }],
-              })}>
-              <Text style={{ fontSize: 44 }}>{e.emoji}</Text>
-              <Text style={{ fontSize: 14, fontWeight: '800', color: colors.textDark }}>{e.name}</Text>
+              onPress={reload}
+              style={{ paddingVertical: 9, paddingHorizontal: 18, borderRadius: 10, backgroundColor: colors.brand }}>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Reintentar</Text>
             </Pressable>
-          ))}
-        </View>
+          </View>
+        ) : (
+          <Text style={{ marginTop: 8, fontSize: 12.5, color: colors.textMuted }}>
+            Aún no hay emociones disponibles.
+          </Text>
+        )}
       </ScrollView>
 
       <BottomNav items={MAIN_TABS} />

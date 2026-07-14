@@ -1,9 +1,9 @@
 import * as Linking from 'expo-linking';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { MediaItem, ToolsContent } from '@explorarte/shared';
+import type { MediaItem } from '@explorarte/shared';
 import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
 import { DownloadableMediaItem } from '@/components/downloadable-media-item';
 import { GradientHeader } from '@/components/gradient-header';
@@ -12,6 +12,7 @@ import { Logo } from '@/components/logo';
 import { VideoPlaceholder } from '@/components/video-placeholder';
 import { colors } from '@/constants/theme';
 import { api } from '@/lib/api';
+import { useAsync } from '@/lib/useAsync';
 import { download, getLocalUri, isDownloaded } from '@/lib/offlineStorage';
 
 function ManualButton({ manual }: { manual: MediaItem | null }) {
@@ -103,18 +104,9 @@ function SectionCard({
 
 export default function CajaDeHerramientasScreen() {
   const insets = useSafeAreaInsets();
-  const [tools, setTools] = useState<ToolsContent>({
-    downloadables: [],
-    bibliography: [],
-    manualDocument: null,
-    activityGuides: [],
-  });
-  const [introVideo, setIntroVideo] = useState<MediaItem | null>(null);
-
-  useEffect(() => {
-    api.tools.get().then(setTools);
-    api.screenIntros.get('tools').then((v) => setIntroVideo(v?.video ?? null));
-  }, []);
+  const { data: tools, loading, error, reload } = useAsync(() => api.tools.get(), []);
+  const { data: intro } = useAsync(() => api.screenIntros.get('tools'), []);
+  const introVideo = intro?.video ?? null;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -142,47 +134,72 @@ export default function CajaDeHerramientasScreen() {
           videoItem={introVideo}
         />
 
-        <SectionCard emoji="📖" title="Manual ExplorArte" subtitle="Documento principal de la metodología.">
-          <ManualButton manual={tools.manualDocument} />
-        </SectionCard>
+        {tools ? (
+          <>
+            <SectionCard emoji="📖" title="Manual ExplorArte" subtitle="Documento principal de la metodología.">
+              <ManualButton manual={tools.manualDocument} />
+            </SectionCard>
 
-        <SectionCard emoji="📋" title="Guías de actividades" subtitle="Materiales complementarios para docentes.">
-          {tools.activityGuides.length === 0 ? (
-            <Text style={{ fontSize: 12.5, color: colors.textBody }}>Aún no hay guías subidas.</Text>
-          ) : (
-            <View style={{ gap: 8 }}>
-              {tools.activityGuides.map((item) => (
-                <DownloadableMediaItem key={item.id} item={item} />
-              ))}
-            </View>
-          )}
-        </SectionCard>
+            <SectionCard emoji="📋" title="Guías de actividades" subtitle="Materiales complementarios para docentes.">
+              {tools.activityGuides.length === 0 ? (
+                <Text style={{ fontSize: 12.5, color: colors.textBody }}>Aún no hay guías subidas.</Text>
+              ) : (
+                <View style={{ gap: 8 }}>
+                  {tools.activityGuides.map((item) => (
+                    <DownloadableMediaItem key={item.id} item={item} />
+                  ))}
+                </View>
+              )}
+            </SectionCard>
 
-        <SectionCard emoji="📥" title="Recursos descargables">
-          {tools.downloadables.length === 0 ? (
-            <Text style={{ fontSize: 12.5, color: colors.textBody }}>Aún no hay recursos subidos.</Text>
-          ) : (
-            <View style={{ gap: 8 }}>
-              {tools.downloadables.map((item) => (
-                <DownloadableMediaItem key={item.id} item={item} />
-              ))}
-            </View>
-          )}
-        </SectionCard>
+            <SectionCard emoji="📥" title="Recursos descargables">
+              {tools.downloadables.length === 0 ? (
+                <Text style={{ fontSize: 12.5, color: colors.textBody }}>Aún no hay recursos subidos.</Text>
+              ) : (
+                <View style={{ gap: 8 }}>
+                  {tools.downloadables.map((item) => (
+                    <DownloadableMediaItem key={item.id} item={item} />
+                  ))}
+                </View>
+              )}
+            </SectionCard>
 
-        <SectionCard
-          emoji="📚"
-          title="Bibliografía recomendada"
-          subtitle="Selección de lecturas para profundizar en bienestar emocional, desarrollo socioemocional y educación.">
-          <View style={{ gap: 8 }}>
-            {tools.bibliography.map((b) => (
-              <View key={b} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Icon name="book-open" size={15} color={colors.brand} />
-                <Text style={{ flex: 1, fontSize: 12.5, color: colors.textBody, lineHeight: 18 }}>{b}</Text>
-              </View>
-            ))}
+            <SectionCard
+              emoji="📚"
+              title="Bibliografía recomendada"
+              subtitle="Selección de lecturas para profundizar en bienestar emocional, desarrollo socioemocional y educación.">
+              {tools.bibliography.length === 0 ? (
+                <Text style={{ fontSize: 12.5, color: colors.textBody }}>Aún no hay bibliografía sugerida.</Text>
+              ) : (
+                <View style={{ gap: 8 }}>
+                  {tools.bibliography.map((b) => (
+                    <View key={b} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <Icon name="book-open" size={15} color={colors.brand} />
+                      <Text style={{ flex: 1, fontSize: 12.5, color: colors.textBody, lineHeight: 18 }}>{b}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </SectionCard>
+          </>
+        ) : loading ? (
+          <ActivityIndicator color={colors.brand} style={{ marginTop: 32 }} />
+        ) : error ? (
+          <View style={{ marginTop: 32, alignItems: 'center', gap: 12 }}>
+            <Text style={{ fontSize: 13, color: colors.textBody, textAlign: 'center' }}>
+              No pudimos cargar las herramientas. Revisa tu conexión.
+            </Text>
+            <Pressable
+              onPress={reload}
+              style={{ paddingVertical: 9, paddingHorizontal: 18, borderRadius: 10, backgroundColor: colors.brand }}>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Reintentar</Text>
+            </Pressable>
           </View>
-        </SectionCard>
+        ) : (
+          <Text style={{ marginTop: 8, fontSize: 12.5, color: colors.textMuted }}>
+            Aún no hay herramientas disponibles.
+          </Text>
+        )}
       </ScrollView>
 
       <BottomNav items={MAIN_TABS} />

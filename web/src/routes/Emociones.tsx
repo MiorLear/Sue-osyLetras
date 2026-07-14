@@ -1,20 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Emotion } from '@explorarte/shared';
 import { Masthead } from '@/components/Masthead';
 import { VideoModal } from '@/components/VideoModal';
 import { api } from '@/lib/api';
+import { useAsync } from '@/lib/useAsync';
 
 export default function Emociones() {
   const navigate = useNavigate();
-  const [emotions, setEmotions] = useState<Emotion[]>([]);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const { data: emotions, loading, error, reload } = useAsync(() => api.emotions.list(), []);
+  const { data: videoUrl } = useAsync(
+    () => api.screenIntros.get('emotions').then((v) => v?.video.url ?? null),
+    [],
+  );
   const [videoOpen, setVideoOpen] = useState(false);
-
-  useEffect(() => {
-    api.emotions.list().then(setEmotions);
-    api.screenIntros.get('emotions').then((v) => setVideoUrl(v?.video.url ?? null));
-  }, []);
 
   return (
     <div className="page">
@@ -31,13 +29,11 @@ export default function Emociones() {
             Las emociones forman parte de nuestra vida cotidiana. Reconocerlas, nombrarlas y comprenderlas es el primer
             paso para desarrollar bienestar emocional y construir relaciones saludables dentro del aula.
           </p>
-          <div style={{ display: 'flex', gap: 18, marginTop: 22, paddingTop: 20, borderTop: '1px solid #F0E7D8' }}>
-            <Stat n={emotions.length || 8} label="emociones" color="var(--brand)" />
-            <Sep />
-            <Stat n={24} label="actividades" color="var(--clay)" />
-            <Sep />
-            <Stat n={12} label="historias" color="var(--gold)" />
-          </div>
+          {emotions && emotions.length > 0 ? (
+            <div style={{ display: 'flex', gap: 18, marginTop: 22, paddingTop: 20, borderTop: '1px solid #F0E7D8' }}>
+              <Stat n={emotions.length} label="emociones" color="var(--brand)" />
+            </div>
+          ) : null}
         </div>
 
         {videoUrl ? (
@@ -60,19 +56,38 @@ export default function Emociones() {
         <span className="section-rule" />
       </div>
 
-      <div className="emotion-grid">
-        {emotions.map((e) => (
+      {loading ? (
+        <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 14, padding: '40px 0' }}>Cargando…</p>
+      ) : error ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '40px 0' }}>
+          <p style={{ color: 'var(--text-body)', fontSize: 14, textAlign: 'center', margin: 0 }}>
+            No pudimos cargar las emociones. Revisa tu conexión.
+          </p>
           <button
-            key={e.id}
-            className="pressable"
-            onClick={() => navigate(`/emociones/${e.id}`)}
-            style={{ borderRadius: 20, padding: '26px 14px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, background: e.bg, border: `1px solid ${e.color}33` }}>
-            <span style={{ fontSize: 50, lineHeight: 1 }}>{e.emoji}</span>
-            <span style={{ fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 600, color: 'var(--text-dark)' }}>{e.name}</span>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '.04em', color: e.color }}>Explorar →</span>
+            onClick={reload}
+            style={{ padding: '9px 18px', borderRadius: 10, background: 'var(--brand)', color: '#fff', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer' }}>
+            Reintentar
           </button>
-        ))}
-      </div>
+        </div>
+      ) : emotions && emotions.length > 0 ? (
+        <div className="emotion-grid">
+          {emotions.map((e) => (
+            <button
+              key={e.id}
+              className="pressable"
+              onClick={() => navigate(`/emociones/${e.id}`)}
+              style={{ borderRadius: 20, padding: '26px 14px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, background: e.bg, border: `1px solid ${e.color}33` }}>
+              <span style={{ fontSize: 50, lineHeight: 1 }}>{e.emoji}</span>
+              <span style={{ fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 600, color: 'var(--text-dark)' }}>{e.name}</span>
+              <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '.04em', color: e.color }}>Explorar →</span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 14, padding: '40px 0' }}>
+          Aún no hay emociones disponibles.
+        </p>
+      )}
     </div>
   );
 }
@@ -84,8 +99,4 @@ function Stat({ n, label, color }: { n: number; label: string; color: string }) 
       <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{label}</span>
     </span>
   );
-}
-
-function Sep() {
-  return <span style={{ width: 1, background: '#F0E7D8' }} />;
 }

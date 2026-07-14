@@ -3,7 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
@@ -11,6 +11,7 @@ import { Icon } from '@/components/icon';
 import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
 import { brandGradient, colors, INSTITUCIONES } from '@/constants/theme';
 import { api, setAuthToken } from '@/lib/api';
+import { useAsync } from '@/lib/useAsync';
 
 function SectionLabel({ children }: { children: string }) {
   return (
@@ -33,6 +34,8 @@ export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
+  const { data: profile, loading, error, reload } = useAsync(() => api.profile.get(), []);
+
   const [photo, setPhoto] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [lastname, setLastname] = useState('');
@@ -41,18 +44,19 @@ export default function ProfileScreen() {
   const [institucion, setInstitucion] = useState('');
   const [ubicacion, setUbicacion] = useState('');
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
 
+  // Seed the editable form fields once the profile finishes loading.
   useEffect(() => {
-    api.profile.get().then((profile) => {
-      setPhoto(profile.photo ?? null);
-      setName(profile.name);
-      setLastname(profile.lastname);
-      setEmail(profile.email);
-      setPhone(profile.phone);
-      setInstitucion(profile.institucion);
-      setUbicacion(profile.ubicacion);
-    });
-  }, []);
+    if (!profile) return;
+    setPhoto(profile.photo ?? null);
+    setName(profile.name);
+    setLastname(profile.lastname);
+    setEmail(profile.email);
+    setPhone(profile.phone);
+    setInstitucion(profile.institucion);
+    setUbicacion(profile.ubicacion);
+  }, [profile]);
 
   const initials = ((name.charAt(0) || '') + (lastname.charAt(0) || '')).toUpperCase();
 
@@ -67,18 +71,25 @@ export default function ProfileScreen() {
   };
 
   const handleSave = async () => {
-    // A picked photo starts as a local file:// URI (only valid on this
-    // device) — upload it first so `photo` ends up as a real hosted URL that
-    // persists and is visible to other users (e.g. the admin's user list).
-    let uploadedPhoto = photo;
-    if (photo && photo.startsWith('file')) {
-      const blob = await fetch(photo).then((r) => r.blob());
-      const uploaded = await api.media.upload(blob, 'profile.jpg', 'profile');
-      uploadedPhoto = uploaded.url;
+    setSaving(true);
+    try {
+      // A picked photo starts as a local file:// URI (only valid on this
+      // device) — upload it first so `photo` ends up as a real hosted URL that
+      // persists and is visible to other users (e.g. the admin's user list).
+      let uploadedPhoto = photo;
+      if (photo && photo.startsWith('file')) {
+        const blob = await fetch(photo).then((r) => r.blob());
+        const uploaded = await api.media.upload(blob, 'profile.jpg', 'profile');
+        uploadedPhoto = uploaded.url;
+      }
+      await api.profile.update({ name, lastname, email, phone, institucion, ubicacion, photo: uploadedPhoto });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch {
+      Alert.alert('Error', 'No se pudo guardar el perfil. Intenta de nuevo.');
+    } finally {
+      setSaving(false);
     }
-    await api.profile.update({ name, lastname, email, phone, institucion, ubicacion, photo: uploadedPhoto });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
   };
 
   const handleLogout = async () => {
@@ -167,66 +178,87 @@ export default function ProfileScreen() {
         contentContainerStyle={{ padding: 20, gap: 16 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-        {saved ? (
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 10,
-              padding: 12,
-              borderRadius: 12,
-              backgroundColor: '#F0FFF8',
-              borderWidth: 1,
-              borderColor: '#C6F6D5',
-            }}>
-            <Icon name="check-circle" size={16} color={colors.success} />
-            <Text style={{ fontSize: 12.5, fontWeight: '600', color: '#276749' }}>
-              Perfil actualizado correctamente
+        {profile ? (
+          <>
+            {saved ? (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: 12,
+                  borderRadius: 12,
+                  backgroundColor: '#F0FFF8',
+                  borderWidth: 1,
+                  borderColor: '#C6F6D5',
+                }}>
+                <Icon name="check-circle" size={16} color={colors.success} />
+                <Text style={{ fontSize: 12.5, fontWeight: '600', color: '#276749' }}>
+                  Perfil actualizado correctamente
+                </Text>
+              </View>
+            ) : null}
+
+            <SectionLabel>Información personal</SectionLabel>
+            <Field label="Nombre" icon="user" value={name} onChangeText={setName} placeholder="Tu nombre" />
+            <Field
+              label="Apellido"
+              icon="user"
+              value={lastname}
+              onChangeText={setLastname}
+              placeholder="Tu apellido"
+            />
+
+            <SectionLabel>Contacto</SectionLabel>
+            <Field
+              label="Correo electrónico"
+              icon="mail"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              placeholder="correo@ejemplo.com"
+            />
+            <Field
+              label="Teléfono"
+              icon="phone"
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              placeholder="+502 1234 5678"
+            />
+
+            <SectionLabel>Institución</SectionLabel>
+            <SelectOrAdd
+              label="Institución"
+              icon="map-pin"
+              value={institucion}
+              options={INSTITUCIONES}
+              onChange={setInstitucion}
+              newPlaceholder="Nombre de la institución"
+            />
+            <LocationAutocomplete label="Ubicación" value={ubicacion} onChange={setUbicacion} />
+
+            <PrimaryButton
+              label={saving ? 'Guardando…' : 'Guardar cambios'}
+              onPress={handleSave}
+              disabled={saving}
+            />
+          </>
+        ) : loading ? (
+          <ActivityIndicator color={colors.brand} style={{ marginTop: 32 }} />
+        ) : error ? (
+          <View style={{ marginTop: 32, alignItems: 'center', gap: 12 }}>
+            <Text style={{ fontSize: 13, color: colors.textBody, textAlign: 'center' }}>
+              No pudimos cargar tu perfil. Revisa tu conexión.
             </Text>
+            <Pressable
+              onPress={reload}
+              style={{ paddingVertical: 9, paddingHorizontal: 18, borderRadius: 10, backgroundColor: colors.brand }}>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Reintentar</Text>
+            </Pressable>
           </View>
         ) : null}
-
-        <SectionLabel>Información personal</SectionLabel>
-        <Field label="Nombre" icon="user" value={name} onChangeText={setName} placeholder="Tu nombre" />
-        <Field
-          label="Apellido"
-          icon="user"
-          value={lastname}
-          onChangeText={setLastname}
-          placeholder="Tu apellido"
-        />
-
-        <SectionLabel>Contacto</SectionLabel>
-        <Field
-          label="Correo electrónico"
-          icon="mail"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          placeholder="correo@ejemplo.com"
-        />
-        <Field
-          label="Teléfono"
-          icon="phone"
-          value={phone}
-          onChangeText={setPhone}
-          keyboardType="phone-pad"
-          placeholder="+502 1234 5678"
-        />
-
-        <SectionLabel>Institución</SectionLabel>
-        <SelectOrAdd
-          label="Institución"
-          icon="map-pin"
-          value={institucion}
-          options={INSTITUCIONES}
-          onChange={setInstitucion}
-          newPlaceholder="Nombre de la institución"
-        />
-        <LocationAutocomplete label="Ubicación" value={ubicacion} onChange={setUbicacion} />
-
-        <PrimaryButton label="Guardar cambios" onPress={handleSave} />
 
         <Pressable
           onPress={() => router.push('/sobre')}

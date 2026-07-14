@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { createConfigurableApiClient, type ApiModuleKey } from '@explorarte/shared';
 
@@ -40,10 +41,24 @@ const mockModules = (process.env.EXPO_PUBLIC_API_MOCK_MODULES ?? '')
   .map((m) => m.trim())
   .filter(Boolean) as ApiModuleKey[];
 
+let sessionExpiredRedirecting = false;
+
 export const api = createConfigurableApiClient({
   baseUrl,
   mockModules,
   getToken: () => cachedToken,
+  // On any 401 the session is gone/expired — clear it and bounce to login so
+  // screens don't sit blank on an unhandled auth error.
+  onUnauthorized: () => {
+    setAuthToken(null).catch(() => {});
+    if (!sessionExpiredRedirecting) {
+      sessionExpiredRedirecting = true;
+      router.replace('/login');
+      setTimeout(() => {
+        sessionExpiredRedirecting = false;
+      }, 1500);
+    }
+  },
 });
 
 export const usingMock = !baseUrl;

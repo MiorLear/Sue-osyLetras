@@ -47,7 +47,14 @@ export default function AdminAprendiendo() {
     const clean: Draft = {
       emoji: draft.emoji.trim() || '🌱',
       title: draft.title.trim(),
-      subtopics: draft.subtopics.filter((s) => s.title.trim() || s.body.trim()),
+      subtopics: draft.subtopics
+        .filter((s) => s.title.trim() || s.body.trim())
+        .map((s) => ({
+          ...s,
+          pdfs: s.pdfs.filter((m) => m.url.trim()),
+          videos: s.videos.filter((m) => m.url.trim()),
+          audios: s.audios.filter((m) => m.url.trim()),
+        })),
     };
     if (!clean.title) return;
     setSaving(true);

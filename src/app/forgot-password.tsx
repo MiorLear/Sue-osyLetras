@@ -11,48 +11,73 @@ import { api } from '@/lib/api';
 import { OtpInput } from './register';
 
 type Tab = 'email' | 'phone';
-type PhoneStep = 'number' | 'otp' | 'success';
+type Step = 'input' | 'otp' | 'password' | 'success';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
   const [tab, setTab] = useState<Tab>('email');
-  const [email, setEmail] = useState('');
-  const [emailSent, setEmailSent] = useState(false);
-  const [phone, setPhone] = useState('');
+  const [identifier, setIdentifier] = useState('');
+  const [step, setStep] = useState<Step>('input');
   const [otp, setOtp] = useState('');
-  const [phoneStep, setPhoneStep] = useState<PhoneStep>('number');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const goLogin = () => router.push('/login');
-  const showTabs = !emailSent && phoneStep !== 'success';
+  const isPhone = tab === 'phone';
+  const canSend = isPhone ? identifier.length >= 8 : identifier.includes('@');
 
-  const handleSendEmail = async () => {
+  const switchTab = (t: Tab) => {
+    setTab(t);
+    setIdentifier('');
+    setError(null);
+  };
+
+  const sendCode = async () => {
     setLoading(true);
+    setError(null);
     try {
-      await api.auth.forgotPassword(email);
-      setEmailSent(true);
+      await api.auth.requestOtp(identifier);
+      setStep('otp');
+    } catch {
+      setError('No se pudo enviar el código. Revisa tu conexión e intenta de nuevo.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSendPhoneCode = async () => {
+  const verifyCode = async () => {
     setLoading(true);
+    setError(null);
     try {
-      await api.auth.requestOtp(phone);
-      setPhoneStep('otp');
+      await api.auth.checkOtp(identifier, otp);
+      setStep('password');
+    } catch {
+      setError('Código incorrecto. Verifica e intenta de nuevo.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerifyPhoneCode = async () => {
+  const submitNewPassword = async () => {
+    if (password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+    if (password !== confirm) {
+      setError('Las contraseñas no coinciden.');
+      return;
+    }
     setLoading(true);
+    setError(null);
     try {
-      await api.auth.verifyOtp(phone, otp);
-      setPhoneStep('success');
+      await api.auth.resetPassword(identifier, otp, password);
+      setStep('success');
+    } catch {
+      setError('No se pudo restablecer la contraseña. Intenta de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -84,68 +109,43 @@ export default function ForgotPasswordScreen() {
         contentContainerStyle={{ paddingHorizontal: 20, gap: 16 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-        {showTabs ? (
+        {step === 'input' ? (
           <View style={{ flexDirection: 'row', padding: 4, borderRadius: 16, backgroundColor: '#E8F8F7' }}>
-            <TabBtn label="Por correo" icon="mail" active={tab === 'email'} onPress={() => setTab('email')} />
-            <TabBtn label="Por teléfono" icon="phone" active={tab === 'phone'} onPress={() => setTab('phone')} />
+            <TabBtn label="Por correo" icon="mail" active={!isPhone} onPress={() => switchTab('email')} />
+            <TabBtn label="Por teléfono" icon="phone" active={isPhone} onPress={() => switchTab('phone')} />
           </View>
         ) : null}
 
-        {/* Email form */}
-        {tab === 'email' && !emailSent ? (
+        {/* Step: identifier input */}
+        {step === 'input' ? (
           <>
-            <InfoBox text="Ingresa el correo electrónico con el que te registraste y te enviaremos un enlace para restablecer tu contraseña." />
+            <InfoBox
+              text={
+                isPhone
+                  ? 'Ingresa tu número de teléfono y te enviaremos un código de 6 dígitos para verificar tu identidad.'
+                  : 'Ingresa el correo con el que te registraste y te enviaremos un código de 6 dígitos para restablecer tu contraseña.'
+              }
+            />
             <Field
-              label="Correo electrónico"
-              icon="mail"
-              placeholder="correo@ejemplo.com"
-              keyboardType="email-address"
+              label={isPhone ? 'Número de teléfono' : 'Correo electrónico'}
+              icon={isPhone ? 'phone' : 'mail'}
+              placeholder={isPhone ? '+502 1234 5678' : 'correo@ejemplo.com'}
+              keyboardType={isPhone ? 'phone-pad' : 'email-address'}
               autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
+              value={identifier}
+              onChangeText={setIdentifier}
             />
-            <PrimaryButton
-              label={loading ? 'Enviando...' : 'Enviar enlace de recuperación'}
-              onPress={handleSendEmail}
-              disabled={!email.includes('@') || loading}
-            />
-          </>
-        ) : null}
-
-        {/* Email success */}
-        {tab === 'email' && emailSent ? (
-          <>
-            <SuccessBox
-              emoji="📬"
-              title="¡Correo enviado!"
-              text={`Revisa tu bandeja de entrada en ${email}. Te enviamos un enlace para restablecer tu contraseña.`}
-            />
-            <PrimaryButton label="Volver al inicio de sesión" onPress={goLogin} />
-          </>
-        ) : null}
-
-        {/* Phone number */}
-        {tab === 'phone' && phoneStep === 'number' ? (
-          <>
-            <InfoBox text="Ingresa tu número de teléfono y te enviaremos un código de 6 dígitos para verificar tu identidad." />
-            <Field
-              label="Número de teléfono"
-              icon="phone"
-              placeholder="+502 1234 5678"
-              keyboardType="phone-pad"
-              value={phone}
-              onChangeText={setPhone}
-            />
+            {error ? <ErrorText text={error} /> : null}
             <PrimaryButton
               label={loading ? 'Enviando...' : 'Enviar código'}
-              onPress={handleSendPhoneCode}
-              disabled={phone.length < 8 || loading}
+              onPress={sendCode}
+              disabled={!canSend || loading}
             />
           </>
         ) : null}
 
-        {/* Phone otp */}
-        {tab === 'phone' && phoneStep === 'otp' ? (
+        {/* Step: OTP */}
+        {step === 'otp' ? (
           <>
             <View
               style={{
@@ -157,18 +157,22 @@ export default function ForgotPasswordScreen() {
                 borderColor: '#C0E8E5',
               }}>
               <Text style={{ fontSize: 12.5, color: colors.textBody }}>Código enviado a</Text>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textDark }}>{phone}</Text>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textDark }}>{identifier}</Text>
             </View>
-            <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textDark }}>
-              Código de 6 dígitos
-            </Text>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textDark }}>Código de 6 dígitos</Text>
             <OtpInput value={otp} onChange={setOtp} />
+            {__DEV__ ? (
+              <Text style={{ fontSize: 11.5, color: colors.textMuted, textAlign: 'center' }}>
+                Modo prueba: el código es 123456
+              </Text>
+            ) : null}
+            {error ? <ErrorText text={error} /> : null}
             <PrimaryButton
               label={loading ? 'Verificando...' : 'Verificar código'}
-              onPress={handleVerifyPhoneCode}
+              onPress={verifyCode}
               disabled={otp.length < 6 || loading}
             />
-            <Pressable onPress={handleSendPhoneCode} style={{ alignItems: 'center', padding: 8 }}>
+            <Pressable onPress={sendCode} style={{ alignItems: 'center', padding: 8 }}>
               <Text style={{ fontSize: 12.5, color: colors.textMuted }}>
                 ¿No recibiste el código?{' '}
                 <Text style={{ color: colors.brand, fontWeight: '700' }}>Reenviar</Text>
@@ -177,15 +181,42 @@ export default function ForgotPasswordScreen() {
           </>
         ) : null}
 
-        {/* Phone success */}
-        {tab === 'phone' && phoneStep === 'success' ? (
+        {/* Step: new password */}
+        {step === 'password' ? (
+          <>
+            <InfoBox text="Crea una nueva contraseña para tu cuenta." />
+            <Field
+              label="Nueva contraseña"
+              password
+              placeholder="Mínimo 6 caracteres"
+              value={password}
+              onChangeText={setPassword}
+            />
+            <Field
+              label="Confirmar contraseña"
+              password
+              placeholder="Repite tu contraseña"
+              value={confirm}
+              onChangeText={setConfirm}
+            />
+            {error ? <ErrorText text={error} /> : null}
+            <PrimaryButton
+              label={loading ? 'Guardando...' : 'Guardar contraseña'}
+              onPress={submitNewPassword}
+              disabled={!password || !confirm || loading}
+            />
+          </>
+        ) : null}
+
+        {/* Step: success */}
+        {step === 'success' ? (
           <>
             <SuccessBox
               emoji="✅"
-              title="¡Identidad verificada!"
-              text="Puedes ingresar una nueva contraseña para tu cuenta."
+              title="¡Contraseña actualizada!"
+              text="Ya puedes iniciar sesión con tu nueva contraseña."
             />
-            <PrimaryButton label="Volver al inicio de sesión" onPress={goLogin} />
+            <PrimaryButton label="Ir al inicio de sesión" onPress={goLogin} />
           </>
         ) : null}
 
@@ -193,6 +224,10 @@ export default function ForgotPasswordScreen() {
       </ScrollView>
     </View>
   );
+}
+
+function ErrorText({ text }: { text: string }) {
+  return <Text style={{ fontSize: 12.5, color: '#E53E3E', textAlign: 'center' }}>{text}</Text>;
 }
 
 function TabBtn({
@@ -260,12 +295,8 @@ function SuccessBox({ emoji, title, text }: { emoji: string; title: string; text
         borderColor: '#C6F6D5',
       }}>
       <Text style={{ fontSize: 44, marginBottom: 12 }}>{emoji}</Text>
-      <Text style={{ fontSize: 16, fontWeight: '800', color: colors.textDark, marginBottom: 8 }}>
-        {title}
-      </Text>
-      <Text style={{ fontSize: 13, color: colors.textBody, lineHeight: 20, textAlign: 'center' }}>
-        {text}
-      </Text>
+      <Text style={{ fontSize: 16, fontWeight: '800', color: colors.textDark, marginBottom: 8 }}>{title}</Text>
+      <Text style={{ fontSize: 13, color: colors.textBody, lineHeight: 20, textAlign: 'center' }}>{text}</Text>
     </View>
   );
 }
