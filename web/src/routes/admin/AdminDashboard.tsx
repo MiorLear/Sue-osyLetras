@@ -22,6 +22,7 @@ const MODULES = [
   { emoji: '💛', title: 'Emociones', desc: 'Edita la biblioteca de emociones y su contenido.', href: '/admin/emociones', bg: 'linear-gradient(150deg,#FBF1DA,#F8E8DE)', border: '#F0DEC8' },
   { emoji: '🧰', title: 'Herramientas', desc: 'Administra descargables y bibliografía.', href: '/admin/herramientas', bg: 'linear-gradient(150deg,#E7F4F2,#FFFCF6)', border: '#DCEDEA' },
   { emoji: '🌱', title: 'Aprendiendo', desc: 'Gestiona los temas de bienestar emocional.', href: '/admin/aprendiendo', bg: 'linear-gradient(150deg,#EEEAF7,#FFFCF6)', border: '#DDD4EE' },
+  { emoji: '🎬', title: 'Videos de introducción', desc: 'Sube y actualiza los videos de introducción de cada pantalla.', href: '/admin/videos-intro', bg: 'linear-gradient(150deg,#F3E9EA,#FFFCF6)', border: '#EAD6D8' },
 ];
 
 /** Agrupa por valor y devuelve los conteos ordenados de mayor a menor. */

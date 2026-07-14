@@ -8,8 +8,6 @@ import { api } from '@/lib/api';
 const SCREENS: { key: ScreenKey; label: string; emoji: string }[] = [
   { key: 'home', label: 'Bienvenida', emoji: '👋' },
   { key: 'emotions', label: 'Biblioteca de emociones', emoji: '💛' },
-  { key: 'learning', label: 'Aprendiendo', emoji: '🌱' },
-  { key: 'tools', label: 'Caja de herramientas', emoji: '🧰' },
 ];
 
 export default function AdminIntroVideos() {
@@ -29,9 +27,16 @@ export default function AdminIntroVideos() {
 
   const setVideo = async (screenKey: ScreenKey, video: MediaItem | null) => {
     setVideos((v) => ({ ...v, [screenKey]: video }));
-    if (video) {
-      await api.screenIntros.update(screenKey, video);
-      showToast('Video actualizado');
+    try {
+      if (video) {
+        await api.screenIntros.update(screenKey, video);
+        showToast('Video actualizado');
+      } else {
+        await api.screenIntros.remove(screenKey);
+        showToast('Video eliminado');
+      }
+    } catch {
+      showToast('No se pudo guardar el cambio');
     }
   };
 

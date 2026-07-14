@@ -174,6 +174,8 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
         getOrNull<ScreenIntroVideo>(`/screen-intro-videos/${encodeURIComponent(screenKey)}`),
       update: (screenKey: string, video: MediaItem) =>
         request<ScreenIntroVideo>('PUT', `/screen-intro-videos/${encodeURIComponent(screenKey)}`, video),
+      remove: (screenKey: string) =>
+        request<void>('DELETE', `/screen-intro-videos/${encodeURIComponent(screenKey)}`),
     },
   };
 }

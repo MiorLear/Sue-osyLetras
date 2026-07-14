@@ -339,6 +339,10 @@ export function createMockClient(): ApiClient {
         screenIntros[screenKey] = entry;
         return clone(entry);
       },
+      async remove(screenKey: string): Promise<void> {
+        await delay(40);
+        delete screenIntros[screenKey];
+      },
     },
   };
 }

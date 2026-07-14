@@ -141,6 +141,8 @@ export interface ScreenIntrosApi {
   get(screenKey: string): Promise<ScreenIntroVideo | null>;
   /** PUT /screen-intro-videos/:screenKey — admin */
   update(screenKey: string, video: MediaItem): Promise<ScreenIntroVideo>;
+  /** DELETE /screen-intro-videos/:screenKey — admin */
+  remove(screenKey: string): Promise<void>;
 }
 
 export interface ApiClient {
