@@ -19,6 +19,58 @@ function SectionTitle({ children }: { children: string }) {
   return <Text style={{ fontSize: 15, fontWeight: '800', color: colors.textDark }}>{children}</Text>;
 }
 
+const ACTIVITY_LABEL =
+  /^(objetivo|duración|duracion|edades|materiales|instrucciones|desarrollo|reflexión|reflexion|preguntas para reflexionar|preguntas para conversar|cómo jugar|como jugar|variante)/i;
+
+// Activities arrive as rich multi-line text (title + Objetivo/Duración/Instrucciones/…).
+// Render the first line as the card title and the rest as body, emphasizing labels.
+function ActivityCard({ text, color, bg }: { text: string; color: string; bg: string }) {
+  const lines = text.split('\n');
+  const title = lines[0];
+  const body = lines.slice(1);
+  return (
+    <View
+      style={{
+        borderRadius: 12,
+        padding: 14,
+        backgroundColor: '#fff',
+        borderWidth: 1.5,
+        borderColor: colors.border,
+      }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: body.length ? 10 : 0 }}>
+        <View
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 9,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: bg,
+          }}>
+          <Icon name="edit" size={14} color={color} />
+        </View>
+        <Text style={{ flex: 1, fontSize: 14, fontWeight: '800', color: colors.textDark }}>{title}</Text>
+      </View>
+      {body.map((line, i) => {
+        const label = ACTIVITY_LABEL.test(line.trim());
+        return (
+          <Text
+            key={i}
+            style={{
+              fontSize: 12.5,
+              lineHeight: 18,
+              marginTop: label && i > 0 ? 6 : 2,
+              color: label ? colors.textDark : colors.textBody,
+              fontWeight: label ? '700' : '400',
+            }}>
+            {line}
+          </Text>
+        );
+      })}
+    </View>
+  );
+}
+
 export default function EmotionDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -83,32 +135,13 @@ export default function EmotionDetailScreen() {
             <Divider />
             <SectionTitle>Actividades recomendadas</SectionTitle>
             <View style={{ marginTop: 10, gap: 8 }}>
-              {data.activities.map((a) => (
-                <View
-                  key={a}
-                  style={{
-                    borderRadius: 12,
-                    padding: 14,
-                    backgroundColor: '#fff',
-                    borderWidth: 1.5,
-                    borderColor: colors.border,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 10,
-                  }}>
-                  <View
-                    style={{
-                      width: 30,
-                      height: 30,
-                      borderRadius: 9,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: (emotion?.bg ?? colors.navBg),
-                    }}>
-                    <Icon name="edit" size={14} color={emotion?.color ?? colors.brand} />
-                  </View>
-                  <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: colors.textDark }}>{a}</Text>
-                </View>
+              {data.activities.map((a, i) => (
+                <ActivityCard
+                  key={i}
+                  text={a}
+                  color={emotion?.color ?? colors.brand}
+                  bg={emotion?.bg ?? colors.navBg}
+                />
               ))}
             </View>
 

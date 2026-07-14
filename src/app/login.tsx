@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GoogleIcon, Icon } from '@/components/icon';
@@ -120,7 +120,16 @@ export default function LoginScreen() {
         <View style={{ gap: 12 }}>
           {view === 'main' ? (
             <>
-              <SocialButton icon="google" label="Continuar con Google" onPress={goHome} />
+              <SocialButton
+                icon="google"
+                label="Continuar con Google"
+                onPress={() =>
+                  Alert.alert(
+                    'Próximamente',
+                    'El inicio de sesión con Google estará disponible muy pronto. Por ahora usa tu correo o teléfono.',
+                  )
+                }
+              />
               <SocialButton
                 icon="phone"
                 label="Continuar con teléfono"
@@ -177,6 +186,11 @@ export default function LoginScreen() {
                 value={phone}
                 onChangeText={setPhone}
               />
+              {__DEV__ ? (
+                <Text style={{ fontSize: 11.5, color: colors.textMuted, textAlign: 'center' }}>
+                  Modo prueba: usa el teléfono de un usuario de ejemplo, p. ej. +503 7000 1234
+                </Text>
+              ) : null}
               <PrimaryButton
                 label={loading ? 'Enviando...' : 'Enviar código'}
                 onPress={handleSendCode}
@@ -222,6 +236,11 @@ export default function LoginScreen() {
                   letterSpacing: 12,
                 }}
               />
+              {__DEV__ ? (
+                <Text style={{ fontSize: 11.5, color: colors.textMuted, textAlign: 'center' }}>
+                  Modo prueba: el código es 123456
+                </Text>
+              ) : null}
               {error ? (
                 <Text style={{ fontSize: 12.5, color: '#E53E3E', textAlign: 'center' }}>{error}</Text>
               ) : null}
