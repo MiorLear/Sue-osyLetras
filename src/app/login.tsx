@@ -58,6 +58,8 @@ export default function LoginScreen() {
     try {
       await api.auth.requestOtp(phone);
       setView('phone-otp');
+    } catch {
+      setError('No se pudo enviar el código. Revisa tu conexión e intenta de nuevo.');
     } finally {
       setLoading(false);
     }

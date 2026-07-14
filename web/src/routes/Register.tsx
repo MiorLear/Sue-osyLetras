@@ -44,9 +44,15 @@ export default function Register() {
   };
 
   const choose = (m: Method) => {
+    if (m === 'google') {
+      // No real Google OAuth yet — don't fake success / create an empty-credential
+      // account. Honest "coming soon", matching the login screen.
+      window.alert('Próximamente: el registro con Google estará disponible muy pronto. Por ahora usa tu correo o teléfono.');
+      return;
+    }
     setMethod(m);
-    if (m === 'google') setStep(2);
-    else { setStep(1); setPhoneStep('number'); }
+    setStep(1);
+    setPhoneStep('number');
   };
 
   let subtitle = '';
@@ -118,12 +124,6 @@ export default function Register() {
 
         {step === 2 ? (
           <>
-            {method === 'google' ? (
-              <div style={{ borderRadius: 16, padding: 12, display: 'flex', alignItems: 'center', gap: 12, background: '#F0FFF4', border: '1px solid #C6F6D5' }}>
-                <Icon name="check-circle" size={18} color="var(--success)" />
-                <span style={{ fontSize: 12.5, color: '#276749', fontWeight: 600 }}>Google conectado correctamente</span>
-              </div>
-            ) : null}
             <Field label="Nombre" icon="user" placeholder="María" value={name} onChangeText={setName} />
             <Field label="Apellido" icon="user" placeholder="García" value={lastname} onChangeText={setLastname} />
             <SelectOrAdd label="Institución" icon="map-pin" placeholder="Selecciona tu institución" value={institucion} options={INSTITUCIONES} onChange={setInstitucion} newPlaceholder="Nombre de la institución" />

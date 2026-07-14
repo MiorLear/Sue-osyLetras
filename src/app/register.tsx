@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GoogleIcon, Icon, IconName } from '@/components/icon';
@@ -68,13 +68,17 @@ export default function RegisterScreen() {
 
   const choose = (m: Method) => {
     if (m === 'google') {
-      setMethod(m);
-      setStep(2);
-    } else {
-      setMethod(m);
-      setStep(1);
-      setPhoneStep('number');
+      // No real Google OAuth yet — don't fake success / create an empty-credential
+      // account. Mirror the login screen's honest "coming soon".
+      Alert.alert(
+        'Próximamente',
+        'El registro con Google estará disponible muy pronto. Por ahora usa tu correo o teléfono.',
+      );
+      return;
     }
+    setMethod(m);
+    setStep(1);
+    setPhoneStep('number');
   };
 
   let subtitle = '';
@@ -252,24 +256,6 @@ export default function RegisterScreen() {
         {/* STEP 2 — info */}
         {step === 2 ? (
           <>
-            {method === 'google' ? (
-              <View
-                style={{
-                  borderRadius: 16,
-                  padding: 12,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 12,
-                  backgroundColor: '#F0FFF4',
-                  borderWidth: 1,
-                  borderColor: '#C6F6D5',
-                }}>
-                <Icon name="check-circle" size={18} color={colors.success} />
-                <Text style={{ fontSize: 12.5, color: '#276749', fontWeight: '600' }}>
-                  Google conectado correctamente
-                </Text>
-              </View>
-            ) : null}
             <Field label="Nombre" icon="user" placeholder="María" value={name} onChangeText={setName} />
             <Field
               label="Apellido"
