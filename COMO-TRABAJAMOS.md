@@ -167,12 +167,15 @@ docker compose up --build
 
 ---
 
-## 7. Hacia dónde va el proyecto
+## 7. Los tres entornos del proyecto
 
-El plan es hospedar la web y la API en **Firebase Hosting + Cloud Run**, con **Cloud SQL** como
-base de datos de producción, y publicar mobile a las tiendas con **EAS Build**. El detalle
-completo (comandos, variables de entorno de producción, costos) está en
-[`DESPLIEGUE.md`](./DESPLIEGUE.md). El código ya está preparado para esto (el backend lee todo
-su config de variables de entorno, respeta el `PORT` que inyecta Cloud Run, y `web/firebase.json`
-ya tiene la configuración de Hosting lista) — falta el paso de crear las cuentas/proyectos reales
-y desplegar, que le toca decidir al equipo.
+| Entorno | Para qué | Dónde |
+|---|---|---|
+| **Docker (local)** | Cada dev trabaja en su propia máquina — backend + web + Postgres con `docker compose up --build`. Mobile corre con `npm start` fuera de Docker. | Tu laptop — ver [`COMO-EMPEZAR.md`](./COMO-EMPEZAR.md) |
+| **Render** | Backend + web compartidos del equipo, para probar contra datos reales (mobile de cualquiera, demos, QA) **sin tocar producción**. URL fija, no depende de que alguien tenga Docker corriendo. | `render.yaml` — ya desplegado, ver `COMO-EMPEZAR.md` (Opción A) |
+| **Firebase** | El entorno productivo real de la app (usuarios finales). Todavía no desplegado. | `web/firebase.json` + Cloud Run + Cloud SQL — plan completo en [`DESPLIEGUE.md`](./DESPLIEGUE.md) |
+
+El código ya está preparado para moverse entre estos tres sin cambios: el backend lee toda su
+configuración de variables de entorno (nunca hardcodeada), respeta el `PORT` que inyecta Cloud
+Run, y tanto `render.yaml` como `web/firebase.json` ya están listos. Pasar de Render a Firebase
+para producción es una decisión del equipo (cuentas, presupuesto), no un cambio de código.

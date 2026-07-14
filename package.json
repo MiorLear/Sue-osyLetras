@@ -52,7 +52,8 @@
     "dev:stack": "docker compose up --build",
     "dev:stack:down": "docker compose down",
     "dev:stack:reset-db": "docker compose down -v && docker compose up --build",
-    "dev:stack:logs": "docker compose logs -f"
+    "dev:stack:logs": "docker compose logs -f",
+    "setup:firewall": "powershell -ExecutionPolicy Bypass -File scripts/setup-windows-firewall.ps1"
   },
   "private": true
 }
