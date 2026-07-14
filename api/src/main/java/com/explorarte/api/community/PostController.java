@@ -56,6 +56,7 @@ public class PostController {
         post.setAvatarBg("#3DBFB8");
         post.setModule(input.module());
         post.setText(input.text());
+        post.setAttachments(input.attachments());
         postRepository.save(post);
         return toDto(post, author.getId());
     }
@@ -116,6 +117,6 @@ public class PostController {
         return new PostDto(
                 post.getId(), post.getUserName(), post.getHandle(), post.isVerified(),
                 RelativeTime.from(post.getCreatedAt()), post.getAvatarBg(), post.getModule(), post.getText(),
-                post.getLikesCount(), liked, post.getReposts(), comments);
+                post.getLikesCount(), liked, post.getReposts(), comments, post.getAttachments());
     }
 }

@@ -1,5 +1,12 @@
 package com.explorarte.api.learning;
 
+import java.util.List;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+import com.explorarte.api.media.MediaItem;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -23,6 +30,15 @@ public class SubTopic {
     private String title;
     private String body;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<MediaItem> pdfs;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<MediaItem> videos;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<MediaItem> audios;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -35,7 +51,16 @@ public class SubTopic {
     public String getBody() { return body; }
     public void setBody(String body) { this.body = body; }
 
+    public List<MediaItem> getPdfs() { return pdfs; }
+    public void setPdfs(List<MediaItem> pdfs) { this.pdfs = pdfs; }
+
+    public List<MediaItem> getVideos() { return videos; }
+    public void setVideos(List<MediaItem> videos) { this.videos = videos; }
+
+    public List<MediaItem> getAudios() { return audios; }
+    public void setAudios(List<MediaItem> audios) { this.audios = audios; }
+
     public SubTopicDto toDto() {
-        return new SubTopicDto(title, body);
+        return new SubTopicDto(title, body, pdfs, videos, audios);
     }
 }

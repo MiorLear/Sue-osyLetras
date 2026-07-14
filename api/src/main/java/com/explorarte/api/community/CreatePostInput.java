@@ -1,3 +1,7 @@
 package com.explorarte.api.community;
 
-public record CreatePostInput(String text, String module) {}
+import java.util.List;
+
+import com.explorarte.api.media.MediaItem;
+
+public record CreatePostInput(String text, String module, List<MediaItem> attachments) {}

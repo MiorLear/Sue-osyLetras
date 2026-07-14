@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ToolsContent } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
-import { AdminBtn, StringListEditor } from '@/components/admin/ui';
+import { AdminBtn, FileUploadInput, MediaListEditor, StringListEditor } from '@/components/admin/ui';
 import { api } from '@/lib/api';
 
 export default function AdminHerramientas() {
@@ -49,13 +49,40 @@ export default function AdminHerramientas() {
         <>
           <div style={{ borderRadius: 20, padding: 26, background: '#fff', border: '1px solid var(--border)', marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 18 }}>
+              <span style={{ fontSize: 22 }}>📖</span>
+              <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 600, color: 'var(--text-dark)' }}>Manual ExplorArte</h3>
+            </div>
+            <FileUploadInput
+              label="Documento principal de la metodología"
+              item={tools.manualDocument}
+              category="tools"
+              accept="application/pdf"
+              onChange={(manualDocument) => patch({ manualDocument })}
+            />
+          </div>
+
+          <div style={{ borderRadius: 20, padding: 26, background: '#fff', border: '1px solid var(--border)', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 18 }}>
+              <span style={{ fontSize: 22 }}>📋</span>
+              <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 600, color: 'var(--text-dark)' }}>Guías de actividades</h3>
+            </div>
+            <MediaListEditor
+              label="Materiales complementarios para docentes"
+              items={tools.activityGuides}
+              category="tools"
+              onChange={(activityGuides) => patch({ activityGuides })}
+            />
+          </div>
+
+          <div style={{ borderRadius: 20, padding: 26, background: '#fff', border: '1px solid var(--border)', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 18 }}>
               <span style={{ fontSize: 22 }}>📥</span>
               <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 600, color: 'var(--text-dark)' }}>Recursos descargables</h3>
             </div>
-            <StringListEditor
-              label="Cada fila aparece como un recurso en la caja de herramientas"
+            <MediaListEditor
+              label="Cada archivo aparece como un recurso en la caja de herramientas"
               items={tools.downloadables}
-              placeholder="Ej. Guía de actividades — Alegría"
+              category="tools"
               onChange={(downloadables) => patch({ downloadables })}
             />
           </div>

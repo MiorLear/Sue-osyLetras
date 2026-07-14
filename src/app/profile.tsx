@@ -67,7 +67,16 @@ export default function ProfileScreen() {
   };
 
   const handleSave = async () => {
-    await api.profile.update({ name, lastname, email, phone, institucion, ubicacion, photo });
+    // A picked photo starts as a local file:// URI (only valid on this
+    // device) — upload it first so `photo` ends up as a real hosted URL that
+    // persists and is visible to other users (e.g. the admin's user list).
+    let uploadedPhoto = photo;
+    if (photo && photo.startsWith('file')) {
+      const blob = await fetch(photo).then((r) => r.blob());
+      const uploaded = await api.media.upload(blob, 'profile.jpg', 'profile');
+      uploadedPhoto = uploaded.url;
+    }
+    await api.profile.update({ name, lastname, email, phone, institucion, ubicacion, photo: uploadedPhoto });
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };

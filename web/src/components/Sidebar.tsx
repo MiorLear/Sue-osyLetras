@@ -25,6 +25,7 @@ const ADMIN_NAV: NavItem[] = [
   { emoji: '💛', label: 'Emociones', href: '/admin/emociones' },
   { emoji: '🧰', label: 'Herramientas', href: '/admin/herramientas' },
   { emoji: '🌱', label: 'Aprendiendo', href: '/admin/aprendiendo' },
+  { emoji: '🎬', label: 'Videos de introducción', href: '/admin/videos-intro' },
   { emoji: '👤', label: 'Perfil', href: '/profile' },
 ];
 

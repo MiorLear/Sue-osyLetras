@@ -29,6 +29,8 @@ public class ToolsController {
                 .orElseGet(ToolsContentEntity::new);
         entity.setDownloadables(input.downloadables());
         entity.setBibliography(input.bibliography());
+        entity.setManualDocument(input.manualDocument());
+        entity.setActivityGuides(input.activityGuides());
         toolsContentRepository.save(entity);
         return entity.toDto();
     }

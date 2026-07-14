@@ -49,6 +49,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/emotions", "/emotions/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/learning/topics", "/learning/topics/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/tools", "/schools").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/screen-intro-videos", "/screen-intro-videos/**").permitAll()
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
@@ -60,6 +61,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/learning/topics/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/learning/topics/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/tools").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/screen-intro-videos/**").hasRole("ADMIN")
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         // everything else requires a valid token
                         .anyRequest().authenticated())

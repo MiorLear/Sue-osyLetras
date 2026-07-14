@@ -18,7 +18,9 @@ export type ApiModuleKey =
   | 'tools'
   | 'profile'
   | 'misc'
-  | 'admin';
+  | 'admin'
+  | 'media'
+  | 'screenIntros';
 
 export interface CreateConfigurableApiClientOptions {
   /** required if any module resolves to 'http' */
@@ -59,5 +61,7 @@ export function createConfigurableApiClient(
     profile: pick('profile'),
     misc: pick('misc'),
     admin: pick('admin'),
+    media: pick('media'),
+    screenIntros: pick('screenIntros'),
   };
 }

@@ -2,16 +2,18 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Emotion } from '@explorarte/shared';
 import { Masthead } from '@/components/Masthead';
+import { VideoModal } from '@/components/VideoModal';
 import { api } from '@/lib/api';
-
-const playVideo = () => alert('Video de demostración — próximamente disponible en la web.');
 
 export default function Emociones() {
   const navigate = useNavigate();
   const [emotions, setEmotions] = useState<Emotion[]>([]);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoOpen, setVideoOpen] = useState(false);
 
   useEffect(() => {
     api.emotions.list().then(setEmotions);
+    api.screenIntros.get('emotions').then((v) => setVideoUrl(v?.video.url ?? null));
   }, []);
 
   return (
@@ -38,16 +40,20 @@ export default function Emociones() {
           </div>
         </div>
 
-        <button onClick={playVideo} style={{ position: 'relative', borderRadius: 24, overflow: 'hidden', background: '#1E7E78', minHeight: 210, textAlign: 'left' }}>
-          <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,rgba(13,60,57,.15),rgba(13,60,57,.78))' }} />
-          <span style={{ position: 'absolute', top: 18, right: 22, fontSize: 90, opacity: 0.25 }}>💛</span>
-          <span style={{ position: 'absolute', left: 24, bottom: 22, right: 24, color: '#fff' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 52, height: 52, borderRadius: '50%', background: 'rgba(255,255,255,.92)', color: '#1E7E78', fontSize: 18, marginBottom: 12 }}>▶</span>
-            <span style={{ display: 'block', fontFamily: 'var(--font-serif)', fontSize: 19 }}>¿Por qué reconocer las emociones?</span>
-            <span style={{ display: 'block', fontSize: 12.5, opacity: 0.85, marginTop: 2 }}>Video de introducción · ~1 min</span>
-          </span>
-        </button>
+        {videoUrl ? (
+          <button onClick={() => setVideoOpen(true)} style={{ position: 'relative', borderRadius: 24, overflow: 'hidden', background: '#1E7E78', minHeight: 210, textAlign: 'left' }}>
+            <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,rgba(13,60,57,.15),rgba(13,60,57,.78))' }} />
+            <span style={{ position: 'absolute', top: 18, right: 22, fontSize: 90, opacity: 0.25 }}>💛</span>
+            <span style={{ position: 'absolute', left: 24, bottom: 22, right: 24, color: '#fff' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 52, height: 52, borderRadius: '50%', background: 'rgba(255,255,255,.92)', color: '#1E7E78', fontSize: 18, marginBottom: 12 }}>▶</span>
+              <span style={{ display: 'block', fontFamily: 'var(--font-serif)', fontSize: 19 }}>¿Por qué reconocer las emociones?</span>
+              <span style={{ display: 'block', fontSize: 12.5, opacity: 0.85, marginTop: 2 }}>Video de introducción · ~1 min</span>
+            </span>
+          </button>
+        ) : null}
       </div>
+
+      {videoOpen && videoUrl ? <VideoModal videoUrl={videoUrl} onClose={() => setVideoOpen(false)} /> : null}
 
       <div className="section-head" style={{ gap: 12 }}>
         <h2 className="section-title">Biblioteca</h2>

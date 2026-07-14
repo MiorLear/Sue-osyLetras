@@ -1,10 +1,13 @@
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
+import * as Linking from 'expo-linking';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { Post } from '@explorarte/shared';
+import type { MediaItem, Post } from '@explorarte/shared';
 import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
 import { Icon } from '@/components/icon';
 import { brandGradient, colors } from '@/constants/theme';
@@ -44,6 +47,8 @@ export default function ComunidadExplorArteScreen() {
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeText, setComposeText] = useState('');
+  const [attachment, setAttachment] = useState<MediaItem | null>(null);
+  const [attaching, setAttaching] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -71,10 +76,30 @@ export default function ComunidadExplorArteScreen() {
   const submitPost = async () => {
     const text = composeText.trim();
     if (!text) return;
-    const np = await api.posts.create({ text, module: null });
+    const np = await api.posts.create({ text, module: null, attachments: attachment ? [attachment] : [] });
     setPosts((ps) => [np, ...ps]);
     setComposeOpen(false);
     setComposeText('');
+    setAttachment(null);
+  };
+
+  const attachMedia = async (kind: 'image' | 'video') => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: kind === 'image' ? ['images'] : ['videos'],
+      quality: 0.7,
+    });
+    if (result.canceled) return;
+    const asset = result.assets[0];
+    setAttaching(true);
+    try {
+      const blob = await fetch(asset.uri).then((r) => r.blob());
+      const filename = asset.fileName ?? (kind === 'image' ? 'foto.jpg' : 'video.mp4');
+      setAttachment(await api.media.upload(blob, filename, 'posts'));
+    } catch {
+      Alert.alert('No se pudo adjuntar el archivo');
+    } finally {
+      setAttaching(false);
+    }
   };
 
   return (
@@ -133,6 +158,24 @@ export default function ComunidadExplorArteScreen() {
                       </View>
                     ) : null}
                     <Text style={{ marginTop: 8, fontSize: 13, color: '#2D4A48', lineHeight: 19 }}>{p.text}</Text>
+                    {p.attachments.map((a) =>
+                      a.mimeType.startsWith('video') ? (
+                        <Pressable
+                          key={a.id}
+                          onPress={() => Linking.openURL(a.url)}
+                          style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 10, backgroundColor: '#F2FAFA' }}>
+                          <Icon name="video" size={16} color={colors.brand} />
+                          <Text style={{ fontSize: 12.5, fontWeight: '600', color: colors.textDark }}>{a.title}</Text>
+                        </Pressable>
+                      ) : (
+                        <Image
+                          key={a.id}
+                          source={{ uri: a.url }}
+                          style={{ marginTop: 8, width: '100%', height: 180, borderRadius: 12 }}
+                          contentFit="cover"
+                        />
+                      ),
+                    )}
                   </View>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, paddingLeft: 48 }}>
@@ -232,15 +275,27 @@ export default function ComunidadExplorArteScreen() {
                 style={{ flex: 1, minHeight: 90, fontSize: 14, color: colors.textDark, lineHeight: 20, textAlignVertical: 'top' }}
               />
             </View>
+            {attachment ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 12, backgroundColor: '#F2FAFA', borderWidth: 1, borderColor: colors.borderSoft, marginBottom: 4 }}>
+                <Icon name={attachment.mimeType.startsWith('video') ? 'video' : 'image'} size={16} color={colors.brand} />
+                <Text style={{ flex: 1, fontSize: 12.5, fontWeight: '600', color: colors.textDark }} numberOfLines={1}>
+                  {attachment.title}
+                </Text>
+                <Pressable onPress={() => setAttachment(null)} style={{ width: 26, height: 26, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
+                  <Icon name="x" size={13} color={colors.danger} />
+                </Pressable>
+              </View>
+            ) : null}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#F0F5F5', marginVertical: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Pressable onPress={() => attachMedia('image')} disabled={attaching} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Icon name="image" size={18} color={colors.brand} />
                 <Text style={{ fontSize: 12, fontWeight: '600', color: colors.brand }}>Imagen</Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              </Pressable>
+              <Pressable onPress={() => attachMedia('video')} disabled={attaching} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Icon name="video" size={18} color="#7C3AED" />
                 <Text style={{ fontSize: 12, fontWeight: '600', color: '#7C3AED' }}>Video</Text>
-              </View>
+              </Pressable>
+              {attaching ? <Text style={{ fontSize: 11.5, color: colors.textMuted }}>Subiendo…</Text> : null}
             </View>
             {composeText.trim() ? (
               <Pressable onPress={submitPost}>

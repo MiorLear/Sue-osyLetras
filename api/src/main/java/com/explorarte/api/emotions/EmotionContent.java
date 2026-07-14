@@ -6,6 +6,8 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.springframework.data.domain.Persistable;
 
+import com.explorarte.api.media.MediaItem;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -42,7 +44,7 @@ public class EmotionContent implements Persistable<String> {
     private List<String> activities;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    private List<String> stories;
+    private List<MediaItem> stories;
 
     @Override
     public String getId() { return emotionId; }
@@ -62,8 +64,8 @@ public class EmotionContent implements Persistable<String> {
     public List<String> getActivities() { return activities; }
     public void setActivities(List<String> activities) { this.activities = activities; }
 
-    public List<String> getStories() { return stories; }
-    public void setStories(List<String> stories) { this.stories = stories; }
+    public List<MediaItem> getStories() { return stories; }
+    public void setStories(List<MediaItem> stories) { this.stories = stories; }
 
     public EmotionContentDto toDto() {
         return new EmotionContentDto(description, classroom, questions, activities, stories);

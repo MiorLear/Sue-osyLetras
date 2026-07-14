@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { Topic } from '@explorarte/shared';
+import type { MediaItem, Topic } from '@explorarte/shared';
 import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
+import { DownloadableMediaItem } from '@/components/downloadable-media-item';
 import { GradientHeader } from '@/components/gradient-header';
 import { Icon } from '@/components/icon';
 import { Logo } from '@/components/logo';
@@ -15,9 +16,11 @@ export default function AprendiendoBienestarScreen() {
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState<string | null>(null);
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [introVideo, setIntroVideo] = useState<MediaItem | null>(null);
 
   useEffect(() => {
     api.learning.topics().then(setTopics);
+    api.screenIntros.get('learning').then((v) => setIntroVideo(v?.video ?? null));
   }, []);
 
   return (
@@ -43,7 +46,7 @@ export default function AprendiendoBienestarScreen() {
           procesos de bienestar emocional en sus comunidades educativas.
         </Text>
 
-        <VideoPlaceholder caption="Video de introducción (~1 minuto)" />
+        <VideoPlaceholder caption="Video de introducción (~1 minuto)" videoItem={introVideo} />
 
         {topics.map((topic) => (
           <View key={topic.id}>
@@ -102,6 +105,13 @@ export default function AprendiendoBienestarScreen() {
                         <Text style={{ marginTop: 10, fontSize: 12.5, color: colors.textBody, lineHeight: 20 }}>
                           {sub.body}
                         </Text>
+                        {[...sub.pdfs, ...sub.videos, ...sub.audios].length > 0 ? (
+                          <View style={{ marginTop: 12, gap: 8 }}>
+                            {[...sub.pdfs, ...sub.videos, ...sub.audios].map((m) => (
+                              <DownloadableMediaItem key={m.id} item={m} />
+                            ))}
+                          </View>
+                        ) : null}
                       </View>
                     ) : null}
                   </View>

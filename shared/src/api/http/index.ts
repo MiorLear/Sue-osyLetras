@@ -4,7 +4,7 @@
 // Already complete: flip the app from mock to http by passing
 // createApiClient({ mode: 'http', baseUrl }) — no screen code changes needed.
 
-import type { ApiClient } from '../client.js';
+import type { ApiClient, MediaCategory } from '../client.js';
 import type {
   AuthResult,
   CalEvent,
@@ -16,8 +16,10 @@ import type {
   Emotion,
   EmotionDetail,
   LoginInput,
+  MediaItem,
   Post,
   RegisterInput,
+  ScreenIntroVideo,
   Topic,
   ToolsContent,
   UpdateEventInput,
@@ -52,6 +54,32 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
     }
     if (res.status === 204) return undefined as T;
     return (await res.json()) as T;
+  }
+
+  // Separate from request(): multipart bodies must NOT be JSON-stringified and
+  // must leave Content-Type unset so fetch/RN set the correct boundary itself.
+  async function uploadFile(path: string, file: Blob, filename: string): Promise<MediaItem> {
+    const headers: Record<string, string> = {};
+    const token = opts.getToken?.();
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const form = new FormData();
+    form.append('file', file, filename);
+
+    const res = await fetch(base + path, { method: 'POST', headers, body: form });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new Error(`POST ${path} failed: ${res.status} ${detail}`);
+    }
+    return (await res.json()) as MediaItem;
+  }
+
+  async function getOrNull<T>(path: string): Promise<T | null> {
+    try {
+      return await request<T>('GET', path);
+    } catch {
+      return null;
+    }
   }
 
   const q = (params: Record<string, string | undefined>) => {
@@ -116,6 +144,17 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
         approve: (id: string) => request<UserProfile>('POST', `/admin/users/${encodeURIComponent(id)}/approve`),
         reject: (id: string) => request<UserProfile>('POST', `/admin/users/${encodeURIComponent(id)}/reject`),
       },
+    },
+    media: {
+      upload: (file: Blob, filename: string, category: MediaCategory) =>
+        uploadFile(`/media/upload${q({ category })}`, file, filename),
+    },
+    screenIntros: {
+      list: () => request<ScreenIntroVideo[]>('GET', '/screen-intro-videos'),
+      get: (screenKey: string) =>
+        getOrNull<ScreenIntroVideo>(`/screen-intro-videos/${encodeURIComponent(screenKey)}`),
+      update: (screenKey: string, video: MediaItem) =>
+        request<ScreenIntroVideo>('PUT', `/screen-intro-videos/${encodeURIComponent(screenKey)}`, video),
     },
   };
 }

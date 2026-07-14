@@ -6,6 +6,9 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.springframework.data.domain.Persistable;
 
+import com.explorarte.api.media.MediaItem;
+
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.PostLoad;
@@ -33,22 +36,36 @@ public class ToolsContentEntity implements Persistable<Short> {
     void markNotNew() { this.isNew = false; }
 
     @JdbcTypeCode(SqlTypes.JSON)
-    private List<String> downloadables;
+    private List<MediaItem> downloadables;
 
     @JdbcTypeCode(SqlTypes.JSON)
     private List<String> bibliography;
+
+    @Column(name = "manual_document")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private MediaItem manualDocument;
+
+    @Column(name = "activity_guides")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<MediaItem> activityGuides;
 
     @Override
     public Short getId() { return id; }
     public void setId(Short id) { this.id = id; }
 
-    public List<String> getDownloadables() { return downloadables; }
-    public void setDownloadables(List<String> downloadables) { this.downloadables = downloadables; }
+    public List<MediaItem> getDownloadables() { return downloadables; }
+    public void setDownloadables(List<MediaItem> downloadables) { this.downloadables = downloadables; }
 
     public List<String> getBibliography() { return bibliography; }
     public void setBibliography(List<String> bibliography) { this.bibliography = bibliography; }
 
+    public MediaItem getManualDocument() { return manualDocument; }
+    public void setManualDocument(MediaItem manualDocument) { this.manualDocument = manualDocument; }
+
+    public List<MediaItem> getActivityGuides() { return activityGuides; }
+    public void setActivityGuides(List<MediaItem> activityGuides) { this.activityGuides = activityGuides; }
+
     public ToolsContentDto toDto() {
-        return new ToolsContentDto(downloadables, bibliography);
+        return new ToolsContentDto(downloadables, bibliography, manualDocument, activityGuides);
     }
 }
