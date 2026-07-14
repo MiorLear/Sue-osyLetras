@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { MODTAG, type Post } from '@explorarte/shared';
+import { useEffect, useRef, useState } from 'react';
+import { MODTAG, type MediaItem, type Post } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
 import { api } from '@/lib/api';
@@ -28,6 +28,10 @@ export default function Comunidad() {
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeText, setComposeText] = useState('');
+  const [attachment, setAttachment] = useState<MediaItem | null>(null);
+  const [attaching, setAttaching] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     api.posts.list(filter).then(setPosts);
@@ -49,11 +53,21 @@ export default function Comunidad() {
   const submitPost = async () => {
     const text = composeText.trim();
     if (!text) return;
-    const np = await api.posts.create({ text });
+    const np = await api.posts.create({ text, attachments: attachment ? [attachment] : [] });
     setComposeOpen(false);
     setComposeText('');
+    setAttachment(null);
     // re-fetch for current filter (new post has no module so only shows under "todos")
     if (filter === 'todos') setPosts((ps) => [np, ...ps]);
+  };
+
+  const handleAttach = async (file: File) => {
+    setAttaching(true);
+    try {
+      setAttachment(await api.media.upload(file, file.name, 'posts'));
+    } finally {
+      setAttaching(false);
+    }
   };
 
   return (
@@ -101,6 +115,13 @@ export default function Comunidad() {
                       </span>
                     ) : null}
                     <p style={{ marginTop: 9, fontSize: 14.5, color: '#3F5450', lineHeight: 1.55 }}>{p.text}</p>
+                    {p.attachments.map((a) =>
+                      a.mimeType.startsWith('video') ? (
+                        <video key={a.id} src={a.url} controls style={{ marginTop: 10, maxWidth: '100%', borderRadius: 12 }} />
+                      ) : (
+                        <img key={a.id} src={a.url} alt={a.title} style={{ marginTop: 10, maxWidth: '100%', borderRadius: 12 }} />
+                      ),
+                    )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 14 }}>
                       <ActionBtn icon="message-circle" value={p.comments.length} onClick={() => setOpenThread(threadOpen ? null : p.id)} />
                       <ActionBtn icon="repeat" value={p.reposts} />
@@ -182,11 +203,31 @@ export default function Comunidad() {
                 style={{ flex: 1, minHeight: 90, fontSize: 14, color: 'var(--text-dark)', lineHeight: 1.45, border: 'none', outline: 'none', resize: 'vertical', background: 'transparent' }}
               />
             </div>
+            {attachment ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, background: 'var(--nav-bg)', border: '1px solid #DCEDEA', margin: '10px 0' }}>
+                <Icon name={attachment.mimeType.startsWith('video') ? 'video' : 'image'} size={16} color="var(--brand-dark)" />
+                <span style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: 'var(--text-dark)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{attachment.title}</span>
+                <button onClick={() => setAttachment(null)} aria-label="Quitar adjunto" style={{ width: 26, height: 26, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
+                  <Icon name="x" size={13} color="var(--danger)" />
+                </button>
+              </div>
+            ) : null}
+
+            <input ref={imageInputRef} type="file" accept="image/*" style={{ display: 'none' }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAttach(f); e.target.value = ''; }} />
+            <input ref={videoInputRef} type="file" accept="video/*" style={{ display: 'none' }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAttach(f); e.target.value = ''; }} />
+
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', margin: '12px 0' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="image" size={18} color="var(--brand)" /><span style={{ fontSize: 12, fontWeight: 600, color: 'var(--brand-dark)' }}>Imagen</span></span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="video" size={18} color="var(--clay)" /><span style={{ fontSize: 12, fontWeight: 600, color: 'var(--clay-dark)' }}>Video</span></span>
+              <button onClick={() => imageInputRef.current?.click()} disabled={attaching} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Icon name="image" size={18} color="var(--brand)" /><span style={{ fontSize: 12, fontWeight: 600, color: 'var(--brand-dark)' }}>Imagen</span>
+              </button>
+              <button onClick={() => videoInputRef.current?.click()} disabled={attaching} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Icon name="video" size={18} color="var(--clay)" /><span style={{ fontSize: 12, fontWeight: 600, color: 'var(--clay-dark)' }}>Video</span>
+              </button>
+              {attaching ? <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Subiendo…</span> : null}
             </div>
-            <button className="btn btn-primary" onClick={submitPost} disabled={!composeText.trim()} style={{ padding: 13 }}>
+            <button className="btn btn-primary" onClick={submitPost} disabled={!composeText.trim() || attaching} style={{ padding: 13 }}>
               Publicar
             </button>
           </div>

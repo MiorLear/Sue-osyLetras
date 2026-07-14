@@ -23,6 +23,7 @@ import AdminUsuarios from './routes/admin/AdminUsuarios';
 import AdminEmociones from './routes/admin/AdminEmociones';
 import AdminHerramientas from './routes/admin/AdminHerramientas';
 import AdminAprendiendo from './routes/admin/AdminAprendiendo';
+import AdminIntroVideos from './routes/admin/AdminIntroVideos';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { authed } = useAuth();
@@ -70,6 +71,7 @@ export function App() {
         <Route path="/admin/emociones" element={<RequireRole role="admin"><AdminEmociones /></RequireRole>} />
         <Route path="/admin/herramientas" element={<RequireRole role="admin"><AdminHerramientas /></RequireRole>} />
         <Route path="/admin/aprendiendo" element={<RequireRole role="admin"><AdminAprendiendo /></RequireRole>} />
+        <Route path="/admin/videos-intro" element={<RequireRole role="admin"><AdminIntroVideos /></RequireRole>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -40,7 +40,7 @@ export default function Login() {
       navigate('/pendiente', { replace: true, state: { status: u.status } });
       return;
     }
-    signIn(u);
+    signIn(result);
     navigate(u.role === 'admin' ? '/admin' : '/main', { replace: true });
   };
 

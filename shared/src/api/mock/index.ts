@@ -2,7 +2,7 @@
 // State lives for the lifetime of the page (mutations persist until reload),
 // mimicking a real backend closely enough for full UI development.
 
-import type { ApiClient } from '../client.js';
+import type { ApiClient, MediaCategory } from '../client.js';
 import type {
   AuthResult,
   CalEvent,
@@ -15,8 +15,10 @@ import type {
   EmotionContent,
   EmotionDetail,
   LoginInput,
+  MediaItem,
   Post,
   RegisterInput,
+  ScreenIntroVideo,
   Topic,
   ToolsContent,
   UpdateEventInput,
@@ -50,6 +52,7 @@ export function createMockClient(): ApiClient {
   const topics: Topic[] = clone(TOPICS);
   const users: UserProfile[] = clone(USERS);
   let tools: ToolsContent = clone(TOOLS);
+  const screenIntros: Record<string, ScreenIntroVideo> = {};
 
   // the user resolved at login/register; profile.get() returns this one
   let currentUser: UserProfile = clone(PROFILE);
@@ -154,6 +157,7 @@ export function createMockClient(): ApiClient {
           liked: false,
           reposts: 0,
           comments: [],
+          attachments: input.attachments ?? [],
         };
         posts.unshift(np);
         return clone(np);
@@ -287,6 +291,45 @@ export function createMockClient(): ApiClient {
           u.status = 'rejected';
           return clone(u);
         },
+      },
+    },
+
+    media: {
+      async upload(file: Blob, filename: string, _category: MediaCategory): Promise<MediaItem> {
+        await delay(60);
+        // Mock mode has no real file storage — createObjectURL lets the file
+        // still render locally (works on web; falls back to a fake URL where
+        // it's unavailable, e.g. Hermes/React Native).
+        let url: string;
+        try {
+          url = URL.createObjectURL(file);
+        } catch {
+          url = 'mock://local-file/' + filename;
+        }
+        return {
+          id: 'mock-upload-' + Date.now(),
+          title: filename,
+          url,
+          mimeType: file.type || 'application/octet-stream',
+          sizeBytes: file.size,
+        };
+      },
+    },
+
+    screenIntros: {
+      async list(): Promise<ScreenIntroVideo[]> {
+        await delay();
+        return clone(Object.values(screenIntros));
+      },
+      async get(screenKey: string): Promise<ScreenIntroVideo | null> {
+        await delay();
+        return screenIntros[screenKey] ? clone(screenIntros[screenKey]) : null;
+      },
+      async update(screenKey: string, video: MediaItem): Promise<ScreenIntroVideo> {
+        await delay(40);
+        const entry: ScreenIntroVideo = { screenKey, video };
+        screenIntros[screenKey] = entry;
+        return clone(entry);
       },
     },
   };

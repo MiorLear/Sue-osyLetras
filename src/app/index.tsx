@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -12,9 +12,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import type { MediaItem } from '@explorarte/shared';
 import { Logo } from '@/components/logo';
 import { VideoPlaceholder } from '@/components/video-placeholder';
 import { brandGradient, colors } from '@/constants/theme';
+import { api } from '@/lib/api';
 
 const PILARES = [
   {
@@ -53,6 +55,11 @@ export default function OnboardingScreen() {
   const { width } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
   const [index, setIndex] = useState(0);
+  const [introVideo, setIntroVideo] = useState<MediaItem | null>(null);
+
+  useEffect(() => {
+    api.screenIntros.get('home').then((v) => setIntroVideo(v?.video ?? null));
+  }, []);
 
   const goToLogin = () => router.push('/login');
 
@@ -104,7 +111,7 @@ export default function OnboardingScreen() {
               Lectura, arte y emociones para construir comunidades de aprendizaje más saludables.
             </Text>
             <View style={{ width: '100%', marginTop: 4 }}>
-              <VideoPlaceholder caption="Video de bienvenida del equipo de Sueños y Letras" />
+              <VideoPlaceholder caption="Video de bienvenida del equipo de Sueños y Letras" videoItem={introVideo} />
             </View>
             <Text style={{ fontSize: 12.5, color: colors.textMuted, textAlign: 'center', lineHeight: 18 }}>
               Acompañamos a docentes con recursos prácticos para promover el bienestar emocional, la

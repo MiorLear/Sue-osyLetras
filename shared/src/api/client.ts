@@ -15,8 +15,10 @@ import type {
   Emotion,
   EmotionDetail,
   LoginInput,
+  MediaItem,
   Post,
   RegisterInput,
+  ScreenIntroVideo,
   Topic,
   ToolsContent,
   UpdateEventInput,
@@ -117,6 +119,26 @@ export interface MiscApi {
   schools(): Promise<string[]>;
 }
 
+/** Categories accepted by POST /media/upload — tools/emotions/learning/screen-intros
+ * are admin-only, posts/profile are any authenticated user. */
+export type MediaCategory = 'tools' | 'emotions' | 'learning' | 'screen-intros' | 'posts' | 'profile';
+
+export interface MediaApi {
+  /** POST /media/upload?category= (multipart) — uploads bytes to Supabase Storage
+   * and returns the resulting MediaItem. Does not attach it to anything; the
+   * caller embeds the result in the relevant domain PUT/POST. */
+  upload(file: Blob, filename: string, category: MediaCategory): Promise<MediaItem>;
+}
+
+export interface ScreenIntrosApi {
+  /** GET /screen-intro-videos */
+  list(): Promise<ScreenIntroVideo[]>;
+  /** GET /screen-intro-videos/:screenKey */
+  get(screenKey: string): Promise<ScreenIntroVideo | null>;
+  /** PUT /screen-intro-videos/:screenKey — admin */
+  update(screenKey: string, video: MediaItem): Promise<ScreenIntroVideo>;
+}
+
 export interface ApiClient {
   auth: AuthApi;
   emotions: EmotionsApi;
@@ -127,4 +149,6 @@ export interface ApiClient {
   profile: ProfileApi;
   misc: MiscApi;
   admin: AdminApi;
+  media: MediaApi;
+  screenIntros: ScreenIntrosApi;
 }

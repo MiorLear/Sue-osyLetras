@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import type { UserProfile } from '@explorarte/shared';
+import type { AuthResult, UserProfile } from '@explorarte/shared';
 import { api } from '@/lib/api';
 
 interface AuthState {
@@ -7,7 +7,7 @@ interface AuthState {
   authed: boolean;
   isAdmin: boolean;
   /** mark the session as logged in with the authenticated user */
-  signIn: (user: UserProfile) => void;
+  signIn: (result: AuthResult) => void;
   signOut: () => void;
   setUser: (u: UserProfile) => void;
 }
@@ -41,10 +41,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(USER_KEY, JSON.stringify(u));
   };
 
-  const signIn = (u: UserProfile) => {
-    localStorage.setItem(TOKEN_KEY, 'mock-token');
+  const signIn = (result: AuthResult) => {
+    localStorage.setItem(TOKEN_KEY, result.token);
     setAuthed(true);
-    setUser(u);
+    setUser(result.user);
   };
 
   const signOut = () => {

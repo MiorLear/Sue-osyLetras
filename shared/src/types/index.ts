@@ -2,6 +2,22 @@
 // app, the mobile app, the mock client, the HTTP client and (later) the backend
 // DTOs. Lifted from the React Native screens so the two apps stay in lockstep.
 
+// ── Media (photos/videos/documents) ─────────────────────────────────────────
+
+/** A real uploaded file (photo, video, or document), stored via Supabase
+ * Storage. Used everywhere a piece of content references a file — tools
+ * downloadables, emotion stories, learning attachments, forum posts, profile
+ * photos, screen intro videos. */
+export interface MediaItem {
+  /** stable id — used as the offline-cache key on mobile */
+  id: string;
+  title: string;
+  /** publicly fetchable URL */
+  url: string;
+  mimeType: string;
+  sizeBytes: number;
+}
+
 // ── Emotions ────────────────────────────────────────────────────────────────
 
 /** Summary card shown in the emotions library grid. */
@@ -22,7 +38,8 @@ export interface EmotionContent {
   classroom: string;
   questions: string[];
   activities: string[];
-  stories: string[];
+  /** real uploaded story files (video/audio/pdf) */
+  stories: MediaItem[];
 }
 
 /** Emotion summary + its detail content (returned by GET /emotions/:id). */
@@ -54,12 +71,15 @@ export interface Post {
   liked: boolean;
   reposts: number;
   comments: Comment[];
+  /** photo/video attached by the author, if any (practically 0-1 items) */
+  attachments: MediaItem[];
 }
 
 /** Payload to create a post. */
 export interface CreatePostInput {
   text: string;
   module?: string | null;
+  attachments?: MediaItem[];
 }
 
 /** Payload to add a comment to a post. */
@@ -91,6 +111,9 @@ export type UpdateEventInput = Partial<Omit<CalEvent, 'id'>>;
 export interface SubTopic {
   title: string;
   body: string;
+  pdfs: MediaItem[];
+  videos: MediaItem[];
+  audios: MediaItem[];
 }
 
 export interface Topic {
@@ -108,10 +131,23 @@ export type UpdateTopicInput = Partial<Omit<Topic, 'id'>>;
 // ── Teacher toolkit ─────────────────────────────────────────────────────────
 
 export interface ToolsContent {
-  /** simple labels for the downloadable resources list */
-  downloadables: string[];
+  /** downloadable resources list (PDFs/docs) */
+  downloadables: MediaItem[];
   /** recommended bibliography titles */
   bibliography: string[];
+  /** the single featured "Manual ExplorArte" document, or null if not uploaded yet */
+  manualDocument: MediaItem | null;
+  /** the featured "Guías de actividades" documents */
+  activityGuides: MediaItem[];
+}
+
+// ── Screen intro videos ──────────────────────────────────────────────────────
+
+export type ScreenKey = 'home' | 'emotions' | 'learning' | 'tools';
+
+export interface ScreenIntroVideo {
+  screenKey: string;
+  video: MediaItem;
 }
 
 // ── Profile / auth ────────────────────────────────────────────────────────────

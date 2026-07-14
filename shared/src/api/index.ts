@@ -39,4 +39,7 @@ export type {
   MiscApi,
   AdminApi,
   AdminUsersApi,
+  MediaApi,
+  MediaCategory,
+  ScreenIntrosApi,
 } from './client.js';

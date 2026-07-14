@@ -1,17 +1,24 @@
+import { useState } from 'react';
 import { Icon } from './Icon';
+import { VideoModal } from './VideoModal';
 
-// Mobile plays a bundled demo video; on web we keep the placeholder visual and
-// show a friendly notice on click (no real video shipped with the web build).
-export function VideoPlaceholder({ caption }: { caption: string }) {
+/** videoUrl is null until an admin uploads a real intro video for this screen
+ * (via /admin/videos-intro) — hide the placeholder entirely rather than show
+ * a broken/empty state. */
+export function VideoPlaceholder({ caption, videoUrl }: { caption: string; videoUrl: string | null }) {
+  const [open, setOpen] = useState(false);
+
+  if (!videoUrl) return null;
+
   return (
-    <button
-      type="button"
-      className="video-ph pressable"
-      onClick={() => alert('Video de demostración — próximamente disponible en la web.')}>
-      <span className="play">
-        <Icon name="play" size={22} fill="#fff" color="#fff" />
-      </span>
-      <span className="cap">{caption}</span>
-    </button>
+    <>
+      <button type="button" className="video-ph pressable" onClick={() => setOpen(true)}>
+        <span className="play">
+          <Icon name="play" size={22} fill="#fff" color="#fff" />
+        </span>
+        <span className="cap">{caption}</span>
+      </button>
+      {open ? <VideoModal videoUrl={videoUrl} onClose={() => setOpen(false)} /> : null}
+    </>
   );
 }

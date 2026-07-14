@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { EmotionDetail } from '@explorarte/shared';
 import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
+import { DownloadableMediaItem } from '@/components/downloadable-media-item';
 import { Icon } from '@/components/icon';
 import { colors } from '@/constants/theme';
 import { api } from '@/lib/api';
@@ -114,12 +115,13 @@ export default function EmotionDetailScreen() {
             <Divider />
             <SectionTitle>Historias sugeridas</SectionTitle>
             <View style={{ marginTop: 10, gap: 8 }}>
-              {data.stories.map((s) => (
-                <View key={s} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Icon name="book-open" size={15} color={emotion?.color ?? colors.brand} />
-                  <Text style={{ flex: 1, fontSize: 13, color: colors.textBody, lineHeight: 19 }}>{s}</Text>
-                </View>
-              ))}
+              {data.stories.length === 0 ? (
+                <Text style={{ fontSize: 12.5, color: colors.textMuted }}>
+                  Aún no hay historias subidas para esta emoción.
+                </Text>
+              ) : (
+                data.stories.map((s) => <DownloadableMediaItem key={s.id} item={s} />)
+              )}
             </View>
           </>
         ) : (

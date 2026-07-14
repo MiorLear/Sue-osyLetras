@@ -3,8 +3,6 @@ import type { ToolsContent } from '@explorarte/shared';
 import { Masthead } from '@/components/Masthead';
 import { api } from '@/lib/api';
 
-const proximamente = () => alert('Próximamente disponible');
-
 export default function Herramientas() {
   const [tools, setTools] = useState<ToolsContent | null>(null);
   useEffect(() => {
@@ -28,7 +26,11 @@ export default function Herramientas() {
             <span style={{ display: 'block', fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 600, color: 'var(--text-dark)' }}>Manual ExplorArte</span>
             <span style={{ display: 'block', marginTop: 4, fontSize: 13, color: '#6A7C78', lineHeight: 1.5 }}>Documento principal de la metodología.</span>
           </span>
-          <button onClick={proximamente} style={{ marginTop: 'auto', alignSelf: 'flex-start', padding: '11px 18px', borderRadius: 12, background: 'var(--brand-dark)', color: '#fff', fontSize: 13, fontWeight: 700 }}>⬇ Descargar PDF</button>
+          {tools?.manualDocument ? (
+            <a href={tools.manualDocument.url} target="_blank" rel="noreferrer" style={{ marginTop: 'auto', alignSelf: 'flex-start', padding: '11px 18px', borderRadius: 12, background: 'var(--brand-dark)', color: '#fff', fontSize: 13, fontWeight: 700 }}>⬇ Descargar PDF</a>
+          ) : (
+            <span style={{ marginTop: 'auto', fontSize: 12.5, color: '#8A9A96' }}>Aún no disponible</span>
+          )}
         </div>
         <div style={{ borderRadius: 20, padding: 24, background: 'var(--nav-bg)', border: '1px solid #DCEDEA', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <span style={{ width: 52, height: 52, borderRadius: 15, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>📋</span>
@@ -36,7 +38,17 @@ export default function Herramientas() {
             <span style={{ display: 'block', fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 600, color: 'var(--text-dark)' }}>Guías de actividades</span>
             <span style={{ display: 'block', marginTop: 4, fontSize: 13, color: '#6A7C78', lineHeight: 1.5 }}>Materiales complementarios para docentes.</span>
           </span>
-          <button onClick={proximamente} style={{ marginTop: 'auto', alignSelf: 'flex-start', padding: '11px 18px', borderRadius: 12, background: '#fff', border: '1.5px solid var(--brand)', color: 'var(--brand-dark)', fontSize: 13, fontWeight: 700 }}>Ver guías →</button>
+          {(tools?.activityGuides.length ?? 0) > 0 ? (
+            <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+              {tools!.activityGuides.map((g) => (
+                <a key={g.id} href={g.url} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--brand-dark)' }}>
+                  {g.title} →
+                </a>
+              ))}
+            </div>
+          ) : (
+            <span style={{ marginTop: 'auto', fontSize: 12.5, color: '#8A9A96' }}>Aún no disponibles</span>
+          )}
         </div>
       </div>
 
@@ -47,13 +59,17 @@ export default function Herramientas() {
           <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 600, color: 'var(--text-dark)' }}>Recursos descargables</h3>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          {(tools?.downloadables ?? []).map((item) => (
-            <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px', borderRadius: 13, background: 'var(--bg)', border: '1px solid var(--border-soft)' }}>
-              <span style={{ width: 34, height: 34, borderRadius: 10, background: '#fff', border: '1px solid var(--border-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>📄</span>
-              <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text-dark)' }}>{item}</span>
-              <button onClick={proximamente} style={{ padding: '8px 13px', borderRadius: 10, background: '#fff', border: '1.5px solid var(--brand)', color: 'var(--brand-dark)', fontSize: 12.5, fontWeight: 700 }}>⬇ Descargar</button>
-            </div>
-          ))}
+          {(tools?.downloadables ?? []).length === 0 ? (
+            <p style={{ fontSize: 13, color: '#8A9A96' }}>Aún no hay recursos subidos.</p>
+          ) : (
+            (tools?.downloadables ?? []).map((item) => (
+              <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px', borderRadius: 13, background: 'var(--bg)', border: '1px solid var(--border-soft)' }}>
+                <span style={{ width: 34, height: 34, borderRadius: 10, background: '#fff', border: '1px solid var(--border-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>📄</span>
+                <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text-dark)' }}>{item.title}</span>
+                <a href={item.url} target="_blank" rel="noreferrer" style={{ padding: '8px 13px', borderRadius: 10, background: '#fff', border: '1.5px solid var(--brand)', color: 'var(--brand-dark)', fontSize: 12.5, fontWeight: 700 }}>⬇ Descargar</a>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

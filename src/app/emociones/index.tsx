@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { Emotion } from '@explorarte/shared';
+import type { Emotion, MediaItem } from '@explorarte/shared';
 import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
 import { GradientHeader } from '@/components/gradient-header';
 import { Logo } from '@/components/logo';
@@ -15,9 +15,11 @@ export default function BibliotecaDeEmocionesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [emotions, setEmotions] = useState<Emotion[]>([]);
+  const [introVideo, setIntroVideo] = useState<MediaItem | null>(null);
 
   useEffect(() => {
     api.emotions.list().then(setEmotions);
+    api.screenIntros.get('emotions').then((v) => setIntroVideo(v?.video ?? null));
   }, []);
 
   return (
@@ -45,7 +47,10 @@ export default function BibliotecaDeEmocionesScreen() {
           significativas dentro del aula.
         </Text>
 
-        <VideoPlaceholder caption="Video de introducción – ¿Por qué es importante reconocer las emociones? (~1 minuto)" />
+        <VideoPlaceholder
+          caption="Video de introducción – ¿Por qué es importante reconocer las emociones? (~1 minuto)"
+          videoItem={introVideo}
+        />
 
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
           {emotions.map((e) => (

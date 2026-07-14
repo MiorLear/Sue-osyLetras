@@ -2,14 +2,15 @@ import { useEffect, useState } from 'react';
 import type { SubTopic, Topic } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
-import { AdminBtn, AdminModal } from '@/components/admin/ui';
+import { AdminBtn, AdminModal, MediaListEditor } from '@/components/admin/ui';
 import { api } from '@/lib/api';
 
 const TOPIC_BG = ['#EEEAF7', '#EAF3E8', '#F8E8DE', '#FBF1DA'];
 
 type Draft = { emoji: string; title: string; subtopics: SubTopic[] };
 
-const EMPTY: Draft = { emoji: '🌱', title: '', subtopics: [{ title: '', body: '' }] };
+const BLANK_SUBTOPIC: SubTopic = { title: '', body: '', pdfs: [], videos: [], audios: [] };
+const EMPTY: Draft = { emoji: '🌱', title: '', subtopics: [{ ...BLANK_SUBTOPIC }] };
 
 export default function AdminAprendiendo() {
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -29,7 +30,7 @@ export default function AdminAprendiendo() {
   };
 
   const openNew = () => {
-    setDraft({ ...EMPTY, subtopics: [{ title: '', body: '' }] });
+    setDraft({ ...EMPTY, subtopics: [{ ...BLANK_SUBTOPIC }] });
     setEditing('new');
   };
   const openEdit = (t: Topic) => {
@@ -39,7 +40,7 @@ export default function AdminAprendiendo() {
 
   const setSub = (i: number, patch: Partial<SubTopic>) =>
     setDraft((d) => ({ ...d, subtopics: d.subtopics.map((s, idx) => (idx === i ? { ...s, ...patch } : s)) }));
-  const addSub = () => setDraft((d) => ({ ...d, subtopics: [...d.subtopics, { title: '', body: '' }] }));
+  const addSub = () => setDraft((d) => ({ ...d, subtopics: [...d.subtopics, { ...BLANK_SUBTOPIC }] }));
   const removeSub = (i: number) => setDraft((d) => ({ ...d, subtopics: d.subtopics.filter((_, idx) => idx !== i) }));
 
   const save = async () => {
@@ -144,6 +145,11 @@ export default function AdminAprendiendo() {
                       onChange={(e) => setSub(i, { body: e.target.value })}
                       style={{ width: '100%', minHeight: 70, padding: '10px 14px', borderRadius: 12, fontSize: 13.5, color: 'var(--text-dark)', lineHeight: 1.5, background: '#fff', border: '1.5px solid var(--border-input)', outline: 'none', resize: 'vertical' }}
                     />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+                      <MediaListEditor label="PDF" items={sub.pdfs} category="learning" accept="application/pdf" onChange={(pdfs) => setSub(i, { pdfs })} />
+                      <MediaListEditor label="Video" items={sub.videos} category="learning" accept="video/*" onChange={(videos) => setSub(i, { videos })} />
+                      <MediaListEditor label="Audiocuento" items={sub.audios} category="learning" accept="audio/*" onChange={(audios) => setSub(i, { audios })} />
+                    </div>
                   </div>
                 ))}
                 <button onClick={addSub} style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 13px', borderRadius: 10, background: '#fff', border: '1.5px dashed var(--border-input)', color: 'var(--brand-dark)', fontSize: 13, fontWeight: 700 }}>

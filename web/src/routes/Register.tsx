@@ -32,8 +32,8 @@ export default function Register() {
   // Los registros ya no necesitan aprobación: la cuenta queda activa y entra
   // directo a la app.
   const finishRegister = async () => {
-    const { user } = await api.auth.register({ name, lastname, institucion, ubicacion, email, password, phone });
-    signIn(user);
+    const result = await api.auth.register({ name, lastname, institucion, ubicacion, email, password, phone });
+    signIn(result);
     navigate('/main', { replace: true });
   };
 

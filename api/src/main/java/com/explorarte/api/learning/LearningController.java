@@ -70,6 +70,9 @@ public class LearningController {
             st.setTopic(topic);
             st.setTitle(dto.title());
             st.setBody(dto.body());
+            st.setPdfs(dto.pdfs());
+            st.setVideos(dto.videos());
+            st.setAudios(dto.audios());
             return st;
         }).toList();
     }

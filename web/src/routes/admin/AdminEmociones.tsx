@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Emotion, EmotionDetail } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
-import { AdminBtn, AdminModal, StringListEditor } from '@/components/admin/ui';
+import { AdminBtn, AdminModal, MediaListEditor, StringListEditor } from '@/components/admin/ui';
 import { api } from '@/lib/api';
 
 const BLANK: EmotionDetail = {
@@ -11,7 +11,7 @@ const BLANK: EmotionDetail = {
   emoji: '🙂',
   color: '#1E7E78',
   bg: '#E7F4F2',
-  content: { description: '', classroom: '', questions: [''], activities: [''], stories: [''] },
+  content: { description: '', classroom: '', questions: [''], activities: [''], stories: [] },
 };
 
 /** kebab-case slug from the emotion name, used as the route id for new emotions */
@@ -43,7 +43,7 @@ export default function AdminEmociones() {
   };
 
   const openNew = () => {
-    setDraft({ ...BLANK, content: { ...BLANK.content, questions: [''], activities: [''], stories: [''] } });
+    setDraft({ ...BLANK, content: { ...BLANK.content, questions: [''], activities: [''], stories: [] } });
     setEditing('new');
   };
 
@@ -73,7 +73,7 @@ export default function AdminEmociones() {
         ...draft.content,
         questions: draft.content.questions.map((s) => s.trim()).filter(Boolean),
         activities: draft.content.activities.map((s) => s.trim()).filter(Boolean),
-        stories: draft.content.stories.map((s) => s.trim()).filter(Boolean),
+        stories: draft.content.stories.filter((s) => s.url),
       },
     };
     setSaving(true);
@@ -182,7 +182,7 @@ export default function AdminEmociones() {
 
               <StringListEditor label="Preguntas para reflexionar" items={draft.content.questions} placeholder="Escribe una pregunta…" onChange={(questions) => setContent({ questions })} />
               <StringListEditor label="Actividades sugeridas" items={draft.content.activities} placeholder="Describe una actividad…" onChange={(activities) => setContent({ activities })} />
-              <StringListEditor label="Cuentos e historias" items={draft.content.stories} placeholder="Título de un cuento o historia…" onChange={(stories) => setContent({ stories })} />
+              <MediaListEditor label="Cuentos e historias (video, audio o PDF)" items={draft.content.stories} category="emotions" onChange={(stories) => setContent({ stories })} />
             </div>
           )}
         </AdminModal>

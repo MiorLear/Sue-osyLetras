@@ -209,7 +209,9 @@ public class DataSeeder implements ApplicationRunner {
             content.setClassroom(e.classroom());
             content.setQuestions(e.questions());
             content.setActivities(e.activities());
-            content.setStories(e.stories());
+            // Story titles used to be plain text; real story files are now
+            // uploaded by an admin via the CMS, so seed with no files yet.
+            content.setStories(List.of());
             emotionContentRepository.save(content);
         }
     }
@@ -260,13 +262,19 @@ public class DataSeeder implements ApplicationRunner {
         st.setTopic(topic);
         st.setTitle(title);
         st.setBody(body);
+        st.setPdfs(List.of());
+        st.setVideos(List.of());
+        st.setAudios(List.of());
         return st;
     }
 
     private void seedTools() {
         if (toolsContentRepository.count() > 0) return;
         ToolsContentEntity tools = new ToolsContentEntity();
-        tools.setDownloadables(List.of("Plantillas", "Fichas de trabajo", "Materiales de apoyo", "Herramientas para facilitación"));
+        // Downloadable labels used to be plain text with no real file behind
+        // them; real files are now uploaded by an admin via the CMS.
+        tools.setDownloadables(List.of());
+        tools.setActivityGuides(List.of());
         tools.setBibliography(List.of(
                 "El cerebro del niño — Daniel J. Siegel y Tina Payne Bryson",
                 "Educar las emociones — Mireia Cabero",
@@ -315,6 +323,7 @@ public class DataSeeder implements ApplicationRunner {
         p.setText(text);
         p.setLikesCount(likes);
         p.setReposts(reposts);
+        p.setAttachments(List.of());
         return p;
     }
 

@@ -1,9 +1,8 @@
 # Render Blueprint — ExplorArte (Sueños y Letras)
-# Despliega DOS demos estáticas (mock, sin backend) MÁS un backend real:
-# la API en Java (Spring Boot, mismo Dockerfile que usa docker-compose
-# localmente) y su base de datos Postgres. El backend real es útil como una
-# URL fija y siempre-disponible para apuntar mobile/web durante desarrollo,
-# sin depender de que la laptop de alguien esté prendida ni de túneles.
+# Despliega DOS sitios estáticos (web y la vista web de mobile), ambos
+# apuntando a la API real vía VITE_API_URL/EXPO_PUBLIC_API_URL, MÁS el backend
+# real: la API en Java (Spring Boot, mismo Dockerfile que usa docker-compose
+# localmente) contra una base de datos Postgres persistente en Supabase.
 #
 # Para publicar: en Render → New → Blueprint → conecta este repo.
 # Render detecta este archivo y crea todo automáticamente.
@@ -11,13 +10,14 @@
 # Plan gratuito — limitaciones a tener en cuenta:
 #   - El servicio web (API) se "duerme" tras 15 min sin tráfico; el primer
 #     request después de eso tarda ~30-60s en responder (cold start).
-#   - La base de datos gratuita de Render expira a los 30 días — hay que
-#     recrearla (o subir a un plan pago) para que no se borren los datos.
-databases:
-  - name: explorarte-db
-    plan: free
-    postgresMajorVersion: "16"
-
+#
+# La base de datos YA NO es la Postgres gratuita de Render (que expiraba cada
+# 30 días) — es un proyecto Supabase Postgres persistente. DATABASE_URL debe
+# configurarse manualmente en el dashboard de Render con la cadena de conexión
+# del "Session pooler" de Supabase (Project Settings → Database), no la del
+# host directo (IPv6-only, no compatible con la red de Render). Igual para
+# SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (Project Settings → API), usados
+# para subir archivos a Supabase Storage.
 services:
   # --- API real en Java (Spring Boot) — mismo Dockerfile que docker-compose ---
   - type: web
@@ -28,10 +28,16 @@ services:
     dockerContext: ./api
     healthCheckPath: /actuator/health
     envVars:
+      # Configurar manualmente en el dashboard de Render: cadena de conexión
+      # del Session pooler de Supabase (postgresql://postgres.<ref>:[PASSWORD]@aws-0-<region>.pooler.supabase.com:5432/postgres).
       - key: DATABASE_URL
-        fromDatabase:
-          name: explorarte-db
-          property: connectionString
+        sync: false
+      - key: SUPABASE_URL
+        value: https://whwczhxwhowtqdfvcavv.supabase.co
+      # Configurar manualmente: la service_role key (Project Settings → API,
+      # recomendada) o la anon key. Se deja como secreto y no se versiona.
+      - key: SUPABASE_KEY
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRATION_MINUTES
@@ -55,6 +61,10 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "20"
+      # Apunta la build de producción a la API real desplegada, para que deje
+      # de correr en modo mock (usingMock queda en true si esto no está seteado).
+      - key: VITE_API_URL
+        value: https://explorarte-api.onrender.com
     routes:
       # Fallback SPA: las rutas sin archivo estático van a index.html
       # (React Router resuelve la navegación del lado del cliente).
@@ -77,6 +87,10 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "20"
+      # Mismo motivo que VITE_API_URL arriba — sin esto, esta demo web también
+      # corre en modo mock.
+      - key: EXPO_PUBLIC_API_URL
+        value: https://explorarte-api.onrender.com
     routes:
       # Expo prerenderiza un .html por ruta; este rewrite solo actúa como
       # fallback para deep-links de rutas dinámicas (p. ej. /emociones/:id).

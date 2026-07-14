@@ -1,6 +1,12 @@
 package com.explorarte.api.community;
 
 import java.time.Instant;
+import java.util.List;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+import com.explorarte.api.media.MediaItem;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -40,6 +46,9 @@ public class Post {
     @Column(name = "created_at")
     private Instant createdAt = Instant.now();
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<MediaItem> attachments;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -72,4 +81,7 @@ public class Post {
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
+    public List<MediaItem> getAttachments() { return attachments; }
+    public void setAttachments(List<MediaItem> attachments) { this.attachments = attachments; }
 }

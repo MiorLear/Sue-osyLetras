@@ -5,7 +5,7 @@ import {
   Home, HelpCircle, BookOpen, Calendar, Clock, MessageCircle, MessageSquare,
   Repeat, Heart, FileText, Video, Mic, Play, Pause, Plus, X, Send, Bell, Pencil,
   Trash2, LogOut, Camera, Maximize, Check, CheckCircle2, Bookmark, Image as ImageIcon,
-  Volume2, Compass, Download, type LucideIcon,
+  Volume2, Compass, Download, Upload, Loader2, type LucideIcon,
 } from 'lucide-react';
 
 export type IconName =
@@ -14,7 +14,8 @@ export type IconName =
   | 'calendar' | 'clock' | 'message-circle' | 'message-square' | 'repeat'
   | 'heart' | 'file-text' | 'video' | 'mic' | 'play' | 'pause' | 'plus' | 'x'
   | 'send' | 'bell' | 'edit' | 'trash' | 'log-out' | 'camera' | 'maximize'
-  | 'check' | 'check-circle' | 'bookmark' | 'image' | 'volume' | 'compass' | 'download';
+  | 'check' | 'check-circle' | 'bookmark' | 'image' | 'volume' | 'compass' | 'download'
+  | 'upload' | 'loader';
 
 const MAP: Record<IconName, LucideIcon> = {
   'arrow-left': ArrowLeft, 'chevron-right': ChevronRight, 'chevron-down': ChevronDown,
@@ -25,7 +26,7 @@ const MAP: Record<IconName, LucideIcon> = {
   play: Play, pause: Pause, plus: Plus, x: X, send: Send, bell: Bell, edit: Pencil,
   trash: Trash2, 'log-out': LogOut, camera: Camera, maximize: Maximize, check: Check,
   'check-circle': CheckCircle2, bookmark: Bookmark, image: ImageIcon, volume: Volume2,
-  compass: Compass, download: Download,
+  compass: Compass, download: Download, upload: Upload, loader: Loader2,
 };
 
 interface IconProps {
