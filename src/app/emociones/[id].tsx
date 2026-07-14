@@ -1,15 +1,14 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { EmotionDetail } from '@explorarte/shared';
 import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
 import { DownloadableMediaItem } from '@/components/downloadable-media-item';
 import { Icon } from '@/components/icon';
 import { colors } from '@/constants/theme';
 import { api } from '@/lib/api';
+import { useAsync } from '@/lib/useAsync';
 
 function Divider() {
   return <View style={{ height: 1, backgroundColor: colors.borderSoft, marginVertical: 18 }} />;
@@ -75,12 +74,7 @@ export default function EmotionDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [emotion, setEmotion] = useState<EmotionDetail | null>(null);
-
-  useEffect(() => {
-    if (!id) return;
-    api.emotions.get(id).then(setEmotion);
-  }, [id]);
+  const { data: emotion, loading, error, reload } = useAsync(() => api.emotions.get(id!), [id]);
 
   const data = emotion?.content;
 
@@ -157,6 +151,19 @@ export default function EmotionDetailScreen() {
               )}
             </View>
           </>
+        ) : loading ? (
+          <ActivityIndicator color={emotion?.color ?? colors.brand} style={{ marginTop: 40 }} />
+        ) : error ? (
+          <View style={{ marginTop: 40, alignItems: 'center', gap: 12 }}>
+            <Text style={{ fontSize: 13, color: colors.textBody, textAlign: 'center' }}>
+              No pudimos cargar esta emoción. Revisa tu conexión.
+            </Text>
+            <Pressable
+              onPress={reload}
+              style={{ paddingVertical: 9, paddingHorizontal: 18, borderRadius: 10, backgroundColor: colors.brand }}>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Reintentar</Text>
+            </Pressable>
+          </View>
         ) : (
           <Text style={{ fontSize: 13, color: colors.textBody }}>
             No encontramos información para esta emoción.

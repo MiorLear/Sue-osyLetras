@@ -29,14 +29,35 @@ import type {
   UserStatus,
 } from '../../types/index.js';
 
+/** Error thrown by the HTTP adapter, carrying the HTTP status so callers can
+ * branch on it (e.g. 401 -> session expired, 404 -> not found). */
+export class ApiError extends Error {
+  status: number;
+  body: string;
+  constructor(status: number, message: string, body = '') {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.body = body;
+  }
+}
+
 export interface HttpClientOptions {
   baseUrl: string;
   /** optional bearer token supplier for authenticated requests */
   getToken?: () => string | null | undefined;
+  /** called once whenever a request comes back 401, so the app can clear the
+   * session and redirect to login instead of leaving screens blank. */
+  onUnauthorized?: () => void;
 }
 
 export function createHttpClient(opts: HttpClientOptions): ApiClient {
   const base = opts.baseUrl.replace(/\/$/, '');
+
+  function fail(method: string, path: string, status: number, detail: string): never {
+    if (status === 401) opts.onUnauthorized?.();
+    throw new ApiError(status, `${method} ${path} failed: ${status} ${detail}`, detail);
+  }
 
   async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -48,10 +69,7 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-    if (!res.ok) {
-      const detail = await res.text().catch(() => '');
-      throw new Error(`${method} ${path} failed: ${res.status} ${detail}`);
-    }
+    if (!res.ok) fail(method, path, res.status, await res.text().catch(() => ''));
     if (res.status === 204) return undefined as T;
     return (await res.json()) as T;
   }
@@ -67,10 +85,7 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
     form.append('file', file, filename);
 
     const res = await fetch(base + path, { method: 'POST', headers, body: form });
-    if (!res.ok) {
-      const detail = await res.text().catch(() => '');
-      throw new Error(`POST ${path} failed: ${res.status} ${detail}`);
-    }
+    if (!res.ok) fail('POST', path, res.status, await res.text().catch(() => ''));
     return (await res.json()) as MediaItem;
   }
 

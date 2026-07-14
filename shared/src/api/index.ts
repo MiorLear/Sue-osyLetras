@@ -24,7 +24,7 @@ export function createApiClient(opts: CreateApiClientOptions = {}): ApiClient {
 }
 
 export { createMockClient } from './mock/index.js';
-export { createHttpClient } from './http/index.js';
+export { createHttpClient, ApiError } from './http/index.js';
 export { createConfigurableApiClient } from './configurable.js';
 export type { ApiClient } from './client.js';
 export type { ApiModuleKey, CreateConfigurableApiClientOptions } from './configurable.js';

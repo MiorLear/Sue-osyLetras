@@ -26,6 +26,8 @@ export interface CreateConfigurableApiClientOptions {
   /** required if any module resolves to 'http' */
   baseUrl?: string;
   getToken?: () => string | null | undefined;
+  /** called when any http request returns 401 (session expired/invalid) */
+  onUnauthorized?: () => void;
   /** default mode for modules not listed in mockModules; defaults to 'http' when baseUrl is set, else 'mock' */
   defaultMode?: 'mock' | 'http';
   /** module keys that should always use the mock adapter, overriding defaultMode */
@@ -37,7 +39,7 @@ export function createConfigurableApiClient(
 ): ApiClient {
   const mock = createMockClient();
   const http = opts.baseUrl
-    ? createHttpClient({ baseUrl: opts.baseUrl, getToken: opts.getToken })
+    ? createHttpClient({ baseUrl: opts.baseUrl, getToken: opts.getToken, onUnauthorized: opts.onUnauthorized })
     : undefined;
   const defaultMode = opts.defaultMode ?? (opts.baseUrl ? 'http' : 'mock');
   const forcedMock = new Set(opts.mockModules ?? []);
