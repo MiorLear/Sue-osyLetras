@@ -1,6 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EVENT_COLORS } from '@explorarte/shared';
@@ -10,6 +9,7 @@ import { Icon, IconName } from '@/components/icon';
 import { Logo } from '@/components/logo';
 import { colors } from '@/constants/theme';
 import { api } from '@/lib/api';
+import { useAsync } from '@/lib/useAsync';
 
 interface NavCard {
   emoji: string;
@@ -109,28 +109,26 @@ const fmtCountdown = (minutes: number) => {
 export default function MainScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [firstName, setFirstName] = useState('');
-  const [events, setEvents] = useState<DashboardEvent[]>([]);
-
-  useEffect(() => {
-    api.profile.get().then((p) => setFirstName(p.name));
-    api.events.list().then((data) => {
-      const upcoming = data
-        .map((e) => ({ e, minutes: minutesUntil(e.date, e.startTime) }))
-        .filter(({ minutes }) => minutes > -60)
-        .sort((a, b) => a.minutes - b.minutes)
-        .slice(0, 3)
-        .map(({ e, minutes }) => ({
-          key: e.id,
-          group: e.title,
-          time: fmtTime12(e.startTime),
-          label: fmtCountdown(minutes),
-          color: EVENT_COLORS[e.type] ?? colors.brand,
-          urgent: minutes <= 30,
-        }));
-      setEvents(upcoming);
-    });
+  const { data, loading, error, reload } = useAsync(async () => {
+    const [profile, rawEvents] = await Promise.all([api.profile.get(), api.events.list()]);
+    const upcoming: DashboardEvent[] = rawEvents
+      .map((e) => ({ e, minutes: minutesUntil(e.date, e.startTime) }))
+      .filter(({ minutes }) => minutes > -60)
+      .sort((a, b) => a.minutes - b.minutes)
+      .slice(0, 3)
+      .map(({ e, minutes }) => ({
+        key: e.id,
+        group: e.title,
+        time: fmtTime12(e.startTime),
+        label: fmtCountdown(minutes),
+        color: EVENT_COLORS[e.type] ?? colors.brand,
+        urgent: minutes <= 30,
+      }));
+    return { profile, events: upcoming };
   }, []);
+
+  const firstName = data?.profile.name ?? '';
+  const events = data?.events ?? [];
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -208,46 +206,69 @@ export default function MainScreen() {
             <Text style={{ fontSize: 16, fontWeight: '800', color: colors.textDark }}>Mi Calendario</Text>
             <Text style={{ fontSize: 11, color: colors.brand, fontWeight: '600' }}>Hoy · jue 4 jun</Text>
           </View>
-          <View
-            style={{
-              borderRadius: 16,
-              backgroundColor: '#fff',
-              overflow: 'hidden',
-              marginBottom: 12,
-              borderWidth: 1.5,
-              borderColor: '#E4F4F3',
-            }}>
-            {events.map((ev, i) => (
-              <View
-                key={ev.key}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 12,
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
-                  borderBottomWidth: i < events.length - 1 ? 1 : 0,
-                  borderBottomColor: '#F0F5F5',
-                }}>
-                <View style={{ width: 4, height: 36, borderRadius: 9, backgroundColor: ev.color }} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textDark }}>{ev.group}</Text>
-                  <Text style={{ fontSize: 11, color: colors.textMuted }}>{ev.time}</Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Icon name="clock" size={11} color={ev.urgent ? colors.danger : colors.textMuted} />
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      color: ev.urgent ? colors.danger : colors.textMuted,
-                      fontWeight: ev.urgent ? '700' : '400',
-                    }}>
-                    {ev.label}
+          {loading ? (
+            <ActivityIndicator color={colors.brand} style={{ marginTop: 32, marginBottom: 12 }} />
+          ) : error ? (
+            <View style={{ alignItems: 'center', gap: 12, paddingVertical: 24, marginBottom: 12 }}>
+              <Text style={{ fontSize: 13, color: colors.textBody, textAlign: 'center' }}>
+                No pudimos cargar tu calendario. Revisa tu conexión.
+              </Text>
+              <Pressable
+                onPress={reload}
+                style={{ paddingVertical: 9, paddingHorizontal: 18, borderRadius: 10, backgroundColor: colors.brand }}>
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Reintentar</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View
+              style={{
+                borderRadius: 16,
+                backgroundColor: '#fff',
+                overflow: 'hidden',
+                marginBottom: 12,
+                borderWidth: 1.5,
+                borderColor: '#E4F4F3',
+              }}>
+              {events.length === 0 ? (
+                <View style={{ paddingVertical: 16, paddingHorizontal: 16 }}>
+                  <Text style={{ fontSize: 12.5, color: colors.textMuted }}>
+                    No tienes eventos próximos.
                   </Text>
                 </View>
-              </View>
-            ))}
-          </View>
+              ) : (
+                events.map((ev, i) => (
+                  <View
+                    key={ev.key}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 12,
+                      paddingVertical: 12,
+                      paddingHorizontal: 16,
+                      borderBottomWidth: i < events.length - 1 ? 1 : 0,
+                      borderBottomColor: '#F0F5F5',
+                    }}>
+                    <View style={{ width: 4, height: 36, borderRadius: 9, backgroundColor: ev.color }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textDark }}>{ev.group}</Text>
+                      <Text style={{ fontSize: 11, color: colors.textMuted }}>{ev.time}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Icon name="clock" size={11} color={ev.urgent ? colors.danger : colors.textMuted} />
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          color: ev.urgent ? colors.danger : colors.textMuted,
+                          fontWeight: ev.urgent ? '700' : '400',
+                        }}>
+                        {ev.label}
+                      </Text>
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
+          )}
           <Pressable
             onPress={() => router.push('/calendar')}
             style={{

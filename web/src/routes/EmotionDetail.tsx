@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import type { EmotionDetail as EmotionDetailType } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { api } from '@/lib/api';
+import { useAsync } from '@/lib/useAsync';
 
 function Divider() {
   return <div style={{ height: 1, background: 'var(--border-soft)', margin: '18px 0' }} />;
@@ -51,16 +50,7 @@ function ActivityCard({ text, color, bg }: { text: string; color: string; bg: st
 export default function EmotionDetail() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const [emotion, setEmotion] = useState<EmotionDetailType | null>(null);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    if (!id) return;
-    api.emotions.get(id).then((e) => {
-      setEmotion(e);
-      setLoaded(true);
-    });
-  }, [id]);
+  const { data: emotion, loading, error, reload } = useAsync(() => api.emotions.get(id!), [id]);
 
   const color = emotion?.color ?? 'var(--brand)';
   const data = emotion?.content;
@@ -132,9 +122,22 @@ export default function EmotionDetail() {
               )}
             </div>
           </>
-        ) : loaded ? (
+        ) : loading ? (
+          <p style={{ marginTop: 40, textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>Cargando…</p>
+        ) : error ? (
+          <div style={{ marginTop: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+            <p style={{ fontSize: 13, color: 'var(--text-body)', textAlign: 'center' }}>
+              No pudimos cargar esta emoción. Revisa tu conexión.
+            </p>
+            <button
+              onClick={reload}
+              style={{ padding: '9px 18px', borderRadius: 10, background: 'var(--brand)', color: '#fff', fontWeight: 700, fontSize: 13 }}>
+              Reintentar
+            </button>
+          </div>
+        ) : (
           <p style={{ fontSize: 13, color: 'var(--text-body)' }}>No encontramos información para esta emoción.</p>
-        ) : null}
+        )}
       </div>
     </div>
   );

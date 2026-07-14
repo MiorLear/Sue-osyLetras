@@ -4,6 +4,7 @@ import { EVENT_COLORS, type CalEvent, type EventType } from '@explorarte/shared'
 import { Icon } from '@/components/Icon';
 import { Select } from '@/components/ui';
 import { api } from '@/lib/api';
+import { useAsync } from '@/lib/useAsync';
 
 type ViewMode = 'día' | 'semana' | 'mes';
 type ModalMode = 'create' | 'detail' | 'edit' | 'delete' | null;
@@ -29,15 +30,18 @@ export default function CalendarScreen() {
   const navigate = useNavigate();
   const [view, setView] = useState<ViewMode>('día');
   const [selDate, setSelDate] = useState(new Date(2026, 5, 4));
+  const { data, loading, error, reload } = useAsync(() => api.events.list(), []);
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [modal, setModal] = useState<ModalMode>(null);
   const [selEvent, setSelEvent] = useState<CalEvent | null>(null);
   const [form, setForm] = useState<Form>(blankForm(new Date(2026, 5, 4)));
   const [toast, setToast] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   useEffect(() => {
-    api.events.list().then(setEvents);
-  }, []);
+    if (data) setEvents(data);
+  }, [data]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -55,29 +59,55 @@ export default function CalendarScreen() {
 
   const submitForm = async () => {
     if (!form.title.trim()) { showToast('Por favor ingresa un título'); return; }
-    if (modal === 'edit' && selEvent) {
-      const updated = await api.events.update(selEvent.id, { title: form.title, type: form.type, date: form.dateStr, startTime: form.startTime, endTime: form.endTime, reminder: form.reminder });
-      setEvents((es) => es.map((e) => (e.id === updated.id ? updated : e)));
-      showToast('Evento actualizado correctamente');
-    } else {
-      const created = await api.events.create({ title: form.title, type: form.type, date: form.dateStr, startTime: form.startTime, endTime: form.endTime, reminder: form.reminder, completed: false });
-      setEvents((es) => [...es, created]);
-      showToast('Evento creado correctamente');
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      if (modal === 'edit' && selEvent) {
+        const updated = await api.events.update(selEvent.id, { title: form.title, type: form.type, date: form.dateStr, startTime: form.startTime, endTime: form.endTime, reminder: form.reminder });
+        setEvents((es) => es.map((e) => (e.id === updated.id ? updated : e)));
+        showToast('Evento actualizado correctamente');
+      } else {
+        const created = await api.events.create({ title: form.title, type: form.type, date: form.dateStr, startTime: form.startTime, endTime: form.endTime, reminder: form.reminder, completed: false });
+        setEvents((es) => [...es, created]);
+        showToast('Evento creado correctamente');
+      }
+      closeModal();
+    } catch {
+      showToast('No se pudo guardar el evento. Intenta de nuevo.');
+    } finally {
+      setSubmitting(false);
     }
-    closeModal();
   };
 
   const confirmDelete = async () => {
-    if (selEvent) { await api.events.remove(selEvent.id); setEvents((es) => es.filter((e) => e.id !== selEvent.id)); }
-    closeModal();
-    showToast('Evento eliminado');
+    if (!selEvent) { closeModal(); return; }
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await api.events.remove(selEvent.id);
+      setEvents((es) => es.filter((e) => e.id !== selEvent.id));
+      closeModal();
+      showToast('Evento eliminado');
+    } catch {
+      showToast('No se pudo eliminar el evento. Intenta de nuevo.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const toggleTask = async (id: string) => {
     const ev = events.find((e) => e.id === id);
     if (!ev || ev.type !== 'tarea') return;
-    const updated = await api.events.update(id, { completed: !ev.completed });
-    setEvents((es) => es.map((e) => (e.id === id ? updated : e)));
+    if (togglingId) return;
+    setTogglingId(id);
+    try {
+      const updated = await api.events.update(id, { completed: !ev.completed });
+      setEvents((es) => es.map((e) => (e.id === id ? updated : e)));
+    } catch {
+      showToast('No se pudo actualizar la tarea. Intenta de nuevo.');
+    } finally {
+      setTogglingId(null);
+    }
   };
 
   const dayEvents = events.filter((e) => sameDay(fromISO(e.date), selDate));
@@ -103,9 +133,23 @@ export default function CalendarScreen() {
       </div>
 
       <div style={{ maxWidth: 820 }}>
-        {view === 'día' ? <DayView selDate={selDate} dayEvents={dayEvents} onEvent={openDetail} onToggle={toggleTask} /> : null}
-        {view === 'semana' ? <WeekView selDate={selDate} setSelDate={setSelDate} dayEvents={dayEvents} onEvent={openDetail} onToggle={toggleTask} /> : null}
-        {view === 'mes' ? <MonthView selDate={selDate} setSelDate={setSelDate} events={events} /> : null}
+        {loading ? (
+          <p style={{ textAlign: 'center', padding: '48px 0', fontSize: 14, color: 'var(--text-muted)' }}>Cargando…</p>
+        ) : error ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '40px 0' }}>
+            <p style={{ fontSize: 14, color: 'var(--text-body)', textAlign: 'center' }}>No pudimos cargar tu calendario. Revisa tu conexión.</p>
+            <button onClick={reload} style={{ padding: '9px 18px', borderRadius: 10, background: 'var(--brand)', color: '#fff', fontSize: 13, fontWeight: 700 }}>Reintentar</button>
+          </div>
+        ) : (
+          <>
+            {events.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>Aún no tienes eventos. Crea uno con “Nuevo evento”.</p>
+            ) : null}
+            {view === 'día' ? <DayView selDate={selDate} dayEvents={dayEvents} onEvent={openDetail} onToggle={toggleTask} togglingId={togglingId} /> : null}
+            {view === 'semana' ? <WeekView selDate={selDate} setSelDate={setSelDate} dayEvents={dayEvents} onEvent={openDetail} onToggle={toggleTask} togglingId={togglingId} /> : null}
+            {view === 'mes' ? <MonthView selDate={selDate} setSelDate={setSelDate} events={events} /> : null}
+          </>
+        )}
       </div>
 
       {toast ? (
@@ -125,7 +169,7 @@ export default function CalendarScreen() {
             </div>
             <div style={{ padding: 20, overflowY: 'auto', flex: 1, minHeight: 0 }}>
               {modal === 'create' || modal === 'edit' ? (
-                <EventForm form={form} setForm={setForm} submitLabel={modal === 'edit' ? 'Guardar cambios' : 'Guardar evento'} onCancel={() => setModal(selEvent ? 'detail' : null)} onSubmit={submitForm} />
+                <EventForm form={form} setForm={setForm} submitLabel={modal === 'edit' ? 'Guardar cambios' : 'Guardar evento'} onCancel={() => setModal(selEvent ? 'detail' : null)} onSubmit={submitForm} submitting={submitting} />
               ) : null}
               {modal === 'detail' && selEvent ? (
                 <EventDetail event={selEvent} onEdit={startEdit} onDelete={() => setModal('delete')} onClose={closeModal} />
@@ -134,8 +178,8 @@ export default function CalendarScreen() {
                 <div>
                   <p style={{ fontSize: 14, color: 'var(--text-body)', marginBottom: 20 }}>¿Seguro que deseas eliminar este evento?</p>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <ModalBtn label="Cancelar" outline onClick={() => setModal('detail')} />
-                    <ModalBtn label="Eliminar" danger onClick={confirmDelete} />
+                    <ModalBtn label="Cancelar" outline onClick={() => setModal('detail')} disabled={submitting} />
+                    <ModalBtn label="Eliminar" danger onClick={confirmDelete} disabled={submitting} />
                   </div>
                 </div>
               ) : null}
@@ -147,15 +191,16 @@ export default function CalendarScreen() {
   );
 }
 
-function EventCard({ event, onEvent, onToggle }: { event: CalEvent; onEvent: (e: CalEvent) => void; onToggle: (id: string) => void }) {
+function EventCard({ event, onEvent, onToggle, togglingId }: { event: CalEvent; onEvent: (e: CalEvent) => void; onToggle: (id: string) => void; togglingId: string | null }) {
   const color = EVENT_COLORS[event.type];
   const isTask = event.type === 'tarea';
+  const toggling = togglingId === event.id;
   return (
     <div style={{ display: 'flex', gap: 12, borderRadius: 12, padding: 12, background: '#fff', border: `1.5px solid ${color}40`, opacity: event.completed ? 0.6 : 1 }}>
       <span style={{ width: 4, height: 44, borderRadius: 9, background: color, flexShrink: 0 }} />
       <div style={{ flex: 1, display: 'flex', gap: 8 }}>
         {isTask ? (
-          <button onClick={() => onToggle(event.id)} style={{ width: 18, height: 18, marginTop: 1, borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', background: event.completed ? 'var(--brand)' : '#fff', border: `2px solid ${event.completed ? 'var(--brand)' : '#C0DEDC'}`, flexShrink: 0 }}>
+          <button onClick={() => onToggle(event.id)} disabled={toggling} style={{ width: 18, height: 18, marginTop: 1, borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', background: event.completed ? 'var(--brand)' : '#fff', border: `2px solid ${event.completed ? 'var(--brand)' : '#C0DEDC'}`, flexShrink: 0, opacity: toggling ? 0.5 : 1 }}>
             {event.completed ? <Icon name="check" size={12} color="#fff" strokeWidth={3} /> : null}
           </button>
         ) : null}
@@ -168,7 +213,7 @@ function EventCard({ event, onEvent, onToggle }: { event: CalEvent; onEvent: (e:
   );
 }
 
-function DayView({ selDate, dayEvents, onEvent, onToggle }: { selDate: Date; dayEvents: CalEvent[]; onEvent: (e: CalEvent) => void; onToggle: (id: string) => void }) {
+function DayView({ selDate, dayEvents, onEvent, onToggle, togglingId }: { selDate: Date; dayEvents: CalEvent[]; onEvent: (e: CalEvent) => void; onToggle: (id: string) => void; togglingId: string | null }) {
   const slots = Array.from({ length: 13 }, (_, i) => {
     const hour = i + 7;
     const evs = dayEvents.filter((e) => parseInt(e.startTime.split(':')[0], 10) === hour);
@@ -184,7 +229,7 @@ function DayView({ selDate, dayEvents, onEvent, onToggle }: { selDate: Date; day
           <div key={slot.label} style={{ display: 'flex', gap: 12 }}>
             <span style={{ width: 60, fontSize: 11.5, color: 'var(--text-muted)', paddingTop: 2, flexShrink: 0 }}>{slot.label}</span>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {slot.evs.length === 0 ? <div style={{ height: 32, borderBottom: '1px solid var(--border)' }} /> : slot.evs.map((ev) => <EventCard key={ev.id} event={ev} onEvent={onEvent} onToggle={onToggle} />)}
+              {slot.evs.length === 0 ? <div style={{ height: 32, borderBottom: '1px solid var(--border)' }} /> : slot.evs.map((ev) => <EventCard key={ev.id} event={ev} onEvent={onEvent} onToggle={onToggle} togglingId={togglingId} />)}
             </div>
           </div>
         ))}
@@ -193,7 +238,7 @@ function DayView({ selDate, dayEvents, onEvent, onToggle }: { selDate: Date; day
   );
 }
 
-function WeekView({ selDate, setSelDate, dayEvents, onEvent, onToggle }: { selDate: Date; setSelDate: (d: Date) => void; dayEvents: CalEvent[]; onEvent: (e: CalEvent) => void; onToggle: (id: string) => void }) {
+function WeekView({ selDate, setSelDate, dayEvents, onEvent, onToggle, togglingId }: { selDate: Date; setSelDate: (d: Date) => void; dayEvents: CalEvent[]; onEvent: (e: CalEvent) => void; onToggle: (id: string) => void; togglingId: string | null }) {
   const ws = startOfWeek(selDate);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(ws, i));
   const sorted = dayEvents.slice().sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -213,7 +258,7 @@ function WeekView({ selDate, setSelDate, dayEvents, onEvent, onToggle }: { selDa
       </div>
       <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 700, color: 'var(--text-dark)', textTransform: 'capitalize' }}>{title}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {sorted.length === 0 ? <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>No hay eventos para este día</p> : sorted.map((ev) => <EventCard key={ev.id} event={ev} onEvent={onEvent} onToggle={onToggle} />)}
+        {sorted.length === 0 ? <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>No hay eventos para este día</p> : sorted.map((ev) => <EventCard key={ev.id} event={ev} onEvent={onEvent} onToggle={onToggle} togglingId={togglingId} />)}
       </div>
     </div>
   );
@@ -263,7 +308,7 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
-function EventForm({ form, setForm, submitLabel, onCancel, onSubmit }: { form: Form; setForm: (f: Form) => void; submitLabel: string; onCancel: () => void; onSubmit: () => void }) {
+function EventForm({ form, setForm, submitLabel, onCancel, onSubmit, submitting }: { form: Form; setForm: (f: Form) => void; submitLabel: string; onCancel: () => void; onSubmit: () => void; submitting: boolean }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <FormField label="Título">
@@ -287,8 +332,8 @@ function EventForm({ form, setForm, submitLabel, onCancel, onSubmit }: { form: F
         <Select value={form.reminder} options={REMINDERS} onChange={(v) => setForm({ ...form, reminder: v })} />
       </FormField>
       <div style={{ display: 'flex', gap: 8 }}>
-        <ModalBtn label="Cancelar" outline onClick={onCancel} />
-        <ModalBtn label={submitLabel} primary onClick={onSubmit} />
+        <ModalBtn label="Cancelar" outline onClick={onCancel} disabled={submitting} />
+        <ModalBtn label={submitting ? 'Guardando…' : submitLabel} primary onClick={onSubmit} disabled={submitting} />
       </div>
     </div>
   );
@@ -327,10 +372,10 @@ function DetailRow({ icon, label, value }: { icon: 'calendar' | 'clock' | 'bell'
   );
 }
 
-function ModalBtn({ label, onClick, primary, danger, outline }: { label: string; onClick: () => void; primary?: boolean; danger?: boolean; outline?: boolean }) {
+function ModalBtn({ label, onClick, primary, danger, outline, disabled }: { label: string; onClick: () => void; primary?: boolean; danger?: boolean; outline?: boolean; disabled?: boolean }) {
   const bg = danger ? 'var(--danger)' : primary ? 'var(--brand)' : '#fff';
   const fg = outline ? 'var(--brand)' : '#fff';
   return (
-    <button onClick={onClick} style={{ flex: 1, padding: 11, borderRadius: 10, background: bg, color: fg, border: outline ? '1.5px solid var(--brand)' : 'none', fontSize: 13, fontWeight: 700 }}>{label}</button>
+    <button onClick={onClick} disabled={disabled} style={{ flex: 1, padding: 11, borderRadius: 10, background: bg, color: fg, border: outline ? '1.5px solid var(--brand)' : 'none', fontSize: 13, fontWeight: 700, opacity: disabled ? 0.6 : 1 }}>{label}</button>
   );
 }

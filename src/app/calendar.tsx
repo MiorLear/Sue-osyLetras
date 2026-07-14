@@ -1,7 +1,7 @@
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { CalEvent as ApiCalEvent } from '@explorarte/shared';
@@ -10,6 +10,7 @@ import { Icon } from '@/components/icon';
 import { Select } from '@/components/ui';
 import { colors } from '@/constants/theme';
 import { api } from '@/lib/api';
+import { useAsync } from '@/lib/useAsync';
 
 type ViewMode = 'día' | 'semana' | 'mes';
 type EventType = 'sesión' | 'tarea' | 'recordatorio' | 'evento';
@@ -91,16 +92,22 @@ export default function CalendarScreen() {
 
   const [view, setView] = useState<ViewMode>('día');
   const [selDate, setSelDate] = useState(new Date(2026, 5, 4));
+  const { data: loadedEvents, loading, error, reload } = useAsync(() => api.events.list(), []);
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [modal, setModal] = useState<ModalMode>(null);
   const [selEvent, setSelEvent] = useState<CalEvent | null>(null);
   const [form, setForm] = useState<Form>(blankForm(new Date(2026, 5, 4)));
   const [toast, setToast] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Keep a local, mutable copy of the loaded events so create/update/delete/
+  // toggle can update the list in place; re-sync whenever a fresh load lands.
   useEffect(() => {
-    api.events.list().then((data) => setEvents(data.map(fromApiEvent)));
-  }, []);
+    if (loadedEvents) setEvents(loadedEvents.map(fromApiEvent));
+  }, [loadedEvents]);
 
   useEffect(() => () => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -142,45 +149,68 @@ export default function CalendarScreen() {
       showToast('Por favor ingresa un título');
       return;
     }
-    if (modal === 'edit' && selEvent) {
-      const updated = await api.events.update(selEvent.id, {
-        title: form.title,
-        type: form.type,
-        date: form.dateStr,
-        startTime: form.startTime,
-        endTime: form.endTime,
-        reminder: form.reminder,
-      });
-      setEvents((es) => es.map((e) => (e.id === selEvent.id ? fromApiEvent(updated) : e)));
-      showToast('Evento actualizado correctamente');
-    } else {
-      const created = await api.events.create({
-        title: form.title,
-        type: form.type,
-        date: form.dateStr,
-        startTime: form.startTime,
-        endTime: form.endTime,
-        reminder: form.reminder,
-        completed: false,
-      });
-      setEvents((es) => [...es, fromApiEvent(created)]);
-      showToast('Evento creado correctamente');
+    setSubmitting(true);
+    try {
+      if (modal === 'edit' && selEvent) {
+        const updated = await api.events.update(selEvent.id, {
+          title: form.title,
+          type: form.type,
+          date: form.dateStr,
+          startTime: form.startTime,
+          endTime: form.endTime,
+          reminder: form.reminder,
+        });
+        setEvents((es) => es.map((e) => (e.id === selEvent.id ? fromApiEvent(updated) : e)));
+        showToast('Evento actualizado correctamente');
+      } else {
+        const created = await api.events.create({
+          title: form.title,
+          type: form.type,
+          date: form.dateStr,
+          startTime: form.startTime,
+          endTime: form.endTime,
+          reminder: form.reminder,
+          completed: false,
+        });
+        setEvents((es) => [...es, fromApiEvent(created)]);
+        showToast('Evento creado correctamente');
+      }
+      closeModal();
+    } catch {
+      Alert.alert('Error', 'No se pudo guardar el evento. Intenta de nuevo.');
+    } finally {
+      setSubmitting(false);
     }
-    closeModal();
   };
   const confirmDelete = async () => {
-    if (selEvent) {
+    if (!selEvent) {
+      closeModal();
+      return;
+    }
+    setDeleting(true);
+    try {
       await api.events.remove(selEvent.id);
       setEvents((es) => es.filter((e) => e.id !== selEvent.id));
+      closeModal();
+      showToast('Evento eliminado');
+    } catch {
+      Alert.alert('Error', 'No se pudo eliminar el evento. Intenta de nuevo.');
+    } finally {
+      setDeleting(false);
     }
-    closeModal();
-    showToast('Evento eliminado');
   };
   const toggleTask = async (id: string) => {
     const current = events.find((e) => e.id === id);
     if (!current || current.type !== 'tarea') return;
-    const updated = await api.events.update(id, { completed: !current.completed });
-    setEvents((es) => es.map((e) => (e.id === id ? fromApiEvent(updated) : e)));
+    setTogglingId(id);
+    try {
+      const updated = await api.events.update(id, { completed: !current.completed });
+      setEvents((es) => es.map((e) => (e.id === id ? fromApiEvent(updated) : e)));
+    } catch {
+      Alert.alert('Error', 'No se pudo actualizar la tarea. Intenta de nuevo.');
+    } finally {
+      setTogglingId(null);
+    }
   };
 
   const dayEvents = events.filter((e) => sameDay(e.date, selDate));
@@ -218,11 +248,35 @@ export default function CalendarScreen() {
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
-        {view === 'día' ? <DayView selDate={selDate} dayEvents={dayEvents} onEvent={openDetail} onToggle={toggleTask} /> : null}
-        {view === 'semana' ? (
-          <WeekView selDate={selDate} setSelDate={setSelDate} dayEvents={dayEvents} onEvent={openDetail} onToggle={toggleTask} />
-        ) : null}
-        {view === 'mes' ? <MonthView selDate={selDate} setSelDate={setSelDate} events={events} /> : null}
+        {loading ? (
+          <ActivityIndicator color={colors.brand} style={{ marginTop: 32 }} />
+        ) : error ? (
+          <View style={{ marginTop: 40, alignItems: 'center', gap: 12 }}>
+            <Text style={{ fontSize: 13, color: colors.textBody, textAlign: 'center' }}>
+              No pudimos cargar tu calendario. Revisa tu conexión.
+            </Text>
+            <Pressable
+              onPress={reload}
+              style={{ paddingVertical: 9, paddingHorizontal: 18, borderRadius: 10, backgroundColor: colors.brand }}>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Reintentar</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <>
+            {events.length === 0 ? (
+              <Text style={{ fontSize: 12.5, color: colors.textMuted, marginBottom: 16 }}>
+                Aún no tienes eventos. Toca el botón + para crear uno.
+              </Text>
+            ) : null}
+            {view === 'día' ? (
+              <DayView selDate={selDate} dayEvents={dayEvents} onEvent={openDetail} onToggle={toggleTask} togglingId={togglingId} />
+            ) : null}
+            {view === 'semana' ? (
+              <WeekView selDate={selDate} setSelDate={setSelDate} dayEvents={dayEvents} onEvent={openDetail} onToggle={toggleTask} togglingId={togglingId} />
+            ) : null}
+            {view === 'mes' ? <MonthView selDate={selDate} setSelDate={setSelDate} events={events} /> : null}
+          </>
+        )}
         <View style={{ height: 16 }} />
       </ScrollView>
 
@@ -269,6 +323,7 @@ export default function CalendarScreen() {
                   submitLabel={modal === 'edit' ? 'Guardar cambios' : 'Guardar evento'}
                   onCancel={() => setModal(selEvent ? 'detail' : null)}
                   onSubmit={submitForm}
+                  submitting={submitting}
                 />
               ) : null}
               {modal === 'detail' && selEvent ? (
@@ -280,8 +335,8 @@ export default function CalendarScreen() {
                     ¿Seguro que deseas eliminar este evento?
                   </Text>
                   <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <ModalBtn label="Cancelar" outline onPress={() => setModal('detail')} />
-                    <ModalBtn label="Eliminar" danger onPress={confirmDelete} />
+                    <ModalBtn label="Cancelar" outline onPress={() => setModal('detail')} disabled={deleting} />
+                    <ModalBtn label={deleting ? 'Eliminando…' : 'Eliminar'} danger onPress={confirmDelete} disabled={deleting} />
                   </View>
                 </View>
               ) : null}
@@ -293,7 +348,7 @@ export default function CalendarScreen() {
   );
 }
 
-function EventCard({ event, onEvent, onToggle }: { event: CalEvent; onEvent: (e: CalEvent) => void; onToggle: (id: string) => void }) {
+function EventCard({ event, onEvent, onToggle, toggling }: { event: CalEvent; onEvent: (e: CalEvent) => void; onToggle: (id: string) => void; toggling?: boolean }) {
   const color = COLORS[event.type];
   const isTask = event.type === 'tarea';
   return (
@@ -314,6 +369,7 @@ function EventCard({ event, onEvent, onToggle }: { event: CalEvent; onEvent: (e:
         {isTask ? (
           <Pressable
             onPress={() => onToggle(event.id)}
+            disabled={toggling}
             style={{
               width: 18,
               height: 18,
@@ -324,6 +380,7 @@ function EventCard({ event, onEvent, onToggle }: { event: CalEvent; onEvent: (e:
               backgroundColor: event.completed ? colors.brand : '#fff',
               borderWidth: 2,
               borderColor: event.completed ? colors.brand : '#C0DEDC',
+              opacity: toggling ? 0.5 : 1,
             }}>
             {event.completed ? <Icon name="check" size={12} color="#fff" strokeWidth={3} /> : null}
           </Pressable>
@@ -352,11 +409,13 @@ function DayView({
   dayEvents,
   onEvent,
   onToggle,
+  togglingId,
 }: {
   selDate: Date;
   dayEvents: CalEvent[];
   onEvent: (e: CalEvent) => void;
   onToggle: (id: string) => void;
+  togglingId: string | null;
 }) {
   const slots = Array.from({ length: 13 }, (_, i) => {
     const hour = i + 7;
@@ -377,7 +436,9 @@ function DayView({
               {slot.evs.length === 0 ? (
                 <View style={{ height: 32, borderBottomWidth: 1, borderBottomColor: colors.border }} />
               ) : (
-                slot.evs.map((ev) => <EventCard key={ev.id} event={ev} onEvent={onEvent} onToggle={onToggle} />)
+                slot.evs.map((ev) => (
+                  <EventCard key={ev.id} event={ev} onEvent={onEvent} onToggle={onToggle} toggling={togglingId === ev.id} />
+                ))
               )}
             </View>
           </View>
@@ -393,12 +454,14 @@ function WeekView({
   dayEvents,
   onEvent,
   onToggle,
+  togglingId,
 }: {
   selDate: Date;
   setSelDate: (d: Date) => void;
   dayEvents: CalEvent[];
   onEvent: (e: CalEvent) => void;
   onToggle: (id: string) => void;
+  togglingId: string | null;
 }) {
   const ws = startOfWeek(selDate);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(ws, i));
@@ -439,7 +502,9 @@ function WeekView({
             No hay eventos para este día
           </Text>
         ) : (
-          sorted.map((ev) => <EventCard key={ev.id} event={ev} onEvent={onEvent} onToggle={onToggle} />)
+          sorted.map((ev) => (
+            <EventCard key={ev.id} event={ev} onEvent={onEvent} onToggle={onToggle} toggling={togglingId === ev.id} />
+          ))
         )}
       </View>
     </View>
@@ -603,12 +668,14 @@ function EventForm({
   submitLabel,
   onCancel,
   onSubmit,
+  submitting,
 }: {
   form: Form;
   setForm: (f: Form) => void;
   submitLabel: string;
   onCancel: () => void;
   onSubmit: () => void;
+  submitting: boolean;
 }) {
   return (
     <View style={{ gap: 16 }}>
@@ -631,8 +698,8 @@ function EventForm({
         <Select value={form.reminder} options={REMINDERS} onChange={(v) => setForm({ ...form, reminder: v })} />
       </FormField>
       <View style={{ flexDirection: 'row', gap: 8 }}>
-        <ModalBtn label="Cancelar" outline onPress={onCancel} />
-        <ModalBtn label={submitLabel} primary onPress={onSubmit} />
+        <ModalBtn label="Cancelar" outline onPress={onCancel} disabled={submitting} />
+        <ModalBtn label={submitting ? 'Guardando…' : submitLabel} primary onPress={onSubmit} disabled={submitting} />
       </View>
     </View>
   );
@@ -696,18 +763,21 @@ function ModalBtn({
   primary,
   danger,
   outline,
+  disabled,
 }: {
   label: string;
   onPress: () => void;
   primary?: boolean;
   danger?: boolean;
   outline?: boolean;
+  disabled?: boolean;
 }) {
   const bg = danger ? colors.danger : primary ? colors.brand : '#fff';
   const fg = outline ? colors.brand : '#fff';
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       style={{
         flex: 1,
         paddingVertical: 11,
@@ -716,6 +786,7 @@ function ModalBtn({
         backgroundColor: bg,
         borderWidth: outline ? 1.5 : 0,
         borderColor: colors.brand,
+        opacity: disabled ? 0.6 : 1,
       }}>
       <Text style={{ color: fg, fontSize: 13, fontWeight: '700' }}>{label}</Text>
     </Pressable>

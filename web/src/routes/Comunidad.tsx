@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { MODTAG, type MediaItem, type Post } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
 import { api } from '@/lib/api';
+import { useAsync } from '@/lib/useAsync';
 
 const FILTERS = [
   { id: 'todos', label: 'Todos' },
@@ -22,49 +23,88 @@ const SHARE_BULLETS = [
 ];
 
 export default function Comunidad() {
-  const [posts, setPosts] = useState<Post[]>([]);
   const [filter, setFilter] = useState('todos');
+  const { data, loading, error, reload } = useAsync(() => api.posts.list(filter), [filter]);
+
+  // Mirror the loaded feed into local state so like/comment/create mutations can
+  // update it in place. Re-sync whenever a fresh list arrives (filter change or
+  // reload) using the "adjust state during render" pattern — no flicker, no effect.
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [syncedData, setSyncedData] = useState<Post[] | undefined>(undefined);
+  if (data !== syncedData) {
+    setSyncedData(data);
+    setPosts(data ?? []);
+  }
+
   const [openThread, setOpenThread] = useState<number | null>(null);
   const [drafts, setDrafts] = useState<Record<number, string>>({});
+  const [likingId, setLikingId] = useState<number | null>(null);
+  const [sendingComment, setSendingComment] = useState<number | null>(null);
+  const [commentErrors, setCommentErrors] = useState<Record<number, string>>({});
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeText, setComposeText] = useState('');
   const [attachment, setAttachment] = useState<MediaItem | null>(null);
   const [attaching, setAttaching] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [composeError, setComposeError] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    api.posts.list(filter).then(setPosts);
-  }, [filter]);
-
   const toggleLike = async (id: number) => {
-    const updated = await api.posts.toggleLike(id);
-    setPosts((ps) => ps.map((p) => (p.id === id ? updated : p)));
+    if (likingId === id) return;
+    setLikingId(id);
+    try {
+      const updated = await api.posts.toggleLike(id);
+      setPosts((ps) => ps.map((p) => (p.id === id ? updated : p)));
+    } catch {
+      window.alert('No se pudo actualizar tu reacción. Inténtalo de nuevo.');
+    } finally {
+      setLikingId(null);
+    }
   };
 
   const sendComment = async (id: number) => {
     const text = (drafts[id] || '').trim();
-    if (!text) return;
-    const comment = await api.posts.addComment(id, { text });
-    setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, comments: [...p.comments, comment] } : p)));
-    setDrafts((d) => ({ ...d, [id]: '' }));
+    if (!text || sendingComment === id) return;
+    setSendingComment(id);
+    setCommentErrors((e) => ({ ...e, [id]: '' }));
+    try {
+      const comment = await api.posts.addComment(id, { text });
+      setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, comments: [...p.comments, comment] } : p)));
+      setDrafts((d) => ({ ...d, [id]: '' }));
+    } catch {
+      setCommentErrors((e) => ({ ...e, [id]: 'No se pudo enviar el comentario. Inténtalo de nuevo.' }));
+    } finally {
+      setSendingComment(null);
+    }
   };
 
   const submitPost = async () => {
     const text = composeText.trim();
-    if (!text) return;
-    const np = await api.posts.create({ text, attachments: attachment ? [attachment] : [] });
-    setComposeOpen(false);
-    setComposeText('');
-    setAttachment(null);
-    // re-fetch for current filter (new post has no module so only shows under "todos")
-    if (filter === 'todos') setPosts((ps) => [np, ...ps]);
+    if (!text || submitting) return;
+    setSubmitting(true);
+    setComposeError(null);
+    try {
+      const np = await api.posts.create({ text, attachments: attachment ? [attachment] : [] });
+      setComposeOpen(false);
+      setComposeText('');
+      setAttachment(null);
+      // re-fetch for current filter (new post has no module so only shows under "todos")
+      if (filter === 'todos') setPosts((ps) => [np, ...ps]);
+    } catch {
+      setComposeError('No se pudo publicar. Inténtalo de nuevo.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleAttach = async (file: File) => {
     setAttaching(true);
+    setComposeError(null);
     try {
       setAttachment(await api.media.upload(file, file.name, 'posts'));
+    } catch {
+      setComposeError('No se pudo subir el archivo. Inténtalo de nuevo.');
     } finally {
       setAttaching(false);
     }
@@ -93,6 +133,22 @@ export default function Comunidad() {
         })}
       </div>
 
+      {loading ? (
+        <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 0', fontSize: 14 }}>Cargando…</p>
+      ) : error ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '40px 0' }}>
+          <p style={{ color: 'var(--text-body)', fontSize: 14, textAlign: 'center' }}>
+            No pudimos cargar la comunidad. Revisa tu conexión.
+          </p>
+          <button className="btn btn-primary" onClick={reload} style={{ padding: '10px 20px' }}>
+            Reintentar
+          </button>
+        </div>
+      ) : posts.length === 0 ? (
+        <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 0', fontSize: 13.5 }}>
+          Aún no hay publicaciones. ¡Sé la primera en compartir!
+        </p>
+      ) : (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {posts.map((p) => {
           const tag = p.module ? MODTAG[p.module] : null;
@@ -125,7 +181,7 @@ export default function Comunidad() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 14 }}>
                       <ActionBtn icon="message-circle" value={p.comments.length} onClick={() => setOpenThread(threadOpen ? null : p.id)} />
                       <ActionBtn icon="repeat" value={p.reposts} />
-                      <ActionBtn icon="heart" value={p.likes} active={p.liked} activeColor="var(--danger)" fill={p.liked} onClick={() => toggleLike(p.id)} />
+                      <ActionBtn icon="heart" value={p.likes} active={p.liked} activeColor="var(--danger)" fill={p.liked} disabled={likingId === p.id} onClick={() => toggleLike(p.id)} />
                       <div style={{ flex: 1 }} />
                       <button style={{ padding: 5 }} aria-label="Guardar">
                         <Icon name="bookmark" size={15} color="var(--text-muted)" />
@@ -157,16 +213,20 @@ export default function Comunidad() {
                       placeholder="Escribe un comentario..."
                       style={{ flex: 1, padding: '9px 14px', borderRadius: 20, fontSize: 12.5, color: 'var(--text-dark)', border: '1.5px solid var(--border-input)', background: '#fff', outline: 'none' }}
                     />
-                    <button onClick={() => sendComment(p.id)} style={{ width: 34, height: 34, borderRadius: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', background: (drafts[p.id] || '').trim() ? 'var(--brand)' : 'var(--disabled)' }}>
+                    <button onClick={() => sendComment(p.id)} disabled={!(drafts[p.id] || '').trim() || sendingComment === p.id} style={{ width: 34, height: 34, borderRadius: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', background: (drafts[p.id] || '').trim() && sendingComment !== p.id ? 'var(--brand)' : 'var(--disabled)' }}>
                       <Icon name="send" size={15} color="#fff" />
                     </button>
                   </div>
+                  {commentErrors[p.id] ? (
+                    <p style={{ marginTop: 6, fontSize: 11.5, color: 'var(--danger)' }}>{commentErrors[p.id]}</p>
+                  ) : null}
                 </div>
               ) : null}
             </article>
           );
         })}
       </div>
+      )}
 
       {/* FAB */}
       <button onClick={() => setComposeOpen(true)} aria-label="Crear publicación"
@@ -227,8 +287,11 @@ export default function Comunidad() {
               </button>
               {attaching ? <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Subiendo…</span> : null}
             </div>
-            <button className="btn btn-primary" onClick={submitPost} disabled={!composeText.trim() || attaching} style={{ padding: 13 }}>
-              Publicar
+            {composeError ? (
+              <p style={{ margin: '0 0 10px', fontSize: 12, color: 'var(--danger)' }}>{composeError}</p>
+            ) : null}
+            <button className="btn btn-primary" onClick={submitPost} disabled={!composeText.trim() || attaching || submitting} style={{ padding: 13 }}>
+              {submitting ? 'Publicando…' : 'Publicar'}
             </button>
           </div>
         </div>
@@ -237,12 +300,12 @@ export default function Comunidad() {
   );
 }
 
-function ActionBtn({ icon, value, active, activeColor, fill, onClick }: {
-  icon: 'message-circle' | 'repeat' | 'heart'; value: number; active?: boolean; activeColor?: string; fill?: boolean; onClick?: () => void;
+function ActionBtn({ icon, value, active, activeColor, fill, disabled, onClick }: {
+  icon: 'message-circle' | 'repeat' | 'heart'; value: number; active?: boolean; activeColor?: string; fill?: boolean; disabled?: boolean; onClick?: () => void;
 }) {
   const color = active ? activeColor! : 'var(--text-muted)';
   return (
-    <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: active ? 700 : 400, color }}>
+    <button onClick={onClick} disabled={disabled} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: active ? 700 : 400, color }}>
       <Icon name={icon} size={15} color={color} fill={fill ? color : 'none'} />
       <span>{value}</span>
     </button>

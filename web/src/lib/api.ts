@@ -16,6 +16,15 @@ export const api = createConfigurableApiClient({
   baseUrl,
   mockModules,
   getToken: () => localStorage.getItem('explorarte_token'),
+  // On any 401 the session is gone/expired — clear it and bounce to login so
+  // screens don't sit blank on an unhandled auth error.
+  onUnauthorized: () => {
+    localStorage.removeItem('explorarte_token');
+    localStorage.removeItem('explorarte_user');
+    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      window.location.assign('/login');
+    }
+  },
 });
 
 export const usingMock = !baseUrl;
