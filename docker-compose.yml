@@ -25,10 +25,6 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-explorarte}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-explorarte}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-explorarte_dev_password}
-      # Si DATABASE_URL está definido en .env, el backend lo traduce y tiene
-      # PRECEDENCIA sobre los SPRING_DATASOURCE_* de arriba — así el stack local
-      # apunta a Supabase. Si está vacío, se usa el Postgres de Docker (servicio db).
-      DATABASE_URL: ${DATABASE_URL:-}
       JWT_SECRET: ${JWT_SECRET:-dev-only-not-for-production-change-me}
       JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-1440}
       SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-explorarte123}

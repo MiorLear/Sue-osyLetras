@@ -16,11 +16,6 @@ import org.springframework.core.env.MapPropertySource;
  * If DATABASE_URL is present, translate it into spring.datasource.* properties before the
  * context loads. No-op locally/in docker-compose, where DATABASE_URL is never set and the
  * existing SPRING_DATASOURCE_* env vars (see application.yml) are used instead.
- *
- * <p>Also used for Supabase connection strings: the user/password are URL-decoded (Supabase
- * auto-generated passwords can contain percent-encoded special characters like %40 for '@'),
- * and any query string (e.g. ?sslmode=require) is preserved on the resulting JDBC URL instead
- * of being silently dropped.
  */
 public class RenderDatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProcessor, Ordered {
 
@@ -31,36 +26,17 @@ public class RenderDatabaseUrlEnvironmentPostProcessor implements EnvironmentPos
             return;
         }
 
-        URI uri = URI.create(databaseUrl.trim());
+        URI uri = URI.create(databaseUrl);
+        String[] userInfo = uri.getUserInfo().split(":", 2);
         // Render's internal connection strings for same-account services omit the port
         // (URI.getPort() returns -1 when absent) since it's always 5432 on their private network.
         int port = uri.getPort() == -1 ? 5432 : uri.getPort();
-        StringBuilder jdbcUrl = new StringBuilder("jdbc:postgresql://")
-                .append(uri.getHost()).append(":").append(port).append(uri.getPath());
-        // Keep query params (e.g. ?sslmode=require, ?pgbouncer=true) verbatim — dropping
-        // them silently breaks setups that depend on them.
-        String rawQuery = uri.getRawQuery();
-        if (rawQuery != null && !rawQuery.isBlank()) {
-            jdbcUrl.append("?").append(rawQuery);
-        }
-
-        // getUserInfo() is already RFC 3986-decoded (so a Supabase password arriving as
-        // %40 becomes '@'), and unlike URLDecoder it does not turn '+' into a space. Split
-        // on the first ':' only — the username never contains one, so the rest is the
-        // password even if it itself contains ':'.
-        String username = "";
-        String password = "";
-        String userInfo = uri.getUserInfo();
-        if (userInfo != null && !userInfo.isEmpty()) {
-            String[] parts = userInfo.split(":", 2);
-            username = parts[0];
-            password = parts.length > 1 ? parts[1] : "";
-        }
+        String jdbcUrl = "jdbc:postgresql://" + uri.getHost() + ":" + port + uri.getPath();
 
         Map<String, Object> props = new HashMap<>();
-        props.put("spring.datasource.url", jdbcUrl.toString());
-        props.put("spring.datasource.username", username);
-        props.put("spring.datasource.password", password);
+        props.put("spring.datasource.url", jdbcUrl);
+        props.put("spring.datasource.username", userInfo[0]);
+        props.put("spring.datasource.password", userInfo.length > 1 ? userInfo[1] : "");
 
         environment.getPropertySources().addFirst(new MapPropertySource("renderDatabaseUrl", props));
     }
