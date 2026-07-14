@@ -159,12 +159,17 @@ esté en la misma Wi-Fi (te va a salir `Network request failed` en la app). Ante
 esto, considera si la **Opción A** (Render) ya te resuelve el problema — es la razón por la que
 existe. Si de verdad necesitas tu backend local:
 
-1. **Abrir el puerto en el firewall, solo para ti** (PowerShell como administrador):
-   ```powershell
-   New-NetFirewallRule -DisplayName "ExplorArte API dev (8000)" -Direction Inbound -LocalPort 8000 -Protocol TCP -Action Allow -Profile Any
-   ```
+1. **Abrir el puerto en el firewall, solo para ti (Windows)** — doble clic en
+   [`scripts/setup-windows-firewall.cmd`](./scripts/setup-windows-firewall.cmd). Te va a pedir
+   permiso de administrador (una ventana de Windows, apretás "Sí") y configura todo solo — no
+   necesitas escribir ningún comando. Es seguro correrlo más de una vez.
+
+   Si prefieres la terminal: `npm run setup:firewall`.
+
    Esto no afecta a nadie más del equipo — cada persona lo corre una vez en su propia máquina
-   si le hace falta.
+   si le hace falta. (Si el comando manual de PowerShell te sirve más:
+   `New-NetFirewallRule -DisplayName "ExplorArte API dev (8000)" -Direction Inbound -LocalPort 8000 -Protocol TCP -Action Allow -Profile Any`
+   — eso es exactamente lo que el script hace por ti.)
 
 2. **Un túnel público (ngrok/cloudflared)** — funciona desde cualquier red (hasta datos
    móviles), sin tocar el firewall, pero es más trabajo que usar la Opción A:
