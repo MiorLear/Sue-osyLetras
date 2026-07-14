@@ -36,9 +36,25 @@ export default function RegisterScreen() {
 
   const handleSendCode = async () => {
     setLoading(true);
+    setError(null);
     try {
       await api.auth.requestOtp(phone);
       setPhoneStep('otp');
+    } catch {
+      setError('No se pudo enviar el código. Revisa tu conexión e intenta de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyPhone = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await api.auth.checkOtp(phone, otp);
+      setStep(2);
+    } catch {
+      setError('Código incorrecto. Verifica e intenta de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -243,7 +259,19 @@ export default function RegisterScreen() {
               Código de 6 dígitos
             </Text>
             <OtpInput value={otp} onChange={setOtp} />
-            <PrimaryButton label="Verificar código" onPress={() => setStep(2)} disabled={otp.length < 6} />
+            {__DEV__ ? (
+              <Text style={{ fontSize: 11.5, color: colors.textMuted, textAlign: 'center' }}>
+                Modo prueba: el código es 123456
+              </Text>
+            ) : null}
+            {error ? (
+              <Text style={{ fontSize: 12.5, color: '#E53E3E', textAlign: 'center' }}>{error}</Text>
+            ) : null}
+            <PrimaryButton
+              label={loading ? 'Verificando...' : 'Verificar código'}
+              onPress={handleVerifyPhone}
+              disabled={otp.length < 6 || loading}
+            />
             <Pressable onPress={handleSendCode} style={{ alignItems: 'center', padding: 8 }}>
               <Text style={{ fontSize: 12.5, color: colors.textMuted }}>
                 ¿No recibiste el código?{' '}

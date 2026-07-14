@@ -111,8 +111,12 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
       requestOtp: (phone: string) => request<{ sent: true }>('POST', '/auth/otp/request', { phone }),
       verifyOtp: (phone: string, code: string) =>
         request<AuthResult>('POST', '/auth/otp/verify', { phone, code }),
+      checkOtp: (phone: string, code: string) =>
+        request<{ sent: true }>('POST', '/auth/otp/check', { phone, code }),
       forgotPassword: (emailOrPhone: string) =>
         request<{ sent: true }>('POST', '/auth/forgot-password', { emailOrPhone }),
+      resetPassword: (emailOrPhone: string, code: string, newPassword: string) =>
+        request<{ sent: true }>('POST', '/auth/reset-password', { emailOrPhone, code, newPassword }),
     },
     emotions: {
       list: () => request<Emotion[]>('GET', '/emotions'),

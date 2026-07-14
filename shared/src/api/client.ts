@@ -37,8 +37,12 @@ export interface AuthApi {
   requestOtp(phone: string): Promise<{ sent: true }>;
   /** POST /auth/otp/verify */
   verifyOtp(phone: string, code: string): Promise<AuthResult>;
+  /** POST /auth/otp/check — validate an OTP code without an existing account (registration) */
+  checkOtp(phone: string, code: string): Promise<{ sent: true }>;
   /** POST /auth/forgot-password */
   forgotPassword(emailOrPhone: string): Promise<{ sent: true }>;
+  /** POST /auth/reset-password — set a new password after OTP verification */
+  resetPassword(emailOrPhone: string, code: string, newPassword: string): Promise<{ sent: true }>;
 }
 
 export interface EmotionsApi {

@@ -115,7 +115,21 @@ export default function Register() {
             </div>
             <label className="field-label">Código de 6 dígitos</label>
             <OtpInput value={otp} onChange={setOtp} />
-            <PrimaryButton label="Verificar código" onClick={() => setStep(2)} disabled={otp.length < 6} />
+            {import.meta.env.DEV ? (
+              <p style={{ fontSize: 11.5, color: 'var(--text-muted)', textAlign: 'center' }}>Modo prueba: el código es 123456</p>
+            ) : null}
+            <PrimaryButton
+              label="Verificar código"
+              onClick={async () => {
+                try {
+                  await api.auth.checkOtp(phone, otp);
+                  setStep(2);
+                } catch {
+                  window.alert('Código incorrecto. Verifica e intenta de nuevo.');
+                }
+              }}
+              disabled={otp.length < 6}
+            />
             <button onClick={() => setPhoneStep('number')} className="center muted" style={{ fontSize: 12.5, padding: 8 }}>
               ¿No recibiste el código? <span style={{ color: 'var(--brand)', fontWeight: 700 }}>Reenviar</span>
             </button>

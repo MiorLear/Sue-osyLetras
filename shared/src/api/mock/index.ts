@@ -94,7 +94,15 @@ export function createMockClient(): ApiClient {
         await delay();
         return authResult();
       },
+      async checkOtp(_phone: string, _code: string) {
+        await delay();
+        return { sent: true as const };
+      },
       async forgotPassword(_emailOrPhone: string) {
+        await delay();
+        return { sent: true as const };
+      },
+      async resetPassword(_emailOrPhone: string, _code: string, _newPassword: string) {
         await delay();
         return { sent: true as const };
       },
