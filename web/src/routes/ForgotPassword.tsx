@@ -132,7 +132,7 @@ export default function ForgotPassword() {
               <label className="field-label">Código de 6 dígitos</label>
               <OtpInput value={otp} onChange={setOtp} />
               {import.meta.env.DEV ? (
-                <p style={{ fontSize: 11.5, color: 'var(--text-muted)', textAlign: 'center' }}>Modo prueba: el código es 123456</p>
+                <p style={{ fontSize: 11.5, color: 'var(--text-muted)', textAlign: 'center' }}>Modo prueba: el código llega por correo (o en el log del servidor)</p>
               ) : null}
               {error ? <ErrorText text={error} /> : null}
               <PrimaryButton label={loading ? 'Verificando...' : 'Verificar código'} onClick={verifyCode} disabled={otp.length < 6 || loading} />

@@ -261,7 +261,7 @@ export default function RegisterScreen() {
             <OtpInput value={otp} onChange={setOtp} />
             {__DEV__ ? (
               <Text style={{ fontSize: 11.5, color: colors.textMuted, textAlign: 'center' }}>
-                Modo prueba: el código es 123456
+                Modo prueba: sin SMS — el código aparece en el log del servidor
               </Text>
             ) : null}
             {error ? (

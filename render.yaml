@@ -48,6 +48,16 @@ services:
         value: explorarte-team-2026
       - key: APP_CORS_ALLOWED_ORIGINS
         value: https://explorarte-web.onrender.com,http://localhost:5173,http://localhost:8081,http://localhost:19006
+      # Envío de correo (recuperar contraseña) vía Resend. Configurar la key
+      # manualmente en el dashboard (secreto, no se versiona).
+      - key: RESEND_API_KEY
+        sync: false
+      # Cambiar a una dirección de un dominio VERIFICADO en Resend para poder
+      # enviar a cualquier docente. Con onboarding@resend.dev solo llega a tu
+      # propio correo de la cuenta de Resend.
+      - key: RESEND_FROM
+        value: Sueños y Letras <onboarding@resend.dev>
+      # AUTH_DEV_OTP_CODE se deja SIN definir en producción: no hay código fijo.
 
 
   # --- Demo WEB (escritorio) — Vite + React, carpeta /web ---
