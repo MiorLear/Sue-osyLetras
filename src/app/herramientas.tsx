@@ -1,3 +1,4 @@
+import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
@@ -12,9 +13,12 @@ import { Logo } from '@/components/logo';
 import { VideoPlaceholder } from '@/components/video-placeholder';
 import { colors } from '@/constants/theme';
 import { api } from '@/lib/api';
+import { download, getLocalUri } from '@/lib/offlineStorage';
+import { useIsOnline } from '@/lib/useNetworkStatus';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
 
 function ManualButton({ manual }: { manual: MediaItem | null }) {
+  const online = useIsOnline();
   const [busy, setBusy] = useState(false);
 
   if (!manual) {
@@ -29,15 +33,32 @@ function ManualButton({ manual }: { manual: MediaItem | null }) {
   }
 
   const handlePress = async () => {
-    if (!manual.url) {
-      Alert.alert('Manual no disponible', 'Este documento aún no tiene un enlace válido.');
-      return;
-    }
     setBusy(true);
     try {
-      await WebBrowser.openBrowserAsync(manual.url, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN });
+      // Local copy first (offline), download on demand if online, then open with
+      // the device's own PDF viewer — like opening a file saved on your phone.
+      let uri = await getLocalUri(manual.id);
+      if (!uri && online && manual.url) {
+        try {
+          uri = await download(manual.id, manual.url, { version: String(manual.sizeBytes ?? '') });
+        } catch {
+          uri = null;
+        }
+      }
+      if (uri && (await Sharing.isAvailableAsync())) {
+        await Sharing.shareAsync(uri, { mimeType: manual.mimeType || undefined });
+        return;
+      }
+      if (online && manual.url) {
+        await WebBrowser.openBrowserAsync(manual.url, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN });
+        return;
+      }
+      Alert.alert(
+        'No disponible sin conexión',
+        'Conéctate a internet una vez para descargar el manual; luego podrás abrirlo sin conexión.',
+      );
     } catch {
-      Alert.alert('No se pudo abrir el manual', 'Verifica tu conexión e inténtalo de nuevo.');
+      Alert.alert('No se pudo abrir el manual', 'Intenta de nuevo.');
     } finally {
       setBusy(false);
     }
