@@ -96,14 +96,13 @@ npm install
 npm start
 ```
 
-> ⚠️ **Este proyecto usa Expo SDK 56** (la versión que hoy está en las tiendas). Expo Go solo
-> corre proyectos del SDK que tiene instalado, así que el SDK del proyecto debe coincidir con el
-> Expo Go que el equipo descarga de Play Store / App Store. Si el proyecto se queda atrás (o se
-> adelanta) de esa versión, el equipo verá el error `Incompatible SDK version` al escanear el QR
-> y no podrá probar la app. Si en algún momento hay que actualizar el SDK, primero confirma en
-> [expo.dev/changelog](https://expo.dev/changelog) qué versión ya está disponible en las tiendas
-> para todos, cambia la versión de `expo` en `package.json` y usa `npx expo install --fix`
-> (no edites cada paquete a mano).
+> ⚠️ **Este proyecto usa Expo SDK 54 a propósito** (no la versión más nueva). Las apps Expo Go
+> que se descargan de Play Store / App Store van un paso atrás de las versiones más recientes
+> del SDK — si alguien sube el proyecto a un SDK más nuevo, la mayoría del equipo va a ver el
+> error `Incompatible SDK version` al escanear el QR y no va a poder probar la app. Si en algún
+> momento hay que actualizar el SDK, primero confirma en [expo.dev/changelog](https://expo.dev/changelog)
+> qué versión ya está disponible en las tiendas para todos, y usa `npx expo install --fix`
+> después de cambiar la versión de `expo` en `package.json` (no edites cada paquete a mano).
 
 Esto abre una pantalla en la terminal con un **código QR**. Tienes tres formas de verla:
 
