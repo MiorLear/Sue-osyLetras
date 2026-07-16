@@ -3,15 +3,17 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Linking from 'expo-linking';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { MediaItem, Post } from '@explorarte/shared';
+import type { Comment, MediaItem, Post } from '@explorarte/shared';
 import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
 import { Icon } from '@/components/icon';
 import { brandGradient, colors } from '@/constants/theme';
 import { api } from '@/lib/api';
+import { enqueuePostComment, enqueuePostCreate, enqueuePostLike, usePendingCount } from '@/lib/mutation-queue';
+import { useIsOnline } from '@/lib/useNetworkStatus';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
 
 const FILTERS = [
@@ -60,6 +62,11 @@ export default function ComunidadExplorArteScreen() {
   const [likingIds, setLikingIds] = useState<number[]>([]);
   const [sendingIds, setSendingIds] = useState<number[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const online = useIsOnline();
+  const pending = usePendingCount();
+  const prevPending = useRef(pending);
+  // Posts created offline (temp id) can't be liked/commented until they sync.
+  const [pendingPostIds, setPendingPostIds] = useState<Set<number>>(() => new Set());
 
   // Mirror the loaded feed into local state so like/comment/publish mutations
   // can update posts in place without refetching.
@@ -67,14 +74,39 @@ export default function ComunidadExplorArteScreen() {
     if (loadedPosts) setPosts(loadedPosts);
   }, [loadedPosts]);
 
+  // When the offline queue drains (its changes just synced), refetch so the
+  // optimistic temp posts/likes/comments are replaced by the real server ones.
+  useEffect(() => {
+    if (prevPending.current > 0 && pending === 0) {
+      reload();
+      setPendingPostIds(new Set());
+    }
+    prevPending.current = pending;
+  }, [pending, reload]);
+
   const toggleLike = async (id: number) => {
-    if (likingIds.includes(id)) return;
+    // A post created offline has no server id yet — can't like it until it syncs.
+    if (likingIds.includes(id) || pendingPostIds.has(id)) return;
     setLikingIds((ids) => [...ids, id]);
+    const optimistic = () =>
+      setPosts((ps) =>
+        ps.map((p) => (p.id === id ? { ...p, liked: !p.liked, likes: p.likes + (p.liked ? -1 : 1) } : p)),
+      );
     try {
-      const updated = await api.posts.toggleLike(id);
-      setPosts((ps) => ps.map((p) => (p.id === id ? updated : p)));
+      if (online) {
+        const updated = await api.posts.toggleLike(id);
+        setPosts((ps) => ps.map((p) => (p.id === id ? updated : p)));
+      } else {
+        await enqueuePostLike(id);
+        optimistic();
+      }
     } catch {
-      Alert.alert('Error', 'No se pudo actualizar el "me gusta". Intenta de nuevo.');
+      try {
+        await enqueuePostLike(id);
+        optimistic();
+      } catch {
+        Alert.alert('Error', 'No se pudo actualizar el "me gusta". Intenta de nuevo.');
+      }
     } finally {
       setLikingIds((ids) => ids.filter((x) => x !== id));
     }
@@ -82,14 +114,27 @@ export default function ComunidadExplorArteScreen() {
 
   const sendComment = async (id: number) => {
     const text = (drafts[id] || '').trim();
-    if (!text || sendingIds.includes(id)) return;
+    if (!text || sendingIds.includes(id) || pendingPostIds.has(id)) return;
     setSendingIds((ids) => [...ids, id]);
+    const localComment: Comment = { user: 'Tú', initials: 'Tú', avatarBg: '#3DBFB8', time: 'ahora', text };
+    const append = (c: Comment) =>
+      setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, comments: [...p.comments, c] } : p)));
     try {
-      const comment = await api.posts.addComment(id, { text });
-      setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, comments: [...p.comments, comment] } : p)));
+      if (online) {
+        append(await api.posts.addComment(id, { text }));
+      } else {
+        await enqueuePostComment(id, { text });
+        append(localComment);
+      }
       setDrafts((d) => ({ ...d, [id]: '' }));
     } catch {
-      Alert.alert('Error', 'No se pudo enviar el comentario. Intenta de nuevo.');
+      try {
+        await enqueuePostComment(id, { text });
+        append(localComment);
+        setDrafts((d) => ({ ...d, [id]: '' }));
+      } catch {
+        Alert.alert('Error', 'No se pudo enviar el comentario. Intenta de nuevo.');
+      }
     } finally {
       setSendingIds((ids) => ids.filter((x) => x !== id));
     }
@@ -99,14 +144,47 @@ export default function ComunidadExplorArteScreen() {
     const text = composeText.trim();
     if (!text || submitting) return;
     setSubmitting(true);
+    const input = { text, module: filter === 'todos' ? null : filter, attachments: attachment ? [attachment] : [] };
+    const queueLocally = async () => {
+      const tempId = Date.now();
+      await enqueuePostCreate(tempId, input);
+      const tempPost: Post = {
+        id: tempId,
+        user: 'Tú',
+        handle: '@tú',
+        verified: false,
+        time: 'ahora',
+        avatarBg: '#3DBFB8',
+        module: input.module,
+        text: input.text,
+        likes: 0,
+        liked: false,
+        reposts: 0,
+        comments: [],
+        attachments: input.attachments,
+      };
+      setPosts((ps) => [tempPost, ...ps]);
+      setPendingPostIds((s) => new Set(s).add(tempId));
+    };
     try {
-      const np = await api.posts.create({ text, module: filter === 'todos' ? null : filter, attachments: attachment ? [attachment] : [] });
-      setPosts((ps) => [np, ...ps]);
+      if (online) {
+        const np = await api.posts.create(input);
+        setPosts((ps) => [np, ...ps]);
+      } else {
+        await queueLocally();
+      }
       setComposeOpen(false);
       setComposeText('');
       setAttachment(null);
     } catch {
-      Alert.alert('Error', 'No se pudo publicar. Intenta de nuevo.');
+      try {
+        await queueLocally();
+        setComposeOpen(false);
+        setComposeText('');
+        setAttachment(null);
+      } catch {
+        Alert.alert('Error', 'No se pudo publicar. Intenta de nuevo.');
+      }
     } finally {
       setSubmitting(false);
     }
