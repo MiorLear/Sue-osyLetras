@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.explorarte.api.misc.SchoolService;
 import com.explorarte.api.security.JwtService;
 import com.explorarte.api.user.User;
 import com.explorarte.api.user.UserRepository;
@@ -35,18 +36,21 @@ public class AuthController {
     private final JwtService jwtService;
     private final VerificationCodeService verificationCodeService;
     private final EmailService emailService;
+    private final SchoolService schoolService;
 
     public AuthController(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             VerificationCodeService verificationCodeService,
-            EmailService emailService) {
+            EmailService emailService,
+            SchoolService schoolService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.verificationCodeService = verificationCodeService;
         this.emailService = emailService;
+        this.schoolService = schoolService;
     }
 
     @PostMapping("/auth/login")
@@ -88,6 +92,7 @@ public class AuthController {
         // admin console remains available to reject/suspend accounts afterwards.
         user.setStatus(UserStatus.APPROVED);
         userRepository.save(user);
+        schoolService.addIfNew(user.getInstitucion());
         return authResult(user);
     }
 

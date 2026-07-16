@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { INSTITUCIONES } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
 import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { useAsync } from '@/lib/useAsync';
+import { useSchools } from '@/lib/useSchools';
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -14,6 +14,7 @@ export default function Profile() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { data: profile, loading, error, reload } = useAsync(() => api.profile.get(), []);
+  const schools = useSchools();
 
   const [photo, setPhoto] = useState<string | null>(null);
   const [name, setName] = useState('María Reneé');
@@ -147,7 +148,7 @@ export default function Profile() {
             <Field label="Teléfono" icon="phone" value={phone} onChangeText={setPhone} placeholder="+502 1234 5678" />
 
             <SectionLabel>Institución</SectionLabel>
-            <SelectOrAdd label="Institución" icon="map-pin" value={institucion} options={INSTITUCIONES} onChange={setInstitucion} newPlaceholder="Nombre de la institución" />
+            <SelectOrAdd label="Institución" icon="map-pin" value={institucion} options={schools} onChange={setInstitucion} newPlaceholder="Nombre de la institución" />
             <LocationAutocomplete label="Ubicación" value={ubicacion} onChange={setUbicacion} />
 
             <PrimaryButton label={saving ? 'Guardando…' : 'Guardar cambios'} onClick={handleSave} disabled={saving} />
