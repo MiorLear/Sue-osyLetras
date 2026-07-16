@@ -5,6 +5,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.explorarte.api.misc.SchoolService;
 import com.explorarte.api.security.CurrentUserService;
 
 @RestController
@@ -12,10 +13,13 @@ public class ProfileController {
 
     private final CurrentUserService currentUserService;
     private final UserRepository userRepository;
+    private final SchoolService schoolService;
 
-    public ProfileController(CurrentUserService currentUserService, UserRepository userRepository) {
+    public ProfileController(CurrentUserService currentUserService, UserRepository userRepository,
+            SchoolService schoolService) {
         this.currentUserService = currentUserService;
         this.userRepository = userRepository;
+        this.schoolService = schoolService;
     }
 
     @GetMapping("/me")
@@ -34,6 +38,7 @@ public class ProfileController {
         if (input.ubicacion() != null) user.setUbicacion(input.ubicacion());
         if (input.photo() != null) user.setPhoto(input.photo());
         userRepository.save(user);
+        schoolService.addIfNew(user.getInstitucion());
         return user.toDto();
     }
 }

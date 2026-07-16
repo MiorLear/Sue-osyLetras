@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { INSTITUCIONES } from '@explorarte/shared';
+import { useSchools } from '@/lib/useSchools';
 import { GoogleIcon, Icon, type IconName } from '@/components/Icon';
 import { Logo } from '@/components/Logo';
 import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
@@ -14,6 +14,7 @@ const TITLES = ['Crear cuenta', 'Verificar identidad', 'Tu información'];
 export default function Register() {
   const navigate = useNavigate();
   const { signIn } = useAuth();
+  const schools = useSchools();
 
   const [step, setStep] = useState(0);
   const [method, setMethod] = useState<Method>(null);
@@ -140,7 +141,7 @@ export default function Register() {
           <>
             <Field label="Nombre" icon="user" placeholder="María" value={name} onChangeText={setName} />
             <Field label="Apellido" icon="user" placeholder="García" value={lastname} onChangeText={setLastname} />
-            <SelectOrAdd label="Institución" icon="map-pin" placeholder="Selecciona tu institución" value={institucion} options={INSTITUCIONES} onChange={setInstitucion} newPlaceholder="Nombre de la institución" />
+            <SelectOrAdd label="Institución" icon="map-pin" placeholder="Selecciona tu institución" value={institucion} options={schools} onChange={setInstitucion} newPlaceholder="Nombre de la institución" />
             <LocationAutocomplete label="Ubicación" value={ubicacion} placeholder="Busca tu ubicación" onChange={setUbicacion} />
             <PrimaryButton label="Crear cuenta" onClick={finishRegister} disabled={!name || !lastname || !institucion || !ubicacion} />
           </>

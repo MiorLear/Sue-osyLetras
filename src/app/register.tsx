@@ -6,8 +6,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GoogleIcon, Icon, IconName } from '@/components/icon';
 import { Logo } from '@/components/logo';
 import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
-import { colors, INSTITUCIONES } from '@/constants/theme';
+import { colors } from '@/constants/theme';
 import { api, setAuthToken } from '@/lib/api';
+import { useSchools } from '@/lib/useSchools';
 
 type Method = 'google' | 'phone' | 'email' | null;
 const TITLES = ['Crear cuenta', 'Verificar identidad', 'Tu información'];
@@ -15,6 +16,7 @@ const TITLES = ['Crear cuenta', 'Verificar identidad', 'Tu información'];
 export default function RegisterScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const schools = useSchools();
 
   const [step, setStep] = useState(0);
   const [method, setMethod] = useState<Method>(null);
@@ -297,7 +299,7 @@ export default function RegisterScreen() {
               icon="map-pin"
               placeholder="Selecciona tu institución"
               value={institucion}
-              options={INSTITUCIONES}
+              options={schools}
               onChange={setInstitucion}
               newPlaceholder="Nombre de la institución"
             />

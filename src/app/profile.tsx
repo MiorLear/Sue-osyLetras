@@ -9,9 +9,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
 import { Icon } from '@/components/icon';
 import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
-import { brandGradient, colors, INSTITUCIONES } from '@/constants/theme';
+import { brandGradient, colors } from '@/constants/theme';
 import { api, setAuthToken } from '@/lib/api';
 import { useAsync } from '@/lib/useAsync';
+import { useSchools } from '@/lib/useSchools';
 
 function SectionLabel({ children }: { children: string }) {
   return (
@@ -35,6 +36,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
 
   const { data: profile, loading, error, reload } = useAsync(() => api.profile.get(), []);
+  const schools = useSchools();
 
   const [photo, setPhoto] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -233,7 +235,7 @@ export default function ProfileScreen() {
               label="Institución"
               icon="map-pin"
               value={institucion}
-              options={INSTITUCIONES}
+              options={schools}
               onChange={setInstitucion}
               newPlaceholder="Nombre de la institución"
             />
