@@ -10,6 +10,8 @@ import { Icon } from '@/components/icon';
 import { Select } from '@/components/ui';
 import { colors } from '@/constants/theme';
 import { api } from '@/lib/api';
+import { enqueueEventCreate, enqueueEventRemove, enqueueEventUpdate, usePendingCount } from '@/lib/mutation-queue';
+import { useIsOnline } from '@/lib/useNetworkStatus';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
 
 type ViewMode = 'día' | 'semana' | 'mes';
@@ -54,6 +56,10 @@ const fromISO = (s: string) => {
   return new Date(y, m - 1, dd);
 };
 
+// Placeholder id for an event created offline; replaced by the server id once
+// the queued create syncs (see the offline mutation queue).
+const makeTempId = () => 'tmp-' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
+
 // The API represents dates as "YYYY-MM-DD" strings; the screen's date-math
 // helpers above all work with JS Date objects, so convert at the boundary.
 const fromApiEvent = (e: ApiCalEvent): CalEvent => ({
@@ -93,6 +99,9 @@ export default function CalendarScreen() {
   const [view, setView] = useState<ViewMode>('día');
   const [selDate, setSelDate] = useState(TODAY);
   const { data: loadedEvents, loading, error, reload } = useOfflineAsync('events', () => api.events.list(), []);
+  const online = useIsOnline();
+  const pending = usePendingCount();
+  const prevPending = useRef(pending);
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [modal, setModal] = useState<ModalMode>(null);
   const [selEvent, setSelEvent] = useState<CalEvent | null>(null);
@@ -108,6 +117,13 @@ export default function CalendarScreen() {
   useEffect(() => {
     if (loadedEvents) setEvents(loadedEvents.map(fromApiEvent));
   }, [loadedEvents]);
+
+  // When the offline queue drains (its changes just synced), refetch so the
+  // optimistic temp events are replaced by the real server ones.
+  useEffect(() => {
+    if (prevPending.current > 0 && pending === 0) reload();
+    prevPending.current = pending;
+  }, [pending, reload]);
 
   useEffect(() => () => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -150,34 +166,60 @@ export default function CalendarScreen() {
       return;
     }
     setSubmitting(true);
-    try {
-      if (modal === 'edit' && selEvent) {
-        const updated = await api.events.update(selEvent.id, {
-          title: form.title,
-          type: form.type,
-          date: form.dateStr,
-          startTime: form.startTime,
-          endTime: form.endTime,
-          reminder: form.reminder,
-        });
-        setEvents((es) => es.map((e) => (e.id === selEvent.id ? fromApiEvent(updated) : e)));
-        showToast('Evento actualizado correctamente');
+    const input = {
+      title: form.title,
+      type: form.type,
+      date: form.dateStr,
+      startTime: form.startTime,
+      endTime: form.endTime,
+      reminder: form.reminder,
+    };
+    const optimistic = (id: string, completed?: boolean): CalEvent => ({
+      id,
+      title: form.title,
+      type: form.type,
+      date: fromISO(form.dateStr),
+      startTime: form.startTime,
+      endTime: form.endTime,
+      reminder: form.reminder,
+      completed,
+    });
+    const isEdit = modal === 'edit' && !!selEvent;
+    const queueChange = async () => {
+      if (isEdit && selEvent) {
+        await enqueueEventUpdate(selEvent.id, input);
+        setEvents((es) => es.map((e) => (e.id === selEvent.id ? optimistic(selEvent.id, e.completed) : e)));
       } else {
-        const created = await api.events.create({
-          title: form.title,
-          type: form.type,
-          date: form.dateStr,
-          startTime: form.startTime,
-          endTime: form.endTime,
-          reminder: form.reminder,
-          completed: false,
-        });
-        setEvents((es) => [...es, fromApiEvent(created)]);
-        showToast('Evento creado correctamente');
+        const tempId = makeTempId();
+        await enqueueEventCreate(tempId, { ...input, completed: false });
+        setEvents((es) => [...es, optimistic(tempId, false)]);
+      }
+    };
+    try {
+      if (online) {
+        if (isEdit && selEvent) {
+          const updated = await api.events.update(selEvent.id, input);
+          setEvents((es) => es.map((e) => (e.id === selEvent.id ? fromApiEvent(updated) : e)));
+          showToast('Evento actualizado correctamente');
+        } else {
+          const created = await api.events.create({ ...input, completed: false });
+          setEvents((es) => [...es, fromApiEvent(created)]);
+          showToast('Evento creado correctamente');
+        }
+      } else {
+        await queueChange();
+        showToast(isEdit ? 'Se actualizará al reconectar' : 'Se creará al reconectar');
       }
       closeModal();
     } catch {
-      Alert.alert('Error', 'No se pudo guardar el evento. Intenta de nuevo.');
+      // Online attempt failed → keep the change queued so it syncs later.
+      try {
+        await queueChange();
+        showToast('Se guardará al reconectar');
+        closeModal();
+      } catch {
+        Alert.alert('Error', 'No se pudo guardar el evento. Intenta de nuevo.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -188,13 +230,22 @@ export default function CalendarScreen() {
       return;
     }
     setDeleting(true);
+    const id = selEvent.id;
     try {
-      await api.events.remove(selEvent.id);
-      setEvents((es) => es.filter((e) => e.id !== selEvent.id));
+      if (online) await api.events.remove(id);
+      else await enqueueEventRemove(id);
+      setEvents((es) => es.filter((e) => e.id !== id));
       closeModal();
-      showToast('Evento eliminado');
+      showToast(online ? 'Evento eliminado' : 'Se eliminará al reconectar');
     } catch {
-      Alert.alert('Error', 'No se pudo eliminar el evento. Intenta de nuevo.');
+      try {
+        await enqueueEventRemove(id);
+        setEvents((es) => es.filter((e) => e.id !== id));
+        closeModal();
+        showToast('Se eliminará al reconectar');
+      } catch {
+        Alert.alert('Error', 'No se pudo eliminar el evento. Intenta de nuevo.');
+      }
     } finally {
       setDeleting(false);
     }
@@ -203,11 +254,22 @@ export default function CalendarScreen() {
     const current = events.find((e) => e.id === id);
     if (!current || current.type !== 'tarea') return;
     setTogglingId(id);
+    const next = !current.completed;
     try {
-      const updated = await api.events.update(id, { completed: !current.completed });
-      setEvents((es) => es.map((e) => (e.id === id ? fromApiEvent(updated) : e)));
+      if (online) {
+        const updated = await api.events.update(id, { completed: next });
+        setEvents((es) => es.map((e) => (e.id === id ? fromApiEvent(updated) : e)));
+      } else {
+        await enqueueEventUpdate(id, { completed: next });
+        setEvents((es) => es.map((e) => (e.id === id ? { ...e, completed: next } : e)));
+      }
     } catch {
-      Alert.alert('Error', 'No se pudo actualizar la tarea. Intenta de nuevo.');
+      try {
+        await enqueueEventUpdate(id, { completed: next });
+        setEvents((es) => es.map((e) => (e.id === id ? { ...e, completed: next } : e)));
+      } catch {
+        Alert.alert('Error', 'No se pudo actualizar la tarea. Intenta de nuevo.');
+      }
     } finally {
       setTogglingId(null);
     }
