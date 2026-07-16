@@ -6,15 +6,24 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SyncBanner } from '@/components/sync-banner';
 import { colors } from '@/constants/theme';
 import { syncAllContent } from '@/lib/media-sync';
+import { flushQueue, loadQueue } from '@/lib/mutation-queue';
 import { useIsOnline } from '@/lib/useNetworkStatus';
 
 export default function RootLayout() {
   const online = useIsOnline();
 
-  // Pull content + media for offline use whenever there's a connection (on
-  // launch and on reconnect). Runs in the background; the banner shows progress.
+  // Load any pending offline changes on launch so the banner can reflect them.
   useEffect(() => {
-    if (online) void syncAllContent();
+    void loadQueue();
+  }, []);
+
+  // When there's a connection (launch + reconnect): pull content/media for
+  // offline use and replay any queued offline changes. The banner shows progress.
+  useEffect(() => {
+    if (online) {
+      void syncAllContent();
+      void flushQueue();
+    }
   }, [online]);
 
   return (

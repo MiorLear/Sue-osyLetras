@@ -3,6 +3,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/icon';
 import { colors } from '@/constants/theme';
+import { usePendingCount } from '@/lib/mutation-queue';
 import { useSync } from '@/lib/sync-status';
 
 // Thin status strip pinned to the very top (rendered as an absolute overlay in
@@ -12,13 +13,18 @@ import { useSync } from '@/lib/sync-status';
 export function SyncBanner() {
   const insets = useSafeAreaInsets();
   const { online, syncing } = useSync();
+  const pending = usePendingCount();
 
   if (online && !syncing) return null;
 
   const offline = !online;
   const bg = offline ? '#FBEAE6' : colors.navBg;
   const fg = offline ? colors.danger : colors.brandDark;
-  const label = offline ? 'Sin conexión — mostrando contenido guardado' : 'Sincronizando…';
+  const label = offline
+    ? pending > 0
+      ? `Sin conexión — ${pending} cambio${pending === 1 ? '' : 's'} se sincronizará${pending === 1 ? '' : 'n'} al reconectar`
+      : 'Sin conexión — mostrando contenido guardado'
+    : 'Sincronizando…';
 
   return (
     <View

@@ -11,6 +11,9 @@ import { Icon } from '@/components/icon';
 import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
 import { brandGradient, colors } from '@/constants/theme';
 import { api, setAuthToken } from '@/lib/api';
+import { enqueueProfileUpdate } from '@/lib/mutation-queue';
+import { writeCache } from '@/lib/offline-cache';
+import { useIsOnline } from '@/lib/useNetworkStatus';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
 import { useSchools } from '@/lib/useSchools';
 
@@ -37,6 +40,7 @@ export default function ProfileScreen() {
 
   const { data: profile, loading, error, reload } = useOfflineAsync('profile:me', () => api.profile.get(), []);
   const schools = useSchools();
+  const online = useIsOnline();
 
   const [photo, setPhoto] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -74,21 +78,44 @@ export default function ProfileScreen() {
 
   const handleSave = async () => {
     setSaving(true);
+    const textInput = { name, lastname, email, phone, institucion, ubicacion };
+    const hasNewPhoto = !!(photo && photo.startsWith('file'));
+    // Optimistic cache so the profile shows the edit immediately, even offline.
+    const cacheMerged = { ...(profile ?? {}), ...textInput };
     try {
-      // A picked photo starts as a local file:// URI (only valid on this
-      // device) — upload it first so `photo` ends up as a real hosted URL that
-      // persists and is visible to other users (e.g. the admin's user list).
-      let uploadedPhoto = photo;
-      if (photo && photo.startsWith('file')) {
-        const blob = await fetch(photo).then((r) => r.blob());
-        const uploaded = await api.media.upload(blob, 'profile.jpg', 'profile');
-        uploadedPhoto = uploaded.url;
+      if (online) {
+        // A picked photo starts as a local file:// URI — upload it first so it
+        // becomes a real hosted URL visible to others (e.g. the admin list).
+        let uploadedPhoto = photo;
+        if (hasNewPhoto) {
+          const blob = await fetch(photo!).then((r) => r.blob());
+          const uploaded = await api.media.upload(blob, 'profile.jpg', 'profile');
+          uploadedPhoto = uploaded.url;
+        }
+        await api.profile.update({ ...textInput, photo: uploadedPhoto });
+        void writeCache('profile:me', { ...cacheMerged, photo: uploadedPhoto });
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2500);
+      } else {
+        // Offline: queue the text fields (a new photo needs a connection to upload).
+        await enqueueProfileUpdate(textInput);
+        void writeCache('profile:me', cacheMerged);
+        Alert.alert(
+          'Guardado sin conexión',
+          hasNewPhoto
+            ? 'Tus datos se sincronizarán al reconectar. La foto nueva necesita conexión para subirse.'
+            : 'Tus cambios se sincronizarán cuando vuelvas a tener conexión.',
+        );
       }
-      await api.profile.update({ name, lastname, email, phone, institucion, ubicacion, photo: uploadedPhoto });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
     } catch {
-      Alert.alert('Error', 'No se pudo guardar el perfil. Intenta de nuevo.');
+      // Online attempt failed mid-way → keep the text edit as a queued change.
+      try {
+        await enqueueProfileUpdate(textInput);
+        void writeCache('profile:me', cacheMerged);
+        Alert.alert('Guardado sin conexión', 'Tus cambios se sincronizarán cuando haya conexión.');
+      } catch {
+        Alert.alert('Error', 'No se pudo guardar el perfil. Intenta de nuevo.');
+      }
     } finally {
       setSaving(false);
     }
