@@ -116,7 +116,7 @@ export default function Register() {
             <label className="field-label">Código de 6 dígitos</label>
             <OtpInput value={otp} onChange={setOtp} />
             {import.meta.env.DEV ? (
-              <p style={{ fontSize: 11.5, color: 'var(--text-muted)', textAlign: 'center' }}>Modo prueba: el código es 123456</p>
+              <p style={{ fontSize: 11.5, color: 'var(--text-muted)', textAlign: 'center' }}>Modo prueba: sin SMS — el código aparece en el log del servidor</p>
             ) : null}
             <PrimaryButton
               label="Verificar código"

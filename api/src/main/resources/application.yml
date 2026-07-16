@@ -55,3 +55,15 @@ app:
     # Either the service_role key (recommended, bypasses RLS) or the anon key
     # (needs a storage RLS policy allowing uploads). See render.yaml.
     key: ${SUPABASE_KEY:}
+  resend:
+    # Resend API key (send-only). Empty -> email disabled (codes only logged).
+    api-key: ${RESEND_API_KEY:}
+    # Must be an address on a domain verified in Resend to reach arbitrary
+    # recipients. Without a verified domain, onboarding@resend.dev only delivers
+    # to your own Resend account email.
+    from: ${RESEND_FROM:Sueños y Letras <onboarding@resend.dev>}
+  auth:
+    # Optional fixed code accepted in addition to the random emailed/logged code.
+    # Set locally for convenient testing without SMS; leave UNSET in production
+    # so there is no fixed-code backdoor.
+    dev-otp-code: ${AUTH_DEV_OTP_CODE:}

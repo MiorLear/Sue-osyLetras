@@ -161,7 +161,14 @@ export default function LoginScreen() {
                 onChangeText={setPassword}
               />
               <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-                <Pressable onPress={() => router.push('/forgot-password')}>
+                <Pressable
+                  onPress={() =>
+                    Alert.alert(
+                      'Próximamente',
+                      'La recuperación de contraseña estará disponible muy pronto. Por ahora, si olvidaste tu contraseña, contacta al administrador.',
+                    )
+                  }
+                >
                   <Text style={{ fontSize: 12, color: colors.brand, fontWeight: '600' }}>
                     ¿Olvidaste tu contraseña?
                   </Text>

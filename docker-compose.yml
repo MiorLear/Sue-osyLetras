@@ -36,6 +36,13 @@ services:
       # Supabase Storage — subida de archivos (fotos/videos/documentos).
       SUPABASE_URL: ${SUPABASE_URL:-}
       SUPABASE_KEY: ${SUPABASE_KEY:-}
+      # Envío real de correo (recuperar contraseña) vía Resend. Vacío => solo se
+      # loguea el código, no se envía. Ver .env.example.
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-Sueños y Letras <onboarding@resend.dev>}
+      # Código fijo aceptado además del aleatorio — cómodo para probar en local
+      # sin SMS. En producción (Render) queda SIN definir: no hay backdoor.
+      AUTH_DEV_OTP_CODE: ${AUTH_DEV_OTP_CODE:-123456}
     volumes:
       - ./api/src:/app/src
       - api_target:/app/target

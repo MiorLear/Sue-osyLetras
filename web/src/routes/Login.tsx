@@ -69,13 +69,13 @@ export default function Login() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {view === 'main' ? (
             <>
-              <SocialButton kind="google" label="Continuar con Google" onClick={() => api.auth.login({ email: '', password: '' }).then(enter)} />
+              <SocialButton kind="google" label="Continuar con Google" onClick={() => window.alert('Próximamente\n\nEl inicio de sesión con Google estará disponible muy pronto. Por ahora usa tu correo.')} />
               <SocialButton kind="phone" label="Continuar con teléfono" onClick={() => setView('phone-number')} />
               <Divider />
               <Field label="Correo electrónico" icon="mail" placeholder="correo@ejemplo.com" type="email" autoCapitalize="none" value={email} onChangeText={setEmail} />
               <Field label="Contraseña" password placeholder="Tu contraseña" value={password} onChangeText={setPassword} />
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button onClick={() => navigate('/forgot-password')} style={{ fontSize: 12, color: 'var(--brand)', fontWeight: 600 }}>
+                <button onClick={() => window.alert('Próximamente\n\nLa recuperación de contraseña estará disponible muy pronto. Por ahora, si olvidaste tu contraseña, contacta al administrador.')} style={{ fontSize: 12, color: 'var(--brand)', fontWeight: 600 }}>
                   ¿Olvidaste tu contraseña?
                 </button>
               </div>
