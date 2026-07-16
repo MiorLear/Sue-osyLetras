@@ -1,7 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 
-import type { CreateEventInput, UpdateEventInput, UpdateProfileInput } from '@explorarte/shared';
+import type {
+  CreateCommentInput,
+  CreateEventInput,
+  CreatePostInput,
+  UpdateEventInput,
+  UpdateProfileInput,
+} from '@explorarte/shared';
 import { api } from '@/lib/api';
 import { withSync } from '@/lib/sync-status';
 
@@ -17,7 +23,10 @@ export type Mutation =
   | { id: string; kind: 'profile.update'; input: UpdateProfileInput }
   | { id: string; kind: 'event.create'; tempId: string; input: CreateEventInput }
   | { id: string; kind: 'event.update'; targetId: string; input: UpdateEventInput }
-  | { id: string; kind: 'event.remove'; targetId: string };
+  | { id: string; kind: 'event.remove'; targetId: string }
+  | { id: string; kind: 'post.create'; tempId: number; input: CreatePostInput }
+  | { id: string; kind: 'post.like'; postId: number }
+  | { id: string; kind: 'post.comment'; postId: number; input: CreateCommentInput };
 
 let queue: Mutation[] = [];
 let loaded = false;
@@ -110,6 +119,35 @@ export async function enqueueEventRemove(targetId: string): Promise<void> {
   emit();
 }
 
+/** Queue creating a post; tempId is the placeholder id shown until it syncs. */
+export async function enqueuePostCreate(tempId: number, input: CreatePostInput): Promise<void> {
+  await loadQueue();
+  queue.push({ id: newId(), kind: 'post.create', tempId, input });
+  await persist();
+  emit();
+}
+
+/** Queue a like toggle for a synced post. Two toggles cancel out (coalesced). */
+export async function enqueuePostLike(postId: number): Promise<void> {
+  await loadQueue();
+  const existingIdx = queue.findIndex((m) => m.kind === 'post.like' && m.postId === postId);
+  if (existingIdx >= 0) {
+    queue.splice(existingIdx, 1); // like + unlike → no net change
+  } else {
+    queue.push({ id: newId(), kind: 'post.like', postId });
+  }
+  await persist();
+  emit();
+}
+
+/** Queue a comment on a synced post. */
+export async function enqueuePostComment(postId: number, input: CreateCommentInput): Promise<void> {
+  await loadQueue();
+  queue.push({ id: newId(), kind: 'post.comment', postId, input });
+  await persist();
+  emit();
+}
+
 async function dispatch(m: Mutation): Promise<void> {
   switch (m.kind) {
     case 'profile.update':
@@ -123,6 +161,15 @@ async function dispatch(m: Mutation): Promise<void> {
       break;
     case 'event.remove':
       await api.events.remove(m.targetId);
+      break;
+    case 'post.create':
+      await api.posts.create(m.input);
+      break;
+    case 'post.like':
+      await api.posts.toggleLike(m.postId);
+      break;
+    case 'post.comment':
+      await api.posts.addComment(m.postId, m.input);
       break;
   }
 }
