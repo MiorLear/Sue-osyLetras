@@ -70,7 +70,7 @@ export default function Login() {
           {view === 'main' ? (
             <>
               <SocialButton kind="google" label="Continuar con Google" onClick={() => window.alert('Próximamente\n\nEl inicio de sesión con Google estará disponible muy pronto. Por ahora usa tu correo.')} />
-              <SocialButton kind="phone" label="Continuar con teléfono" onClick={() => setView('phone-number')} />
+              <SocialButton kind="phone" label="Continuar con teléfono" onClick={() => window.alert('Próximamente\n\nEl inicio de sesión por teléfono estará disponible muy pronto. Por ahora usa tu correo.')} />
               <Divider />
               <Field label="Correo electrónico" icon="mail" placeholder="correo@ejemplo.com" type="email" autoCapitalize="none" value={email} onChangeText={setEmail} />
               <Field label="Contraseña" password placeholder="Tu contraseña" value={password} onChangeText={setPassword} />

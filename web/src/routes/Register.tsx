@@ -44,10 +44,12 @@ export default function Register() {
   };
 
   const choose = (m: Method) => {
-    if (m === 'google') {
-      // No real Google OAuth yet — don't fake success / create an empty-credential
-      // account. Honest "coming soon", matching the login screen.
-      window.alert('Próximamente: el registro con Google estará disponible muy pronto. Por ahora usa tu correo o teléfono.');
+    // No real Google OAuth, and no SMS provider for phone codes yet — honest
+    // "coming soon" instead of a flow nobody can complete. Email works.
+    if (m === 'google' || m === 'phone') {
+      window.alert(m === 'google'
+        ? 'Próximamente: el registro con Google estará disponible muy pronto. Por ahora usa tu correo.'
+        : 'Próximamente: el registro por teléfono estará disponible muy pronto. Por ahora usa tu correo.');
       return;
     }
     setMethod(m);

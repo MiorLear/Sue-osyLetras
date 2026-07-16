@@ -128,14 +128,19 @@ export default function LoginScreen() {
                 onPress={() =>
                   Alert.alert(
                     'Próximamente',
-                    'El inicio de sesión con Google estará disponible muy pronto. Por ahora usa tu correo o teléfono.',
+                    'El inicio de sesión con Google estará disponible muy pronto. Por ahora usa tu correo.',
                   )
                 }
               />
               <SocialButton
                 icon="phone"
                 label="Continuar con teléfono"
-                onPress={() => setView('phone-number')}
+                onPress={() =>
+                  Alert.alert(
+                    'Próximamente',
+                    'El inicio de sesión por teléfono estará disponible muy pronto. Por ahora usa tu correo.',
+                  )
+                }
               />
 
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 }}>
