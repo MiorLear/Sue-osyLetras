@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { MediaItem } from '@explorarte/shared';
 import { Icon } from '@/components/icon';
 import { colors } from '@/constants/theme';
+import { getLocalUri } from '@/lib/offlineStorage';
 
 // videoItem is null until an admin uploads a real intro video for this screen
 // (web /admin/videos-intro) — hide the card entirely rather than show a
@@ -19,9 +20,22 @@ export function VideoPlaceholder({ caption, videoItem }: { caption: string; vide
 function VideoCard({ item, caption }: { item: MediaItem; caption: string }) {
   const [open, setOpen] = useState(false);
 
-  // Stream the remote URL directly. A paused player renders the first frame,
-  // which serves as the thumbnail/poster — no separate image needed.
-  const preview = useVideoPlayer(item.url, (p) => {
+  // Local-first: play the downloaded file if it's cached (works offline),
+  // otherwise stream the remote URL. media-sync pre-downloads intro videos, so
+  // this normally resolves to the local copy.
+  const [source, setSource] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    getLocalUri(item.id).then((local) => {
+      if (active) setSource(local ?? item.url);
+    });
+    return () => {
+      active = false;
+    };
+  }, [item.id, item.url]);
+
+  // A paused player renders the first frame, which serves as the thumbnail/poster.
+  const preview = useVideoPlayer(source, (p) => {
     p.muted = true;
     p.loop = false;
   });
@@ -78,16 +92,16 @@ function VideoCard({ item, caption }: { item: MediaItem; caption: string }) {
         </View>
       </Pressable>
 
-      {open ? <FullscreenPlayer item={item} caption={caption} onClose={() => setOpen(false)} /> : null}
+      {open ? <FullscreenPlayer source={source ?? item.url} caption={caption} onClose={() => setOpen(false)} /> : null}
     </>
   );
 }
 
-function FullscreenPlayer({ item, caption, onClose }: { item: MediaItem; caption: string; onClose: () => void }) {
+function FullscreenPlayer({ source, caption, onClose }: { source: string; caption: string; onClose: () => void }) {
   const insets = useSafeAreaInsets();
 
-  // Stream directly — no pre-download step, so playback starts as it buffers.
-  const player = useVideoPlayer(item.url, (p) => {
+  // Plays the local file when cached (offline), else streams as it buffers.
+  const player = useVideoPlayer(source, (p) => {
     p.loop = false;
   });
 

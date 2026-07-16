@@ -12,7 +12,7 @@ import { Logo } from '@/components/logo';
 import { VideoPlaceholder } from '@/components/video-placeholder';
 import { colors } from '@/constants/theme';
 import { api } from '@/lib/api';
-import { useAsync } from '@/lib/useAsync';
+import { useOfflineAsync } from '@/lib/useOfflineAsync';
 
 function ManualButton({ manual }: { manual: MediaItem | null }) {
   const [busy, setBusy] = useState(false);
@@ -95,8 +95,8 @@ function SectionCard({
 
 export default function CajaDeHerramientasScreen() {
   const insets = useSafeAreaInsets();
-  const { data: tools, loading, error, reload } = useAsync(() => api.tools.get(), []);
-  const { data: intro } = useAsync(() => api.screenIntros.get('tools'), []);
+  const { data: tools, loading, error, reload } = useOfflineAsync('tools', () => api.tools.get(), []);
+  const { data: intro } = useOfflineAsync('screen-intro:tools', () => api.screenIntros.get('tools'), []);
   const introVideo = intro?.video ?? null;
 
   return (

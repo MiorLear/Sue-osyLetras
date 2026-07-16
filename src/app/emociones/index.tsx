@@ -8,13 +8,13 @@ import { Logo } from '@/components/logo';
 import { VideoPlaceholder } from '@/components/video-placeholder';
 import { colors } from '@/constants/theme';
 import { api } from '@/lib/api';
-import { useAsync } from '@/lib/useAsync';
+import { useOfflineAsync } from '@/lib/useOfflineAsync';
 
 export default function BibliotecaDeEmocionesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { data: emotions, loading, error, reload } = useAsync(() => api.emotions.list(), []);
-  const { data: intro } = useAsync(() => api.screenIntros.get('emotions'), []);
+  const { data: emotions, loading, error, reload } = useOfflineAsync('emotions:list', () => api.emotions.list(), []);
+  const { data: intro } = useOfflineAsync('screen-intro:emotions', () => api.screenIntros.get('emotions'), []);
   const introVideo = intro?.video ?? null;
 
   return (

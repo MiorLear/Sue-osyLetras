@@ -12,11 +12,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { MediaItem } from '@explorarte/shared';
 import { Logo } from '@/components/logo';
 import { VideoPlaceholder } from '@/components/video-placeholder';
 import { brandGradient, colors } from '@/constants/theme';
-import { api } from '@/lib/api';
+import { api, authReady, hasToken } from '@/lib/api';
+import { useOfflineAsync } from '@/lib/useOfflineAsync';
 
 const PILARES = [
   {
@@ -55,11 +55,23 @@ export default function OnboardingScreen() {
   const { width } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
   const [index, setIndex] = useState(0);
-  const [introVideo, setIntroVideo] = useState<MediaItem | null>(null);
+  const { data: homeIntro } = useOfflineAsync('screen-intro:home', () => api.screenIntros.get('home'), []);
+  const introVideo = homeIntro?.video ?? null;
 
+  // Stay-logged-in: if a session token is stored, skip onboarding and open the
+  // app directly (works offline — the token lives in SecureStore). Splash until decided.
+  const [authChecked, setAuthChecked] = useState(false);
   useEffect(() => {
-    api.screenIntros.get('home').then((v) => setIntroVideo(v?.video ?? null));
-  }, []);
+    let active = true;
+    authReady.then(() => {
+      if (!active) return;
+      if (hasToken()) router.replace('/main');
+      else setAuthChecked(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [router]);
 
   const goToLogin = () => router.push('/login');
 
@@ -76,6 +88,14 @@ export default function OnboardingScreen() {
       goToLogin();
     }
   };
+
+  if (!authChecked) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
+        <Logo size={72} />
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>

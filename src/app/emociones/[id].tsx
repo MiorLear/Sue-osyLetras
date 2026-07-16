@@ -8,7 +8,7 @@ import { DownloadableMediaItem } from '@/components/downloadable-media-item';
 import { Icon } from '@/components/icon';
 import { colors } from '@/constants/theme';
 import { api } from '@/lib/api';
-import { useAsync } from '@/lib/useAsync';
+import { useOfflineAsync } from '@/lib/useOfflineAsync';
 
 function Divider() {
   return <View style={{ height: 1, backgroundColor: colors.borderSoft, marginVertical: 18 }} />;
@@ -74,7 +74,7 @@ export default function EmotionDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: emotion, loading, error, reload } = useAsync(() => api.emotions.get(id!), [id]);
+  const { data: emotion, loading, error, reload } = useOfflineAsync(`emotion:${id}`, () => api.emotions.get(id!), [id]);
 
   const data = emotion?.content;
 

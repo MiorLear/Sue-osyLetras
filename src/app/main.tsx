@@ -9,7 +9,7 @@ import { Icon, IconName } from '@/components/icon';
 import { Logo } from '@/components/logo';
 import { colors } from '@/constants/theme';
 import { api } from '@/lib/api';
-import { useAsync } from '@/lib/useAsync';
+import { useOfflineAsync } from '@/lib/useOfflineAsync';
 
 interface NavCard {
   emoji: string;
@@ -112,26 +112,27 @@ const fmtToday = () =>
 export default function MainScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { data, loading, error, reload } = useAsync(async () => {
-    const [profile, rawEvents] = await Promise.all([api.profile.get(), api.events.list()]);
-    const upcoming: DashboardEvent[] = rawEvents
-      .map((e) => ({ e, minutes: minutesUntil(e.date, e.startTime) }))
-      .filter(({ minutes }) => minutes > -60)
-      .sort((a, b) => a.minutes - b.minutes)
-      .slice(0, 3)
-      .map(({ e, minutes }) => ({
-        key: e.id,
-        group: e.title,
-        time: fmtTime12(e.startTime),
-        label: fmtCountdown(minutes),
-        color: EVENT_COLORS[e.type] ?? colors.brand,
-        urgent: minutes <= 30,
-      }));
-    return { profile, events: upcoming };
+  // Cache the raw profile + events; derive the "upcoming" list on render so the
+  // countdown labels stay correct offline instead of freezing at sync time.
+  const { data, loading, error, reload } = useOfflineAsync('dashboard', async () => {
+    const [profile, events] = await Promise.all([api.profile.get(), api.events.list()]);
+    return { profile, events };
   }, []);
 
   const firstName = data?.profile.name ?? '';
-  const events = data?.events ?? [];
+  const events: DashboardEvent[] = (data?.events ?? [])
+    .map((e) => ({ e, minutes: minutesUntil(e.date, e.startTime) }))
+    .filter(({ minutes }) => minutes > -60)
+    .sort((a, b) => a.minutes - b.minutes)
+    .slice(0, 3)
+    .map(({ e, minutes }) => ({
+      key: e.id,
+      group: e.title,
+      time: fmtTime12(e.startTime),
+      label: fmtCountdown(minutes),
+      color: EVENT_COLORS[e.type] ?? colors.brand,
+      urgent: minutes <= 30,
+    }));
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>

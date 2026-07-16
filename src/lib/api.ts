@@ -16,15 +16,20 @@ import { createConfigurableApiClient, type ApiModuleKey } from '@explorarte/shar
 const TOKEN_KEY = 'explorarte_token';
 let cachedToken: string | null = null;
 
-// Best-effort hydration on module load — covers Fast Refresh / JS context
-// reloads. This app doesn't yet have a persisted "stay logged in" flow across
-// full app restarts (there's no splash-gated hydration), so a cold start
-// still requires signing in again, same as today.
-SecureStore.getItemAsync(TOKEN_KEY)
+// Hydrate the stored token on module load and expose a promise so the app entry
+// can wait for it before choosing onboarding-vs-app. SecureStore is local, so
+// this resolves even with no connection — enabling a "stay logged in" cold start
+// that opens straight into cached content offline.
+export const authReady: Promise<void> = SecureStore.getItemAsync(TOKEN_KEY)
   .then((token) => {
     cachedToken = token;
   })
   .catch(() => {});
+
+/** True once a token is loaded/set — routes a returning user into the app (works offline). */
+export function hasToken(): boolean {
+  return cachedToken != null;
+}
 
 export async function setAuthToken(token: string | null) {
   cachedToken = token;

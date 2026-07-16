@@ -11,7 +11,7 @@ import { Icon } from '@/components/icon';
 import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
 import { brandGradient, colors } from '@/constants/theme';
 import { api, setAuthToken } from '@/lib/api';
-import { useAsync } from '@/lib/useAsync';
+import { useOfflineAsync } from '@/lib/useOfflineAsync';
 import { useSchools } from '@/lib/useSchools';
 
 function SectionLabel({ children }: { children: string }) {
@@ -35,7 +35,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const { data: profile, loading, error, reload } = useAsync(() => api.profile.get(), []);
+  const { data: profile, loading, error, reload } = useOfflineAsync('profile:me', () => api.profile.get(), []);
   const schools = useSchools();
 
   const [photo, setPhoto] = useState<string | null>(null);
