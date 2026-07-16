@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Masthead } from '@/components/Masthead';
+import { VideoModal } from '@/components/VideoModal';
 
 import { api } from '@/lib/api';
 import { useAsync } from '@/lib/useAsync';
@@ -8,7 +9,12 @@ const TOPIC_BG = ['#EEEAF7', '#EAF3E8', '#F8E8DE', '#FBF1DA'];
 
 export default function Aprendiendo() {
   const { data: topics, loading, error, reload } = useAsync(() => api.learning.topics(), []);
+  const { data: videoUrl } = useAsync(
+    () => api.screenIntros.get('learning').then((v) => v?.video.url ?? null),
+    [],
+  );
   const [open, setOpen] = useState<string | null>(null);
+  const [videoOpen, setVideoOpen] = useState(false);
 
   return (
     <div className="page page-narrow">
@@ -26,6 +32,22 @@ export default function Aprendiendo() {
           emocional en sus comunidades educativas.
         </p>
       </div>
+
+      {videoUrl ? (
+        <button
+          onClick={() => setVideoOpen(true)}
+          style={{ position: 'relative', width: '100%', borderRadius: 20, overflow: 'hidden', background: '#5C8A4F', minHeight: 150, textAlign: 'left', marginBottom: 30, border: 'none', cursor: 'pointer' }}>
+          <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,rgba(30,54,24,.15),rgba(30,54,24,.78))' }} />
+          <span style={{ position: 'absolute', top: 18, right: 24, fontSize: 82, opacity: 0.22 }}>🌱</span>
+          <span style={{ position: 'absolute', left: 24, bottom: 20, right: 24, color: '#fff' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,255,255,.92)', color: '#5C8A4F', fontSize: 17, marginBottom: 10 }}>▶</span>
+            <span style={{ display: 'block', fontFamily: 'var(--font-serif)', fontSize: 19 }}>Introducción al bienestar emocional</span>
+            <span style={{ display: 'block', fontSize: 12.5, opacity: 0.85, marginTop: 2 }}>Video de introducción · ~1 min</span>
+          </span>
+        </button>
+      ) : null}
+
+      {videoOpen && videoUrl ? <VideoModal videoUrl={videoUrl} onClose={() => setVideoOpen(false)} /> : null}
 
       {loading ? (
         <p style={{ textAlign: 'center', color: 'var(--text-body)', padding: '48px 0' }}>Cargando…</p>
