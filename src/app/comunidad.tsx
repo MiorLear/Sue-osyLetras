@@ -12,7 +12,7 @@ import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
 import { Icon } from '@/components/icon';
 import { brandGradient, colors } from '@/constants/theme';
 import { api } from '@/lib/api';
-import { useAsync } from '@/lib/useAsync';
+import { useOfflineAsync } from '@/lib/useOfflineAsync';
 
 const FILTERS = [
   { id: 'todos', label: 'Todos' },
@@ -48,7 +48,7 @@ export default function ComunidadExplorArteScreen() {
     loading,
     error,
     reload,
-  } = useAsync(() => api.posts.list(filter === 'todos' ? undefined : filter), [filter]);
+  } = useOfflineAsync(`posts:${filter}`, () => api.posts.list(filter === 'todos' ? undefined : filter), [filter]);
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [openThread, setOpenThread] = useState<number | null>(null);
