@@ -1,5 +1,5 @@
-import * as Linking from 'expo-linking';
-import { useEffect, useState } from 'react';
+import * as WebBrowser from 'expo-web-browser';
+import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -13,15 +13,9 @@ import { VideoPlaceholder } from '@/components/video-placeholder';
 import { colors } from '@/constants/theme';
 import { api } from '@/lib/api';
 import { useAsync } from '@/lib/useAsync';
-import { download, getLocalUri, isDownloaded } from '@/lib/offlineStorage';
 
 function ManualButton({ manual }: { manual: MediaItem | null }) {
-  const [downloaded, setDownloaded] = useState(false);
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    if (manual) isDownloaded(manual.id).then(setDownloaded);
-  }, [manual?.id]);
 
   if (!manual) {
     return (
@@ -29,24 +23,21 @@ function ManualButton({ manual }: { manual: MediaItem | null }) {
         onPress={() => Alert.alert('Aún no disponible')}
         style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 11, borderRadius: 12, backgroundColor: colors.disabled ?? '#CBD5D5' }}>
         <Icon name="download" size={14} color="#fff" strokeWidth={2.2} />
-        <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Descargar</Text>
+        <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>No disponible</Text>
       </Pressable>
     );
   }
 
   const handlePress = async () => {
-    if (downloaded) {
-      const uri = await getLocalUri(manual.id);
-      if (uri) Linking.openURL(uri).catch(() => Alert.alert('No se pudo abrir el archivo'));
+    if (!manual.url) {
+      Alert.alert('Manual no disponible', 'Este documento aún no tiene un enlace válido.');
       return;
     }
     setBusy(true);
     try {
-      const uri = await download(manual.id, manual.url);
-      setDownloaded(true);
-      Linking.openURL(uri).catch(() => {});
+      await WebBrowser.openBrowserAsync(manual.url, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN });
     } catch {
-      Alert.alert('No se pudo descargar', 'Verifica tu conexión a internet.');
+      Alert.alert('No se pudo abrir el manual', 'Verifica tu conexión e inténtalo de nuevo.');
     } finally {
       setBusy(false);
     }
@@ -57,9 +48,9 @@ function ManualButton({ manual }: { manual: MediaItem | null }) {
       onPress={handlePress}
       disabled={busy}
       style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 11, borderRadius: 12, backgroundColor: colors.brand, opacity: busy ? 0.7 : 1 }}>
-      <Icon name={downloaded ? 'check-circle' : 'download'} size={14} color="#fff" strokeWidth={2.2} />
+      <Icon name="eye" size={14} color="#fff" strokeWidth={2.2} />
       <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>
-        {busy ? 'Descargando…' : downloaded ? 'Ver PDF' : 'Descargar'}
+        {busy ? 'Abriendo…' : 'Ver manual'}
       </Text>
     </Pressable>
   );

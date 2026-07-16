@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -6,106 +7,103 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { MediaItem } from '@explorarte/shared';
 import { Icon } from '@/components/icon';
 import { colors } from '@/constants/theme';
-import { download, getLocalUri } from '@/lib/offlineStorage';
 
 // videoItem is null until an admin uploads a real intro video for this screen
-// (web /admin/videos-intro) — hide the placeholder entirely rather than show
-// a broken/empty state, matching the equivalent web decision.
+// (web /admin/videos-intro) — hide the card entirely rather than show a
+// broken/empty state, matching the equivalent web decision.
 export function VideoPlaceholder({ caption, videoItem }: { caption: string; videoItem: MediaItem | null }) {
+  if (!videoItem) return null;
+  return <VideoCard item={videoItem} caption={caption} />;
+}
+
+function VideoCard({ item, caption }: { item: MediaItem; caption: string }) {
   const [open, setOpen] = useState(false);
 
-  if (!videoItem) return null;
+  // Stream the remote URL directly. A paused player renders the first frame,
+  // which serves as the thumbnail/poster — no separate image needed.
+  const preview = useVideoPlayer(item.url, (p) => {
+    p.muted = true;
+    p.loop = false;
+  });
 
   return (
     <>
       <Pressable
         onPress={() => setOpen(true)}
         style={({ pressed }) => ({
-          borderRadius: 16,
-          paddingVertical: 28,
-          paddingHorizontal: 20,
-          alignItems: 'center',
-          gap: 12,
-          backgroundColor: '#EAF4F3',
-          borderWidth: 1.5,
+          borderRadius: 18,
+          overflow: 'hidden',
+          borderWidth: 1,
           borderColor: colors.borderSoft,
-          borderStyle: 'dashed',
-          transform: [{ scale: pressed ? 0.98 : 1 }],
+          transform: [{ scale: pressed ? 0.99 : 1 }],
+          backgroundColor: '#0A0A0A',
         })}>
-        <View
-          style={{
-            width: 52,
-            height: 52,
-            borderRadius: 26,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: colors.brand,
-          }}>
-          <Icon name="play" size={22} fill="#fff" />
+        <VideoView
+          player={preview}
+          style={{ width: '100%', height: 196 }}
+          contentFit="cover"
+          nativeControls={false}
+        />
+        {/* darkening + play affordance + caption, over the poster frame */}
+        <LinearGradient
+          colors={['rgba(0,0,0,0.15)', 'rgba(0,0,0,0.55)']}
+          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: 0 }}
+        />
+        <View style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}>
+          <View
+            style={{
+              width: 58,
+              height: 58,
+              borderRadius: 29,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(255,255,255,0.92)',
+            }}>
+            <Icon name="play" size={24} fill={colors.brand} color={colors.brand} />
+          </View>
         </View>
-        <Text style={{ fontSize: 12.5, color: colors.textBody, textAlign: 'center', lineHeight: 18 }}>
-          {caption}
-        </Text>
+        <View style={{ position: 'absolute', left: 14, right: 14, bottom: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <View
+            style={{
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+              borderRadius: 6,
+              backgroundColor: 'rgba(0,0,0,0.55)',
+            }}>
+            <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 }}>VIDEO</Text>
+          </View>
+          <Text style={{ flex: 1, color: '#fff', fontSize: 12.5, fontWeight: '600' }} numberOfLines={1}>
+            {caption}
+          </Text>
+        </View>
       </Pressable>
 
-      {open ? <FullscreenPlayer item={videoItem} caption={caption} onClose={() => setOpen(false)} /> : null}
+      {open ? <FullscreenPlayer item={item} caption={caption} onClose={() => setOpen(false)} /> : null}
     </>
   );
 }
 
 function FullscreenPlayer({ item, caption, onClose }: { item: MediaItem; caption: string; onClose: () => void }) {
   const insets = useSafeAreaInsets();
-  const [uri, setUri] = useState<string | null>(null);
-  const [error, setError] = useState(false);
 
-  // Same tap-to-download-then-play pattern as every other piece of content —
-  // on-demand, not pre-fetched in the background, so a downloaded video plays
-  // fully offline on the next open with zero network requests.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const local = await getLocalUri(item.id);
-      if (local) {
-        if (!cancelled) setUri(local);
-        return;
-      }
-      try {
-        const downloaded = await download(item.id, item.url);
-        if (!cancelled) setUri(downloaded);
-      } catch {
-        if (!cancelled) setError(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [item.id, item.url]);
-
-  const player = useVideoPlayer(uri, (p) => {
+  // Stream directly — no pre-download step, so playback starts as it buffers.
+  const player = useVideoPlayer(item.url, (p) => {
     p.loop = false;
   });
 
   useEffect(() => {
-    if (uri) player.play();
-  }, [uri, player]);
+    player.play();
+  }, [player]);
 
   return (
     <View style={{ position: 'absolute', inset: 0, backgroundColor: '#0A0A0A', zIndex: 50 }}>
-      {uri ? (
-        <VideoView
-          player={player}
-          style={{ flex: 1 }}
-          contentFit="contain"
-          fullscreenOptions={{ enable: true }}
-          nativeControls
-        />
-      ) : (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>
-            {error ? 'No se pudo descargar el video' : 'Descargando video…'}
-          </Text>
-        </View>
-      )}
+      <VideoView
+        player={player}
+        style={{ flex: 1 }}
+        contentFit="contain"
+        fullscreenOptions={{ enable: true }}
+        nativeControls
+      />
       <View
         style={{
           position: 'absolute',
