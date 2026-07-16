@@ -1,9 +1,16 @@
+import { useState } from 'react';
 import { Masthead } from '@/components/Masthead';
+import { VideoModal } from '@/components/VideoModal';
 import { api } from '@/lib/api';
 import { useAsync } from '@/lib/useAsync';
 
 export default function Herramientas() {
   const { data: tools, loading, error, reload } = useAsync(() => api.tools.get(), []);
+  const { data: videoUrl } = useAsync(
+    () => api.screenIntros.get('tools').then((v) => v?.video.url ?? null),
+    [],
+  );
+  const [videoOpen, setVideoOpen] = useState(false);
 
   return (
     <div className="page">
@@ -13,6 +20,22 @@ export default function Herramientas() {
         accent="la práctica"
         lede="Manuales, guías descargables y bibliografía para implementar la metodología ExplorArte."
       />
+
+      {videoUrl ? (
+        <button
+          onClick={() => setVideoOpen(true)}
+          style={{ position: 'relative', width: '100%', borderRadius: 20, overflow: 'hidden', background: '#1E7E78', minHeight: 150, textAlign: 'left', marginBottom: 16, border: 'none', cursor: 'pointer' }}>
+          <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,rgba(13,60,57,.15),rgba(13,60,57,.78))' }} />
+          <span style={{ position: 'absolute', top: 18, right: 24, fontSize: 82, opacity: 0.22 }}>🧰</span>
+          <span style={{ position: 'absolute', left: 24, bottom: 20, right: 24, color: '#fff' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,255,255,.92)', color: '#1E7E78', fontSize: 17, marginBottom: 10 }}>▶</span>
+            <span style={{ display: 'block', fontFamily: 'var(--font-serif)', fontSize: 19 }}>Cómo usar los recursos disponibles</span>
+            <span style={{ display: 'block', fontSize: 12.5, opacity: 0.85, marginTop: 2 }}>Video de introducción · ~1 min</span>
+          </span>
+        </button>
+      ) : null}
+
+      {videoOpen && videoUrl ? <VideoModal videoUrl={videoUrl} onClose={() => setVideoOpen(false)} /> : null}
 
       {tools ? (
         <>
