@@ -10,13 +10,13 @@ import { Logo } from '@/components/logo';
 import { VideoPlaceholder } from '@/components/video-placeholder';
 import { colors } from '@/constants/theme';
 import { api } from '@/lib/api';
-import { useAsync } from '@/lib/useAsync';
+import { useOfflineAsync } from '@/lib/useOfflineAsync';
 
 export default function AprendiendoBienestarScreen() {
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState<string | null>(null);
-  const { data: topics, loading, error, reload } = useAsync(() => api.learning.topics(), []);
-  const { data: intro } = useAsync(() => api.screenIntros.get('learning'), []);
+  const { data: topics, loading, error, reload } = useOfflineAsync('learning:topics', () => api.learning.topics(), []);
+  const { data: intro } = useOfflineAsync('screen-intro:learning', () => api.screenIntros.get('learning'), []);
   const introVideo = intro?.video ?? null;
 
   return (
