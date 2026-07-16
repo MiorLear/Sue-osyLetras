@@ -1,18 +1,23 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 
-import type { UpdateProfileInput } from '@explorarte/shared';
+import type { CreateEventInput, UpdateEventInput, UpdateProfileInput } from '@explorarte/shared';
 import { api } from '@/lib/api';
 import { withSync } from '@/lib/sync-status';
 
 // Offline write queue: changes made without connection are persisted here and
-// replayed, in order, when the device comes back online. Fase 2 starts with the
-// safest mutation (profile edit — a single object, no ids/cross-refs); events
-// and community writes extend the Mutation union + dispatch() later.
+// replayed, in order, when the device comes back online. Covers profile edits
+// and calendar events. Event ops targeting an offline-created event (temp id)
+// are coalesced into that create, so we never replay an update/remove against
+// an id the server hasn't assigned yet (no id remapping needed).
 
 const KEY = 'offline-mutations-v1';
 
-export type Mutation = { id: string; kind: 'profile.update'; input: UpdateProfileInput };
+export type Mutation =
+  | { id: string; kind: 'profile.update'; input: UpdateProfileInput }
+  | { id: string; kind: 'event.create'; tempId: string; input: CreateEventInput }
+  | { id: string; kind: 'event.update'; targetId: string; input: UpdateEventInput }
+  | { id: string; kind: 'event.remove'; targetId: string };
 
 let queue: Mutation[] = [];
 let loaded = false;
@@ -55,10 +60,69 @@ export async function enqueueProfileUpdate(input: UpdateProfileInput): Promise<v
   emit();
 }
 
+/** Queue creating a new event; tempId is the placeholder id shown in the UI meanwhile. */
+export async function enqueueEventCreate(tempId: string, input: CreateEventInput): Promise<void> {
+  await loadQueue();
+  queue.push({ id: newId(), kind: 'event.create', tempId, input });
+  await persist();
+  emit();
+}
+
+/** Queue an event edit. If it targets an offline-created event, the edit is folded
+ *  into that pending create; consecutive edits to the same event are merged. */
+export async function enqueueEventUpdate(targetId: string, input: UpdateEventInput): Promise<void> {
+  await loadQueue();
+  const create = queue.find(
+    (m): m is Extract<Mutation, { kind: 'event.create' }> => m.kind === 'event.create' && m.tempId === targetId,
+  );
+  if (create) {
+    create.input = { ...create.input, ...input };
+  } else {
+    const pendingUpdate = queue.find(
+      (m): m is Extract<Mutation, { kind: 'event.update' }> => m.kind === 'event.update' && m.targetId === targetId,
+    );
+    if (pendingUpdate) {
+      pendingUpdate.input = { ...pendingUpdate.input, ...input };
+    } else {
+      queue.push({ id: newId(), kind: 'event.update', targetId, input });
+    }
+  }
+  await persist();
+  emit();
+}
+
+/** Queue removing an event. If it's an offline-created event, cancel its create
+ *  (and any pending edits) instead of queueing a remove for a non-existent id. */
+export async function enqueueEventRemove(targetId: string): Promise<void> {
+  await loadQueue();
+  const hadCreate = queue.some((m) => m.kind === 'event.create' && m.tempId === targetId);
+  if (hadCreate) {
+    queue = queue.filter(
+      (m) =>
+        !(m.kind === 'event.create' && m.tempId === targetId) &&
+        !(m.kind === 'event.update' && m.targetId === targetId),
+    );
+  } else {
+    queue = queue.filter((m) => !(m.kind === 'event.update' && m.targetId === targetId));
+    queue.push({ id: newId(), kind: 'event.remove', targetId });
+  }
+  await persist();
+  emit();
+}
+
 async function dispatch(m: Mutation): Promise<void> {
   switch (m.kind) {
     case 'profile.update':
       await api.profile.update(m.input);
+      break;
+    case 'event.create':
+      await api.events.create(m.input);
+      break;
+    case 'event.update':
+      await api.events.update(m.targetId, m.input);
+      break;
+    case 'event.remove':
+      await api.events.remove(m.targetId);
       break;
   }
 }
