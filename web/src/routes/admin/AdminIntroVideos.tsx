@@ -8,6 +8,8 @@ import { api } from '@/lib/api';
 const SCREENS: { key: ScreenKey; label: string; emoji: string }[] = [
   { key: 'home', label: 'Bienvenida', emoji: '👋' },
   { key: 'emotions', label: 'Biblioteca de emociones', emoji: '💛' },
+  { key: 'tools', label: 'Caja de herramientas', emoji: '🧰' },
+  { key: 'learning', label: 'Aprendiendo', emoji: '🌱' },
 ];
 
 export default function AdminIntroVideos() {
@@ -46,7 +48,7 @@ export default function AdminIntroVideos() {
         eyebrow="Contenido"
         title="Videos de"
         accent="introducción"
-        lede="Sube el video que se reproduce al abrir cada sección de la app."
+        lede="Sube el video que se reproduce al abrir cada sección de la app. Usa MP4 (recomendado 720p, hasta ~30 MB para que suba sin problemas)."
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
