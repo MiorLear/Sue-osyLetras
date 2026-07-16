@@ -1,4 +1,3 @@
-import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
@@ -13,6 +12,7 @@ import { Logo } from '@/components/logo';
 import { VideoPlaceholder } from '@/components/video-placeholder';
 import { colors } from '@/constants/theme';
 import { api } from '@/lib/api';
+import { openLocalFile } from '@/lib/open-file';
 import { download, getLocalUri } from '@/lib/offlineStorage';
 import { useIsOnline } from '@/lib/useNetworkStatus';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
@@ -45,8 +45,7 @@ function ManualButton({ manual }: { manual: MediaItem | null }) {
           uri = null;
         }
       }
-      if (uri && (await Sharing.isAvailableAsync())) {
-        await Sharing.shareAsync(uri, { mimeType: manual.mimeType || undefined });
+      if (uri && (await openLocalFile(uri, manual.mimeType))) {
         return;
       }
       if (online && manual.url) {
