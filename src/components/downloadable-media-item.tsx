@@ -1,4 +1,3 @@
-import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
@@ -6,6 +5,7 @@ import { Alert, Pressable, Text, View } from 'react-native';
 import type { MediaItem } from '@explorarte/shared';
 import { Icon } from '@/components/icon';
 import { colors } from '@/constants/theme';
+import { openLocalFile } from '@/lib/open-file';
 import { download, getLocalUri } from '@/lib/offlineStorage';
 import { useIsOnline } from '@/lib/useNetworkStatus';
 
@@ -39,9 +39,8 @@ export function DownloadableMediaItem({ item }: { item: MediaItem }) {
           uri = null;
         }
       }
-      // 2. Hand the local file to the OS to open with its native viewer.
-      if (uri && (await Sharing.isAvailableAsync())) {
-        await Sharing.shareAsync(uri, { mimeType: item.mimeType || undefined });
+      // 2. Open the local file with the device's native viewer ("abrir con…").
+      if (uri && (await openLocalFile(uri, item.mimeType))) {
         return;
       }
       // 3. Fallback: open remotely when online.
