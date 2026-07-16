@@ -10,7 +10,7 @@ import { Icon } from '@/components/icon';
 import { Select } from '@/components/ui';
 import { colors } from '@/constants/theme';
 import { api } from '@/lib/api';
-import { useAsync } from '@/lib/useAsync';
+import { useOfflineAsync } from '@/lib/useOfflineAsync';
 
 type ViewMode = 'día' | 'semana' | 'mes';
 type EventType = 'sesión' | 'tarea' | 'recordatorio' | 'evento';
@@ -92,7 +92,7 @@ export default function CalendarScreen() {
 
   const [view, setView] = useState<ViewMode>('día');
   const [selDate, setSelDate] = useState(TODAY);
-  const { data: loadedEvents, loading, error, reload } = useAsync(() => api.events.list(), []);
+  const { data: loadedEvents, loading, error, reload } = useOfflineAsync('events', () => api.events.list(), []);
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [modal, setModal] = useState<ModalMode>(null);
   const [selEvent, setSelEvent] = useState<CalEvent | null>(null);
