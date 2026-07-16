@@ -67,6 +67,11 @@ function formatBytes(bytes: number): string {
  * button. Uploads immediately on selection (not on save) so large files get
  * their own progress/error feedback instead of silently riding along with
  * the rest of the form's JSON PUT. */
+/** Max upload size — the API's host (Render free tier) rejects larger request
+ * bodies, so we guard client-side with a clear message instead of a cryptic
+ * failed upload. Videos should be compressed (e.g. 720p) to fit. */
+const MAX_UPLOAD_MB = 33;
+
 export function FileUploadInput({ label, item, category, accept, onChange }: {
   label: string;
   item: MediaItem | null;
@@ -81,16 +86,26 @@ export function FileUploadInput({ label, item, category, accept, onChange }: {
   const pick = () => inputRef.current?.click();
 
   const handleFile = async (file: File) => {
+    if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      setError(`El archivo pesa ${formatBytes(file.size)}. El máximo es ~${MAX_UPLOAD_MB} MB — comprímelo (p. ej. a 720p) e intenta de nuevo.`);
+      return;
+    }
     setUploading(true);
     setError(null);
-    try {
-      const uploaded = await api.media.upload(file, file.name, category);
-      onChange(uploaded);
-    } catch {
-      setError('No se pudo subir el archivo');
-    } finally {
-      setUploading(false);
+    // Retry transient failures (the free-tier API occasionally drops large
+    // uploads under memory pressure) before giving up.
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const uploaded = await api.media.upload(file, file.name, category);
+        onChange(uploaded);
+        setUploading(false);
+        return;
+      } catch {
+        if (attempt < 3) await new Promise((r) => setTimeout(r, 1500 * attempt));
+      }
     }
+    setError('No se pudo subir el archivo. Intenta de nuevo.');
+    setUploading(false);
   };
 
   return (
