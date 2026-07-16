@@ -19,20 +19,32 @@ const STATUS_TAG: Record<UserStatus, { label: string; color: string; bg: string 
   rejected: { label: 'Sin acceso', color: 'var(--danger)', bg: '#FBEAE6' },
 };
 
+/** 'rejected' is the only state that revokes access — pending and approved both
+ * let the teacher into the app. Single source of truth for the tag, the action
+ * button and the filter, so the three can't drift apart. */
+const sinAcceso = (u: UserProfile) => u.status === 'rejected';
+
 export default function AdminUsuarios() {
   const [filter, setFilter] = useState<FilterId>('approved');
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
-  const load = (f: FilterId) => {
-    const status = f === 'all' ? undefined : (f as UserStatus);
-    api.admin.users.list(status).then((list) => setUsers(list.filter((u) => u.role === 'teacher')));
+  // Fetch every teacher once and narrow in memory. Passing ?status= would 400:
+  // the API binds the param with Enum.valueOf, which is case-sensitive, and the
+  // wire format is lowercase. Filtering locally also makes the tabs instant.
+  const load = () => {
+    api.admin.users.list().then((list) => setUsers(list.filter((u) => u.role === 'teacher')));
   };
 
   useEffect(() => {
-    load(filter);
-  }, [filter]);
+    load();
+  }, []);
+
+  const shown = users.filter((u) => {
+    if (filter === 'all') return true;
+    return filter === 'rejected' ? sinAcceso(u) : !sinAcceso(u);
+  });
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -44,7 +56,7 @@ export default function AdminUsuarios() {
     try {
       await api.admin.users[action](u.id);
       showToast(action === 'approve' ? `Diste acceso a ${u.name}` : `Quitaste el acceso a ${u.name}`);
-      load(filter);
+      load();
     } finally {
       setBusy(null);
     }
@@ -73,17 +85,16 @@ export default function AdminUsuarios() {
         })}
       </div>
 
-      {users.length === 0 ? (
+      {shown.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
           <div style={{ fontSize: 44, marginBottom: 12 }}>🌿</div>
           <p style={{ fontSize: 14 }}>No hay docentes en esta categoría.</p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {users.map((u) => {
+          {shown.map((u) => {
             const tag = STATUS_TAG[u.status];
             const initials = ((u.name[0] ?? '') + (u.lastname[0] ?? '')).toUpperCase();
-            const sinAcceso = u.status === 'rejected';
             return (
               <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 18, borderRadius: 18, background: '#fff', border: '1px solid var(--border)' }}>
                 <span style={{ width: 46, height: 46, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(150deg,var(--clay),var(--clay-dark))', color: '#fff', fontSize: 15, fontWeight: 800, flexShrink: 0 }}>{initials}</span>
@@ -101,7 +112,7 @@ export default function AdminUsuarios() {
                   </div>
                 </div>
                 <div style={{ flexShrink: 0, width: 130 }}>
-                  {sinAcceso ? (
+                  {sinAcceso(u) ? (
                     <AdminBtn label="Dar acceso" onClick={() => decide(u, 'approve')} disabled={busy === u.id} />
                   ) : (
                     <AdminBtn label="Quitar acceso" variant="outline" onClick={() => decide(u, 'reject')} disabled={busy === u.id} />

@@ -5,11 +5,11 @@ import { Masthead } from '@/components/Masthead';
 import { FileUploadInput } from '@/components/admin/ui';
 import { api } from '@/lib/api';
 
-const SCREENS: { key: ScreenKey; label: string; emoji: string }[] = [
-  { key: 'home', label: 'Bienvenida', emoji: '👋' },
-  { key: 'emotions', label: 'Biblioteca de emociones', emoji: '💛' },
-  { key: 'tools', label: 'Caja de herramientas', emoji: '🧰' },
-  { key: 'learning', label: 'Aprendiendo', emoji: '🌱' },
+const SCREENS: { key: ScreenKey; label: string; emoji: string; desc: string }[] = [
+  { key: 'home', label: 'Bienvenida', emoji: '👋', desc: 'Se reproduce en la pantalla de inicio, al abrir la app.' },
+  { key: 'emotions', label: 'Biblioteca de emociones', emoji: '💛', desc: 'Aparece arriba de la lista de emociones.' },
+  { key: 'tools', label: 'Caja de herramientas', emoji: '🧰', desc: 'Aparece en la pantalla de herramientas.' },
+  { key: 'learning', label: 'Aprendiendo', emoji: '🌱', desc: 'Aparece en la pantalla de aprendizaje.' },
 ];
 
 export default function AdminIntroVideos() {
@@ -48,16 +48,17 @@ export default function AdminIntroVideos() {
         eyebrow="Contenido"
         title="Videos de"
         accent="introducción"
-        lede="Sube el video que se reproduce al abrir cada sección de la app. Usa MP4 (recomendado 720p, hasta ~30 MB para que suba sin problemas)."
+        lede="Sube el video que se reproduce al abrir cada sección de la app. Usa MP4 (recomendado 720p, hasta ~30 MB para que suba sin problemas). Se guarda al instante; para cambiar uno, quítalo con la ✕ y sube el nuevo."
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {SCREENS.map((s) => (
           <div key={s.key} style={{ borderRadius: 20, padding: 26, background: '#fff', border: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 6 }}>
               <span style={{ fontSize: 22 }}>{s.emoji}</span>
               <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 600, color: 'var(--text-dark)' }}>{s.label}</h3>
             </div>
+            <p style={{ marginBottom: 18, fontSize: 12.5, color: 'var(--text-muted)' }}>{s.desc}</p>
             <FileUploadInput
               label="Video de introducción"
               item={videos[s.key] ?? null}
