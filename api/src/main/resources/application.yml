@@ -21,8 +21,12 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: 200MB
-      max-request-size: 200MB
+      # Outer guard only. The real cap is per MediaCategory (see
+      # MediaCategory.maxSizeBytes: 5 MB profile photos ... 50 MB learning
+      # video), so this just has to clear the largest of those. 200 MB with no
+      # rate limiting let any authenticated user exhaust storage and egress.
+      max-file-size: 50MB
+      max-request-size: 55MB
 
 server:
   # Cloud Run injects PORT and requires the container to listen on it; local

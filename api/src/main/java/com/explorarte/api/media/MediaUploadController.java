@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.explorarte.api.common.PayloadTooLargeException;
+import com.explorarte.api.common.UnsupportedMediaTypeException;
 import com.explorarte.api.security.CurrentUserService;
 import com.explorarte.api.user.UserRole;
 
@@ -21,7 +23,12 @@ import com.explorarte.api.user.UserRole;
  * per domain. It only uploads bytes and returns a MediaItem — attaching that
  * MediaItem to a domain record happens via the existing PUT/POST endpoints
  * (PUT /tools, PUT /me, POST /posts, ...), which already enforce the right
- * authorization for that write. */
+ * authorization for that write.
+ *
+ * <p>Uploads land in a public-read bucket, so the content type is never taken
+ * from the client: it is detected from the bytes themselves
+ * ({@link MediaTypeSniffer}) and checked against the target category's
+ * allowlist, together with that category's size cap. */
 @RestController
 public class MediaUploadController {
 
@@ -40,17 +47,44 @@ public class MediaUploadController {
         if (mediaCategory.isAdminOnly() && currentUserService.currentUser().getRole() != UserRole.ADMIN) {
             throw new AccessDeniedException("category '" + category + "' requires an admin account");
         }
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("The uploaded file is empty");
+        }
+        if (file.getSize() > mediaCategory.maxSizeBytes()) {
+            throw new PayloadTooLargeException(
+                    "File exceeds the " + megabytes(mediaCategory.maxSizeBytes()) + " MB limit for this category");
+        }
 
         String id = UUID.randomUUID().toString();
         String sanitizedFilename = sanitize(file.getOriginalFilename());
-        String path = mediaCategory.storagePrefix() + "/" + id + "-" + sanitizedFilename;
 
+        byte[] bytes;
         try {
-            String url = storageClient.upload(path, file.getBytes(), file.getContentType());
-            return new MediaItem(id, sanitizedFilename, url, file.getContentType(), file.getSize());
+            bytes = file.getBytes();
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to read uploaded file", e);
         }
+        // Re-check after materialising: getSize() is a declared header on some
+        // clients, the array length is the truth.
+        if (bytes.length > mediaCategory.maxSizeBytes()) {
+            throw new PayloadTooLargeException(
+                    "File exceeds the " + megabytes(mediaCategory.maxSizeBytes()) + " MB limit for this category");
+        }
+
+        String detectedType = MediaTypeSniffer.sniff(bytes, sanitizedFilename);
+        if (!mediaCategory.allows(detectedType)) {
+            throw new UnsupportedMediaTypeException(
+                    "This file type is not accepted for this category. Allowed: " + String.join(", ",
+                            new java.util.TreeSet<>(mediaCategory.allowedMimeTypes())));
+        }
+
+        String path = mediaCategory.storagePrefix() + "/" + id + "-" + sanitizedFilename;
+        String url = storageClient.upload(path, bytes, detectedType);
+        return new MediaItem(id, sanitizedFilename, url, detectedType, bytes.length);
+    }
+
+    private static long megabytes(long bytes) {
+        return bytes / (1024 * 1024);
     }
 
     private String sanitize(String originalFilename) {
