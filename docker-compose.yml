@@ -29,7 +29,11 @@ services:
       # PRECEDENCIA sobre los SPRING_DATASOURCE_* de arriba — así el stack local
       # apunta a Supabase. Si está vacío, se usa el Postgres de Docker (servicio db).
       DATABASE_URL: ${DATABASE_URL:-}
-      JWT_SECRET: ${JWT_SECRET:-dev-only-not-for-production-change-me}
+      # Sin valor por defecto a propósito (SEC-03): si JWT_SECRET no está en tu
+      # .env, `docker compose up` falla con este mensaje en vez de arrancar la
+      # API firmando con una clave que está publicada en el repo. Copia
+      # .env.example a .env — trae un valor local listo para usar.
+      JWT_SECRET: ${JWT_SECRET:?falta JWT_SECRET — copia .env.example a .env (o genera uno con `openssl rand -base64 48`)}
       JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-1440}
       SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-explorarte123}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:8081,http://localhost:19006}
