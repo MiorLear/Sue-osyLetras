@@ -40,17 +40,30 @@
     "react-native-worklets": "0.5.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@testing-library/react": "^16.3.2",
     "@types/react": "~19.1.10",
-    "typescript": "~5.9.2"
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "^10.0.0",
+    "globals": "^15.15.0",
+    "jsdom": "^25.0.1",
+    "typescript": "~5.9.2",
+    "typescript-eslint": "^8.66.0",
+    "vitest": "^3.2.7"
   },
   "scripts": {
     "postinstall": "npm --prefix shared run build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:all": "npm test && npm --prefix shared run test && npm --prefix web run test",
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint",
+    "lint": "eslint .",
+    "lint:all": "npm run lint && npm --prefix shared run lint && npm --prefix web run lint",
     "dev:stack": "docker compose up --build",
     "dev:stack:down": "docker compose down",
     "dev:stack:reset-db": "docker compose down -v && docker compose up --build",
