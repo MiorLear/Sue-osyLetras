@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.explorarte.api.misc.SchoolService;
+import com.explorarte.api.security.AuthRateLimiter;
 import com.explorarte.api.security.JwtService;
 import com.explorarte.api.user.User;
 import com.explorarte.api.user.UserRepository;
@@ -49,7 +50,8 @@ class AuthControllerStatusTest {
                 jwtService,
                 mock(VerificationCodeService.class),
                 mock(EmailService.class),
-                mock(SchoolService.class));
+                mock(SchoolService.class),
+                permissiveRateLimiter());
 
         mvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new AuthExceptionHandler())
@@ -69,6 +71,11 @@ class AuthControllerStatusTest {
         user.setRole(UserRole.TEACHER);
         user.setStatus(status);
         when(userRepository.findByEmailIgnoreCase(anyString())).thenReturn(Optional.of(user));
+    }
+
+    /** Rate limiting has its own tests; here it must never be the reason a call fails. */
+    private static AuthRateLimiter permissiveRateLimiter() {
+        return new AuthRateLimiter(false, 1, 1, 1, 1, 1000);
     }
 
     private static final String BODY = """
@@ -126,7 +133,7 @@ class AuthControllerStatusTest {
         when(codes.verify(anyString(), anyString())).thenReturn(true);
         AuthController controller = new AuthController(
                 userRepository, passwordEncoder, jwtService, codes,
-                mock(EmailService.class), mock(SchoolService.class));
+                mock(EmailService.class), mock(SchoolService.class), permissiveRateLimiter());
         MockMvc otpMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new AuthExceptionHandler())
                 .build();

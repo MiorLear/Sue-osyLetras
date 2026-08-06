@@ -66,6 +66,20 @@ app:
     # recipients. Without a verified domain, onboarding@resend.dev only delivers
     # to your own Resend account email.
     from: ${RESEND_FROM:Sueños y Letras <onboarding@resend.dev>}
+  auth:
+    # SEC-05: a verification code is destroyed after this many failed guesses, so the
+    # 6-digit space cannot be walked inside the 15-minute TTL. Must stay <= 5.
+    otp-max-attempts: ${AUTH_OTP_MAX_ATTEMPTS:5}
+  rate-limit:
+    # SEC-05: token-bucket throttling on /auth/**. Two budgets — per client IP (applied by
+    # AuthRateLimitFilter) and per account identifier (applied by AuthController).
+    enabled: ${AUTH_RATE_LIMIT_ENABLED:true}
+    ip-capacity: ${AUTH_RATE_LIMIT_IP_CAPACITY:30}
+    ip-window-seconds: ${AUTH_RATE_LIMIT_IP_WINDOW_SECONDS:300}
+    identifier-capacity: ${AUTH_RATE_LIMIT_IDENTIFIER_CAPACITY:10}
+    identifier-window-seconds: ${AUTH_RATE_LIMIT_IDENTIFIER_WINDOW_SECONDS:300}
+    # Upper bound on tracked IPs/identifiers, so the limiter itself can't be a memory DoS.
+    max-tracked-keys: ${AUTH_RATE_LIMIT_MAX_TRACKED_KEYS:50000}
   # SEC-04: there is no AUTH_DEV_OTP_CODE any more. The fixed code was compared
   # before any DB lookup and was never bound to the identifier, so it worked as a
   # master key for /auth/otp/verify AND /auth/reset-password. No env var can

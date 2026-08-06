@@ -47,6 +47,13 @@ services:
       # AUTH_DEV_OTP_CODE fue eliminado (SEC-04). Para leer un código en local:
       #   docker compose exec db psql -U explorarte -d explorarte \
       #     -c "select * from verification_codes;"
+      # Rate limiting de /auth/** (SEC-05) — ver .env.example para qué hace cada uno.
+      AUTH_RATE_LIMIT_ENABLED: ${AUTH_RATE_LIMIT_ENABLED:-true}
+      AUTH_RATE_LIMIT_IP_CAPACITY: ${AUTH_RATE_LIMIT_IP_CAPACITY:-30}
+      AUTH_RATE_LIMIT_IP_WINDOW_SECONDS: ${AUTH_RATE_LIMIT_IP_WINDOW_SECONDS:-300}
+      AUTH_RATE_LIMIT_IDENTIFIER_CAPACITY: ${AUTH_RATE_LIMIT_IDENTIFIER_CAPACITY:-10}
+      AUTH_RATE_LIMIT_IDENTIFIER_WINDOW_SECONDS: ${AUTH_RATE_LIMIT_IDENTIFIER_WINDOW_SECONDS:-300}
+      AUTH_OTP_MAX_ATTEMPTS: ${AUTH_OTP_MAX_ATTEMPTS:-5}
     volumes:
       - ./api/src:/app/src
       - api_target:/app/target

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.explorarte.api.misc.SchoolService;
+import com.explorarte.api.security.AuthRateLimiter;
 import com.explorarte.api.security.JwtService;
 import com.explorarte.api.user.User;
 import com.explorarte.api.user.UserRepository;
@@ -38,6 +39,7 @@ public class AuthController {
     private final VerificationCodeService verificationCodeService;
     private final EmailService emailService;
     private final SchoolService schoolService;
+    private final AuthRateLimiter rateLimiter;
 
     public AuthController(
             UserRepository userRepository,
@@ -45,17 +47,22 @@ public class AuthController {
             JwtService jwtService,
             VerificationCodeService verificationCodeService,
             EmailService emailService,
-            SchoolService schoolService) {
+            SchoolService schoolService,
+            AuthRateLimiter rateLimiter) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.verificationCodeService = verificationCodeService;
         this.emailService = emailService;
         this.schoolService = schoolService;
+        this.rateLimiter = rateLimiter;
     }
 
     @PostMapping("/auth/login")
     public AuthResultDto login(@RequestBody LoginInput input) {
+        // Per-IP throttling already happened in AuthRateLimitFilter; this second budget is
+        // per account, so a distributed guessing run against one inbox is throttled too.
+        rateLimiter.checkIdentifier("login", input.email());
         User user = userRepository.findByEmailIgnoreCase(input.email() == null ? "" : input.email())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
         if (!passwordEncoder.matches(input.password() == null ? "" : input.password(), user.getPasswordHash())) {
@@ -99,6 +106,7 @@ public class AuthController {
 
     @PostMapping("/auth/otp/request")
     public SentResponse requestOtp(@RequestBody OtpRequestInput input) {
+        rateLimiter.checkIdentifier("otp-request", input.phone());
         String code = verificationCodeService.issue(input.phone());
         // No SMS provider is wired yet — the code is logged for dev/testing only.
         // To deliver real SMS, integrate a provider (e.g. Twilio) here.
@@ -108,6 +116,7 @@ public class AuthController {
 
     @PostMapping("/auth/otp/verify")
     public AuthResultDto verifyOtp(@RequestBody OtpVerifyInput input) {
+        rateLimiter.checkIdentifier("otp-verify", input.phone());
         if (!verificationCodeService.verify(input.phone(), input.code())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid code");
         }
@@ -121,6 +130,7 @@ public class AuthController {
 
     @PostMapping("/auth/forgot-password")
     public SentResponse forgotPassword(@RequestBody ForgotPasswordInput input) {
+        rateLimiter.checkIdentifier("forgot-password", input.emailOrPhone());
         // Always return sent:true regardless of whether the account exists, so this
         // endpoint can't be used to discover which emails/phones are registered.
         Optional<User> user = findByEmailOrPhone(input.emailOrPhone());
@@ -147,6 +157,7 @@ public class AuthController {
 
     @PostMapping("/auth/otp/check")
     public SentResponse checkOtp(@RequestBody OtpVerifyInput input) {
+        rateLimiter.checkIdentifier("otp-verify", input.phone());
         // Validate the code without requiring an existing account, so the registration
         // phone step can verify before the user is created.
         if (!verificationCodeService.verify(input.phone(), input.code())) {
@@ -157,6 +168,7 @@ public class AuthController {
 
     @PostMapping("/auth/reset-password")
     public SentResponse resetPassword(@RequestBody ResetPasswordInput input) {
+        rateLimiter.checkIdentifier("reset-password", input.emailOrPhone());
         if (!verificationCodeService.verify(input.emailOrPhone(), input.code())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid code");
         }

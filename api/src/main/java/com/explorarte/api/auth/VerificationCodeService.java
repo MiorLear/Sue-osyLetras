@@ -4,6 +4,7 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,9 +33,13 @@ public class VerificationCodeService {
     private static final long TTL_MINUTES = 15;
 
     private final VerificationCodeRepository repository;
+    private final int maxAttempts;
 
-    public VerificationCodeService(VerificationCodeRepository repository) {
+    public VerificationCodeService(
+            VerificationCodeRepository repository,
+            @Value("${app.auth.otp-max-attempts:5}") int maxAttempts) {
         this.repository = repository;
+        this.maxAttempts = Math.max(1, maxAttempts);
     }
 
     /** Normalizes an identifier so issue/verify agree: emails lowercased, phones digits-only. */
@@ -55,20 +60,43 @@ public class VerificationCodeService {
                 .orElseGet(() -> new VerificationCode(key, code, Instant.now()));
         entity.setCode(code);
         entity.setExpiresAt(Instant.now().plus(TTL_MINUTES, ChronoUnit.MINUTES));
+        // A freshly issued code starts with a clean slate; re-issuing is the documented way
+        // out of a lockout, and it costs the caller a rate-limited /auth/otp/request.
+        entity.setAttempts(0);
         repository.save(entity);
         return code;
     }
 
-    /** True only if the code matches the stored, non-expired code issued for this identifier. */
-    @Transactional(readOnly = true)
+    /**
+     * True only if the code matches the stored, non-expired code issued for this identifier.
+     *
+     * <p>SEC-05: every failed guess is counted and persisted, and the code is destroyed once
+     * the cap is reached — so the 6-digit space cannot be walked within the 15-minute TTL.
+     */
+    @Transactional
     public boolean verify(String identifier, String code) {
         if (code == null || code.isBlank()) {
             return false;
         }
-        return repository.findById(normalize(identifier))
-                .filter(vc -> vc.getExpiresAt().isAfter(Instant.now()))
-                .map(vc -> vc.getCode().equals(code))
-                .orElse(false);
+        VerificationCode stored = repository.findById(normalize(identifier)).orElse(null);
+        if (stored == null) {
+            return false;
+        }
+        if (!stored.getExpiresAt().isAfter(Instant.now())) {
+            repository.delete(stored);
+            return false;
+        }
+        if (stored.getCode().equals(code)) {
+            return true;
+        }
+        stored.setAttempts(stored.getAttempts() + 1);
+        if (stored.getAttempts() >= maxAttempts) {
+            // Burn the code outright: a locked-out caller must request a new one.
+            repository.delete(stored);
+        } else {
+            repository.save(stored);
+        }
+        return false;
     }
 
     /** Removes a used code (best-effort; a missing code is not an error). */

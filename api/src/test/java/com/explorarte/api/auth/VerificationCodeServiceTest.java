@@ -24,7 +24,57 @@ class VerificationCodeServiceTest {
     @BeforeEach
     void setUp() {
         repository = new InMemoryCodeRepository();
-        service = new VerificationCodeService(repository.asRepository());
+        service = new VerificationCodeService(repository.asRepository(), MAX_ATTEMPTS);
+    }
+
+    private static final int MAX_ATTEMPTS = 5;
+
+    @Test
+    void aCodeIsDestroyedAfterTheAllowedNumberOfFailedGuesses() {
+        String real = service.issue("+503 7000 0000");
+        String wrong = real.equals("000000") ? "111111" : "000000";
+
+        for (int i = 0; i < MAX_ATTEMPTS; i++) {
+            assertThat(service.verify("+503 7000 0000", wrong)).isFalse();
+        }
+
+        assertThat(repository.rows).as("the code row is gone, not just flagged").isEmpty();
+        assertThat(service.verify("+503 7000 0000", real))
+                .as("even the correct code stops working once locked out")
+                .isFalse();
+    }
+
+    @Test
+    void theAttemptCounterIsPersistedBetweenGuesses() {
+        service.issue("+503 7000 0000");
+
+        service.verify("+503 7000 0000", "000001");
+        service.verify("+503 7000 0000", "000002");
+
+        assertThat(repository.findById("50370000000").orElseThrow().getAttempts()).isEqualTo(2);
+    }
+
+    @Test
+    void reissuingAFreshCodeClearsTheLockout() {
+        String real = service.issue("+503 7000 0000");
+        String wrong = real.equals("000000") ? "111111" : "000000";
+        for (int i = 0; i < MAX_ATTEMPTS - 1; i++) {
+            service.verify("+503 7000 0000", wrong);
+        }
+
+        String reissued = service.issue("+503 7000 0000");
+
+        assertThat(repository.findById("50370000000").orElseThrow().getAttempts()).isZero();
+        assertThat(service.verify("+503 7000 0000", reissued)).isTrue();
+    }
+
+    @Test
+    void aCorrectGuessIsNotCountedAgainstTheCap() {
+        String real = service.issue("+503 7000 0000");
+
+        for (int i = 0; i < MAX_ATTEMPTS + 3; i++) {
+            assertThat(service.verify("+503 7000 0000", real)).isTrue();
+        }
     }
 
     @Test
