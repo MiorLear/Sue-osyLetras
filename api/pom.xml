@@ -22,6 +22,11 @@
     <jjwt.version>0.12.6</jjwt.version>
     <springdoc.version>2.6.0</springdoc.version>
     <bucket4j.version>8.10.1</bucket4j.version>
+    <!-- SEC-16 / CVE-2025-22228: Boot 3.3.4 pins Spring Security 6.3.3, where
+         BCryptPasswordEncoder.matches() returns true for ANY password over 72 bytes whose
+         first 72 bytes match. Fixed in 6.3.8 (and 6.4.4). Still on the 6.3.x line, so this
+         is a patch bump, not a minor upgrade. -->
+    <spring-security.version>6.3.8</spring-security.version>
   </properties>
 
   <dependencies>
