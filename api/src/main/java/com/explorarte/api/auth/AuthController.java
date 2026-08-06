@@ -182,8 +182,21 @@ public class AuthController {
         return email != null && email.contains("@") && !email.endsWith("@sinemail.explorarte");
     }
 
+    /**
+     * Issues a token — and only ever after {@link #requireActive(User)}. SEC-01: the admin
+     * approve/reject workflow used to have no server-side effect because this was reached
+     * without ever reading {@code user.getStatus()}.
+     */
     private AuthResultDto authResult(User user) {
+        requireActive(user);
         String token = jwtService.generate(user.getId(), user.getRole().name());
         return new AuthResultDto(token, user.toDto());
+    }
+
+    /** Refuses to authenticate an account that an admin has not approved, or has rejected. */
+    private static void requireActive(User user) {
+        if (user.getStatus() != UserStatus.APPROVED) {
+            throw new AccountNotActiveException(user.getStatus());
+        }
     }
 }
