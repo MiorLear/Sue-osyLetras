@@ -6,8 +6,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 
-/** SEC-03 — the signing key must fail closed instead of falling back to a public literal. */
-class JwtServiceTest {
+/**
+ * SEC-03 — the signing key must fail closed instead of falling back to a public literal.
+ *
+ * <p>Named for what it covers rather than for the class under test, so it sits alongside the
+ * broader {@code JwtServiceTest} from the guardrails PR instead of colliding with it.
+ */
+class JwtSecretValidationTest {
 
     private static final String GOOD_SECRET = "unit-test-secret-0123456789-0123456789-abcdef";
 

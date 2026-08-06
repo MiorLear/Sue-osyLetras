@@ -86,6 +86,11 @@ public class VerificationCodeService {
             repository.delete(stored);
             return false;
         }
+        if (stored.getAttempts() >= maxAttempts) {
+            // Belt to the delete below's braces: the row is normally destroyed on lockout, but
+            // if that delete ever fails or races, the lockout must still hold.
+            return false;
+        }
         if (stored.getCode().equals(code)) {
             return true;
         }

@@ -1,5 +1,8 @@
 package com.explorarte.api.auth;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+
 import com.explorarte.api.user.UserStatus;
 
 /**
@@ -8,15 +11,19 @@ import com.explorarte.api.user.UserStatus;
  *
  * <p>Before SEC-01 this check existed only in the web client, so calling
  * {@code POST /auth/login} directly still returned a valid 24-hour token to a rejected
- * account. It is now enforced server-side and surfaced as a 403 whose body carries a
- * machine-readable {@code code} so the client can render the right screen.
+ * account. It is now enforced server-side.
+ *
+ * <p>Extends {@link ResponseStatusException} so the 403 holds even when nothing renders the
+ * body — a caller invoking the controller method directly, or a path where the advice below
+ * is not in play. {@link AuthExceptionHandler} adds the machine-readable discriminators the
+ * client branches on.
  */
-public class AccountNotActiveException extends RuntimeException {
+public class AccountNotActiveException extends ResponseStatusException {
 
-    private final UserStatus status;
+    private final transient UserStatus status;
 
     public AccountNotActiveException(UserStatus status) {
-        super(messageFor(status));
+        super(HttpStatus.FORBIDDEN, messageFor(status));
         this.status = status;
     }
 
@@ -27,6 +34,11 @@ public class AccountNotActiveException extends RuntimeException {
     /** Stable, machine-readable discriminator for the client. */
     public String code() {
         return "ACCOUNT_" + status.name();
+    }
+
+    /** The human-readable half, without the framework's "403 FORBIDDEN " prefix. */
+    public String detail() {
+        return messageFor(status);
     }
 
     private static String messageFor(UserStatus status) {

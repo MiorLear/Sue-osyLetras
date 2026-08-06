@@ -15,7 +15,8 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import com.explorarte.api.security.AuthenticatedUserCache.Snapshot;
+import com.explorarte.api.user.User;
+import com.explorarte.api.user.UserRepository;
 import com.explorarte.api.user.UserRole;
 import com.explorarte.api.user.UserStatus;
 
@@ -31,14 +32,17 @@ class JwtAuthenticationFilterTest {
     private static final String SECRET = "filter-test-signing-key-0123456789-abcdef";
 
     private JwtService jwtService;
-    private AuthenticatedUserCache userCache;
+    private UserRepository userRepository;
     private JwtAuthenticationFilter filter;
 
     @BeforeEach
     void setUp() {
         jwtService = new JwtService(SECRET, 60);
-        userCache = mock(AuthenticatedUserCache.class);
-        filter = new JwtAuthenticationFilter(jwtService, userCache);
+        // Only the repository (an interface) is mocked; the cache itself is real, with a zero
+        // TTL so each request re-reads. Mockito's inline mock maker cannot instrument concrete
+        // classes on a JDK 25 JVM, and this is a more honest test besides.
+        userRepository = mock(UserRepository.class);
+        filter = new JwtAuthenticationFilter(jwtService, new AuthenticatedUserCache(userRepository, 0, 1000));
         SecurityContextHolder.clearContext();
     }
 
@@ -54,8 +58,17 @@ class JwtAuthenticationFilterTest {
     }
 
     private void accountIs(UserRole role, UserStatus status, int tokenVersion) {
-        when(userCache.find(anyString()))
-                .thenReturn(Optional.of(new Snapshot("u-test", role, status, tokenVersion)));
+        User user = new User();
+        user.setId("u-test");
+        user.setEmail("test@ejemplo.com");
+        user.setRole(role);
+        user.setStatus(status);
+        user.setTokenVersion(tokenVersion);
+        when(userRepository.findById(anyString())).thenReturn(Optional.of(user));
+    }
+
+    private void accountIsGone() {
+        when(userRepository.findById(anyString())).thenReturn(Optional.empty());
     }
 
     private MockHttpServletResponse run(String token) throws Exception {
@@ -101,7 +114,7 @@ class JwtAuthenticationFilterTest {
 
     @Test
     void aDeletedAccountNoLongerAuthenticates() throws Exception {
-        when(userCache.find(anyString())).thenReturn(Optional.empty());
+        accountIsGone();
 
         run(jwtService.generate("u-test", "ADMIN", 0));
 

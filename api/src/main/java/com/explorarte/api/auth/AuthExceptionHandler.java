@@ -29,7 +29,7 @@ public class AuthExceptionHandler {
     /** SEC-01 — 403 with a body the client can branch on, instead of a 200 plus a token. */
     @ExceptionHandler(AccountNotActiveException.class)
     public ResponseEntity<ProblemDetail> handleAccountNotActive(AccountNotActiveException ex) {
-        ProblemDetail body = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+        ProblemDetail body = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.detail());
         body.setProperty("code", ex.code());
         // Named accountStatus, not status: ProblemDetail already owns a numeric `status`
         // field and a same-named extension would serialize as a duplicate JSON key.

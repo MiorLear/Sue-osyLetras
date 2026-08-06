@@ -22,11 +22,6 @@
     <jjwt.version>0.12.6</jjwt.version>
     <springdoc.version>2.6.0</springdoc.version>
     <bucket4j.version>8.10.1</bucket4j.version>
-    <!-- Boot 3.3.4 pins Byte Buddy 1.14.x, which refuses to instrument classes on a
-         Java 24/25 JVM ("Java 25 (69) is not supported"). Mockito then cannot mock any
-         concrete class. Bumping only this transitive keeps `./mvnw test` working on the
-         JDKs actually installed on the team's machines. -->
-    <byte-buddy.version>1.17.5</byte-buddy.version>
   </properties>
 
   <dependencies>
