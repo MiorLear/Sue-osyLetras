@@ -62,11 +62,14 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     static void writeTooManyRequests(HttpServletResponse response, RateLimitExceededException ex)
             throws IOException {
         response.setStatus(429);
-        response.setContentType("application/json");
+        // A filter runs outside @ControllerAdvice, so the RFC 7807 body the rest of the API
+        // returns is written by hand here to keep the shape identical.
+        response.setContentType("application/problem+json");
         response.setCharacterEncoding("UTF-8");
         response.setHeader("Retry-After", Long.toString(ex.retryAfterSeconds()));
         response.getWriter().write(
-                "{\"detail\":\"" + ex.getMessage() + "\",\"code\":\"RATE_LIMITED\","
+                "{\"type\":\"about:blank\",\"title\":\"Too Many Requests\",\"status\":429,"
+                        + "\"detail\":\"" + ex.getMessage() + "\",\"code\":\"RATE_LIMITED\","
                         + "\"retryAfterSeconds\":" + ex.retryAfterSeconds() + "}");
     }
 }

@@ -90,7 +90,7 @@ class AuthControllerStatusTest {
         mvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("ACCOUNT_REJECTED"))
-                .andExpect(jsonPath("$.status").value("rejected"))
+                .andExpect(jsonPath("$.accountStatus").value("rejected"))
                 .andExpect(jsonPath("$.token").doesNotExist());
 
         verify(jwtService, never()).generate(any(), any(), org.mockito.ArgumentMatchers.anyInt());
@@ -103,7 +103,7 @@ class AuthControllerStatusTest {
         mvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("ACCOUNT_PENDING"))
-                .andExpect(jsonPath("$.status").value("pending"))
+                .andExpect(jsonPath("$.accountStatus").value("pending"))
                 .andExpect(jsonPath("$.token").doesNotExist());
 
         verify(jwtService, never()).generate(any(), any(), org.mockito.ArgumentMatchers.anyInt());

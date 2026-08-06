@@ -111,13 +111,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return raw instanceof Number number ? number.intValue() : null;
     }
 
+    /**
+     * A filter runs outside {@code @ControllerAdvice}, so the RFC 7807 body the rest of the
+     * API returns is written by hand here to keep the shape identical.
+     */
     private static void writeAccountNotActive(HttpServletResponse response, Snapshot user)
             throws IOException {
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-        response.setContentType("application/json");
+        response.setContentType("application/problem+json");
         response.setCharacterEncoding("UTF-8");
         response.getWriter().write(
-                "{\"detail\":\"Tu cuenta ya no tiene acceso.\",\"code\":\"ACCOUNT_"
-                        + user.status().name() + "\",\"status\":\"" + user.status().toJson() + "\"}");
+                "{\"type\":\"about:blank\",\"title\":\"Forbidden\",\"status\":403,"
+                        + "\"detail\":\"Tu cuenta ya no tiene acceso.\","
+                        + "\"code\":\"ACCOUNT_" + user.status().name() + "\","
+                        + "\"accountStatus\":\"" + user.status().toJson() + "\"}");
     }
 }
