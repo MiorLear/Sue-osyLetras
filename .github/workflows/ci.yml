@@ -110,6 +110,12 @@ jobs:
           restore-keys: |
             maven-${{ runner.os }}-
 
+      # api/mvnw esta commiteado con modo 100644 (se creo desde Windows), asi
+      # que en Ubuntu no es ejecutable. Se arregla aqui en vez de cambiarle el
+      # modo al fichero para no tocar api/ desde este PR.
+      - name: Hacer ejecutable el wrapper de Maven
+        run: chmod +x api/mvnw
+
       - name: Test
         working-directory: api
         run: ./mvnw -B test
