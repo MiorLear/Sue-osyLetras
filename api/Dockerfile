@@ -18,7 +18,10 @@ WORKDIR /app
 COPY pom.xml .
 RUN mvn -B -q dependency:go-offline
 COPY src src
-RUN mvn -B -q package -DskipTests
+# Sin -DskipTests: la imagen que se despliega en Render no se construye si los
+# tests estan en rojo (MAINT-02). La suite es hermetica — no toca base de datos
+# ni red — asi que corre igual dentro del build de Docker.
+RUN mvn -B -q package
 
 # --- prod target: small runtime image ---
 FROM eclipse-temurin:21-jre AS prod

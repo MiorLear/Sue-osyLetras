@@ -1,0 +1,109 @@
+name: CI
+
+# Puertas automaticas para cada PR y para los pushes a las ramas integradoras.
+# Antes de esto el unico check era el build de Render, que ademas se saltaba
+# los tests del API (MAINT-02).
+#
+# NOTA: para que un check en rojo bloquee de verdad el merge hay que marcar
+# "js" y "api" como required status checks en Settings > Branches > main.
+# Eso es configuracion del repositorio y no se puede versionar aqui.
+
+on:
+  push:
+    branches: [main, DEVELOP]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  js:
+    name: JS/TS (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 20 es el que pinea Render (render.yaml: NODE_VERSION); 24 es el que
+        # usa el equipo en local. Los dos tienen que pasar.
+        node: ['20', '24']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
+
+      - name: Cache node_modules
+        id: node-modules-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            web/node_modules
+          key: node-modules-${{ runner.os }}-node${{ matrix.node }}-${{ hashFiles('package-lock.json', 'web/package-lock.json') }}
+
+      - name: Install (raiz)
+        if: steps.node-modules-cache.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Install (web)
+        if: steps.node-modules-cache.outputs.cache-hit != 'true'
+        working-directory: web
+        run: npm ci
+
+      # shared/dist no viaja en la cache de node_modules y lo consumen los tres
+      # proyectos, asi que se compila siempre.
+      - name: Build shared
+        run: npm --prefix shared run build
+
+      - name: Typecheck (movil)
+        run: npm run typecheck
+
+      - name: Lint (movil)
+        run: npm run lint
+
+      - name: Lint (shared)
+        run: npm --prefix shared run lint
+
+      - name: Lint (web)
+        working-directory: web
+        run: npm run lint
+
+      - name: Build (web)
+        working-directory: web
+        run: npm run build
+
+  api:
+    name: API (Java 21)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Cache ~/.m2
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('api/pom.xml') }}
+          restore-keys: |
+            maven-${{ runner.os }}-
+
+      - name: Test
+        working-directory: api
+        run: ./mvnw -B test
+
+      - name: Package
+        working-directory: api
+        run: ./mvnw -B -DskipTests package
