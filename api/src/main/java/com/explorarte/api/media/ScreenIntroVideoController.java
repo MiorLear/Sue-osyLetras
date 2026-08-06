@@ -1,7 +1,6 @@
 package com.explorarte.api.media;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -12,13 +11,21 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.explorarte.api.common.ResourceNotFoundException;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 @RestController
 public class ScreenIntroVideoController {
 
     private final ScreenIntroVideoRepository repository;
+    private final MediaUrlPolicy mediaUrlPolicy;
 
-    public ScreenIntroVideoController(ScreenIntroVideoRepository repository) {
+    public ScreenIntroVideoController(ScreenIntroVideoRepository repository, MediaUrlPolicy mediaUrlPolicy) {
         this.repository = repository;
+        this.mediaUrlPolicy = mediaUrlPolicy;
     }
 
     @GetMapping("/screen-intro-videos")
@@ -27,14 +34,16 @@ public class ScreenIntroVideoController {
     }
 
     @GetMapping("/screen-intro-videos/{screenKey}")
-    public ScreenIntroVideoDto get(@PathVariable String screenKey) {
+    public ScreenIntroVideoDto get(@PathVariable @NotBlank @Size(max = 40) String screenKey) {
         return repository.findById(screenKey)
-                .orElseThrow(() -> new NoSuchElementException("No intro video for screen: " + screenKey))
+                .orElseThrow(() -> new ResourceNotFoundException("Intro video"))
                 .toDto();
     }
 
     @PutMapping("/screen-intro-videos/{screenKey}")
-    public ScreenIntroVideoDto update(@PathVariable String screenKey, @RequestBody MediaItem video) {
+    public ScreenIntroVideoDto update(@PathVariable @NotBlank @Size(max = 40) String screenKey,
+            @Valid @RequestBody MediaItem video) {
+        mediaUrlPolicy.checkStorageUrl(video.url());
         ScreenIntroVideo entity = repository.findById(screenKey).orElseGet(() -> {
             ScreenIntroVideo v = new ScreenIntroVideo();
             v.setScreenKey(screenKey);
@@ -47,7 +56,7 @@ public class ScreenIntroVideoController {
 
     @DeleteMapping("/screen-intro-videos/{screenKey}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void remove(@PathVariable String screenKey) {
+    public void remove(@PathVariable @NotBlank @Size(max = 40) String screenKey) {
         if (repository.existsById(screenKey)) {
             repository.deleteById(screenKey);
         }

@@ -1,13 +1,17 @@
 package com.explorarte.api.user;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.explorarte.api.common.ResourceNotFoundException;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 @RestController
 public class AdminUserController {
@@ -25,7 +29,7 @@ public class AdminUserController {
     }
 
     @PostMapping("/admin/users/{id}/approve")
-    public UserProfileDto approve(@PathVariable String id) {
+    public UserProfileDto approve(@PathVariable @NotBlank @Size(max = 64) String id) {
         User user = find(id);
         user.setStatus(UserStatus.APPROVED);
         userRepository.save(user);
@@ -33,7 +37,7 @@ public class AdminUserController {
     }
 
     @PostMapping("/admin/users/{id}/reject")
-    public UserProfileDto reject(@PathVariable String id) {
+    public UserProfileDto reject(@PathVariable @NotBlank @Size(max = 64) String id) {
         User user = find(id);
         user.setStatus(UserStatus.REJECTED);
         userRepository.save(user);
@@ -41,6 +45,6 @@ public class AdminUserController {
     }
 
     private User find(String id) {
-        return userRepository.findById(id).orElseThrow(() -> new NoSuchElementException("User not found: " + id));
+        return userRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("User"));
     }
 }
