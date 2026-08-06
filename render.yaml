@@ -42,10 +42,14 @@ services:
         generateValue: true
       - key: JWT_EXPIRATION_MINUTES
         value: "1440"
-      # Contraseña de las cuentas de ejemplo en este backend compartido de
-      # equipo — documentada en COMO-EMPEZAR.md, no es un secreto real.
+      # SEC-02: aquí había una contraseña literal en un repo PÚBLICO, y el seeder
+      # la usaba para crear admin@explorarte.org con rol ADMIN — o sea, una
+      # credencial de administrador de este backend legible por cualquiera. Ya no
+      # se versiona ningún valor. Si se deja sin configurar en el dashboard, el
+      # seeder SALTA la creación de usuarios y no existe ninguna cuenta con
+      # contraseña conocida en el entorno desplegado.
       - key: SEED_USER_PASSWORD
-        value: explorarte-team-2026
+        sync: false
       - key: APP_CORS_ALLOWED_ORIGINS
         value: https://explorarte-web.onrender.com,http://localhost:5173,http://localhost:8081,http://localhost:19006
       # Envío de correo (recuperar contraseña) vía Resend. Configurar la key

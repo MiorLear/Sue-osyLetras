@@ -68,7 +68,7 @@ public class DataSeeder implements ApplicationRunner {
             ToolsContentRepository toolsContentRepository,
             SchoolRepository schoolRepository,
             PasswordEncoder passwordEncoder,
-            @Value("${app.seed.default-password}") String defaultPassword) {
+            @Value("${app.seed.default-password:}") String defaultPassword) {
         this.userRepository = userRepository;
         this.emotionRepository = emotionRepository;
         this.emotionContentRepository = emotionContentRepository;
@@ -79,7 +79,19 @@ public class DataSeeder implements ApplicationRunner {
         this.toolsContentRepository = toolsContentRepository;
         this.schoolRepository = schoolRepository;
         this.passwordEncoder = passwordEncoder;
-        this.defaultPassword = defaultPassword;
+        this.defaultPassword = defaultPassword == null ? "" : defaultPassword.trim();
+    }
+
+    /** Shortest seed password worth accepting; anything less is a typo, not a decision. */
+    static final int MIN_SEED_PASSWORD_LENGTH = 8;
+
+    /**
+     * SEC-02: the demo accounts are only created when a password is injected at runtime, and
+     * nothing in version control injects one. render.yaml used to commit a working literal
+     * for {@code admin@explorarte.org} — with {@code UserRole.ADMIN} — in a public repository.
+     */
+    boolean seedUsersAllowed() {
+        return defaultPassword.length() >= MIN_SEED_PASSWORD_LENGTH;
     }
 
     @Override
@@ -96,6 +108,12 @@ public class DataSeeder implements ApplicationRunner {
 
     private void seedUsers() {
         if (userRepository.count() > 0) return;
+        if (!seedUsersAllowed()) {
+            log.warn("Skipping demo user seeding: SEED_USER_PASSWORD is unset or shorter than {} "
+                    + "characters. This is the safe default — set it only where a known-password "
+                    + "account is acceptable.", MIN_SEED_PASSWORD_LENGTH);
+            return;
+        }
         // SEC-10: the seed password used to be written here verbatim on every cold boot,
         // and Render keeps those logs readable from the dashboard.
         log.info("Seeding demo users with the injected SEED_USER_PASSWORD");
