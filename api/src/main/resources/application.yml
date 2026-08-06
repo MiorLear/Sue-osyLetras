@@ -70,6 +70,11 @@ app:
     # SEC-05: a verification code is destroyed after this many failed guesses, so the
     # 6-digit space cannot be walked inside the 15-minute TTL. Must stay <= 5.
     otp-max-attempts: ${AUTH_OTP_MAX_ATTEMPTS:5}
+    # SEC-09: the JWT filter re-reads role/status/token-version from the database on every
+    # authenticated request. This is how long a snapshot may be reused — i.e. the worst-case
+    # delay before a rejection, demotion or logout takes effect. Seconds, not hours.
+    user-cache-seconds: ${AUTH_USER_CACHE_SECONDS:5}
+    user-cache-max-entries: ${AUTH_USER_CACHE_MAX_ENTRIES:20000}
   rate-limit:
     # SEC-05: token-bucket throttling on /auth/**. Two budgets — per client IP (applied by
     # AuthRateLimitFilter) and per account identifier (applied by AuthController).

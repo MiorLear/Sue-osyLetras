@@ -72,11 +72,17 @@ public class JwtService {
         return bytes;
     }
 
-    public String generate(String userId, String role) {
+    /**
+     * Issues a token for a user. {@code tokenVersion} is embedded as the {@code tv} claim so
+     * logout — and any other forced sign-out — can invalidate every token already handed out
+     * (SEC-09). Tokens issued before this claim existed no longer parse as valid sessions.
+     */
+    public String generate(String userId, String role, int tokenVersion) {
         Instant now = Instant.now();
         return Jwts.builder()
                 .subject(userId)
                 .claim("role", role)
+                .claim("tv", tokenVersion)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusSeconds(expirationMinutes * 60)))
                 .signWith(key)

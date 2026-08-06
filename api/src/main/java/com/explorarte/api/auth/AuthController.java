@@ -6,6 +6,7 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,6 +16,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.explorarte.api.misc.SchoolService;
 import com.explorarte.api.security.AuthRateLimiter;
+import com.explorarte.api.security.AuthenticatedUserCache;
 import com.explorarte.api.security.JwtService;
 import com.explorarte.api.user.User;
 import com.explorarte.api.user.UserRepository;
@@ -40,6 +42,7 @@ public class AuthController {
     private final EmailService emailService;
     private final SchoolService schoolService;
     private final AuthRateLimiter rateLimiter;
+    private final AuthenticatedUserCache userCache;
 
     public AuthController(
             UserRepository userRepository,
@@ -48,7 +51,8 @@ public class AuthController {
             VerificationCodeService verificationCodeService,
             EmailService emailService,
             SchoolService schoolService,
-            AuthRateLimiter rateLimiter) {
+            AuthRateLimiter rateLimiter,
+            AuthenticatedUserCache userCache) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -56,6 +60,7 @@ public class AuthController {
         this.emailService = emailService;
         this.schoolService = schoolService;
         this.rateLimiter = rateLimiter;
+        this.userCache = userCache;
     }
 
     @PostMapping("/auth/login")
@@ -178,9 +183,33 @@ public class AuthController {
         User user = findByEmailOrPhone(input.emailOrPhone())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         user.setPasswordHash(passwordEncoder.encode(input.newPassword()));
+        // A password change must end every session opened with the old one (SEC-09).
+        user.revokeIssuedTokens();
         userRepository.save(user);
+        userCache.invalidate(user.getId());
         verificationCodeService.consume(input.emailOrPhone());
         return SentResponse.ok();
+    }
+
+    /**
+     * Ends the caller's sessions. SEC-09: before this there was no revocation path at all —
+     * a token stayed usable for its full 24 hours no matter what happened to the account.
+     *
+     * <p>Bumping the token version invalidates every token this account holds, on every
+     * device, not just the one presenting the request.
+     */
+    @PostMapping("/auth/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof String userId)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated");
+        }
+        userRepository.findById(userId).ifPresent(user -> {
+            user.revokeIssuedTokens();
+            userRepository.save(user);
+            userCache.invalidate(user.getId());
+        });
     }
 
     private Optional<User> findByEmailOrPhone(String identifier) {
@@ -202,7 +231,7 @@ public class AuthController {
      */
     private AuthResultDto authResult(User user) {
         requireActive(user);
-        String token = jwtService.generate(user.getId(), user.getRole().name());
+        String token = jwtService.generate(user.getId(), user.getRole().name(), user.getTokenVersion());
         return new AuthResultDto(token, user.toDto());
     }
 

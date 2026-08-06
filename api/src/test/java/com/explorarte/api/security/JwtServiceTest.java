@@ -38,17 +38,18 @@ class JwtServiceTest {
     @Test
     void acceptsARealKeyAndRoundTripsAToken() {
         JwtService service = new JwtService(GOOD_SECRET, 60);
-        String token = service.generate("u-admin", "ADMIN");
+        String token = service.generate("u-admin", "ADMIN", 3);
 
         var claims = service.parse(token);
         assertThat(claims.getSubject()).isEqualTo("u-admin");
         assertThat(claims.get("role", String.class)).isEqualTo("ADMIN");
+        assertThat(claims.get("tv", Integer.class)).isEqualTo(3);
     }
 
     @Test
     void aTokenSignedWithAnotherKeyIsRejected() {
         String foreign = new JwtService("a-completely-different-secret-key-0123456789", 60)
-                .generate("u-admin", "ADMIN");
+                .generate("u-admin", "ADMIN", 0);
         JwtService service = new JwtService(GOOD_SECRET, 60);
 
         assertThatThrownBy(() -> service.parse(foreign))

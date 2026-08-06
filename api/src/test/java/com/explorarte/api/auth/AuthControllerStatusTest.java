@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.explorarte.api.misc.SchoolService;
 import com.explorarte.api.security.AuthRateLimiter;
+import com.explorarte.api.security.AuthenticatedUserCache;
 import com.explorarte.api.security.JwtService;
 import com.explorarte.api.user.User;
 import com.explorarte.api.user.UserRepository;
@@ -51,14 +52,15 @@ class AuthControllerStatusTest {
                 mock(VerificationCodeService.class),
                 mock(EmailService.class),
                 mock(SchoolService.class),
-                permissiveRateLimiter());
+                permissiveRateLimiter(),
+                mock(AuthenticatedUserCache.class));
 
         mvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new AuthExceptionHandler())
                 .build();
 
         when(passwordEncoder.matches(anyString(), anyString())).thenReturn(true);
-        when(jwtService.generate(anyString(), anyString())).thenReturn("a.jwt.token");
+        when(jwtService.generate(anyString(), anyString(), org.mockito.ArgumentMatchers.anyInt())).thenReturn("a.jwt.token");
     }
 
     private void existingUser(UserStatus status) {
@@ -91,7 +93,7 @@ class AuthControllerStatusTest {
                 .andExpect(jsonPath("$.status").value("rejected"))
                 .andExpect(jsonPath("$.token").doesNotExist());
 
-        verify(jwtService, never()).generate(any(), any());
+        verify(jwtService, never()).generate(any(), any(), org.mockito.ArgumentMatchers.anyInt());
     }
 
     @Test
@@ -104,7 +106,7 @@ class AuthControllerStatusTest {
                 .andExpect(jsonPath("$.status").value("pending"))
                 .andExpect(jsonPath("$.token").doesNotExist());
 
-        verify(jwtService, never()).generate(any(), any());
+        verify(jwtService, never()).generate(any(), any(), org.mockito.ArgumentMatchers.anyInt());
     }
 
     @Test
@@ -133,7 +135,8 @@ class AuthControllerStatusTest {
         when(codes.verify(anyString(), anyString())).thenReturn(true);
         AuthController controller = new AuthController(
                 userRepository, passwordEncoder, jwtService, codes,
-                mock(EmailService.class), mock(SchoolService.class), permissiveRateLimiter());
+                mock(EmailService.class), mock(SchoolService.class), permissiveRateLimiter(),
+                mock(AuthenticatedUserCache.class));
         MockMvc otpMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new AuthExceptionHandler())
                 .build();

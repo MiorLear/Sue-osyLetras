@@ -53,6 +53,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/learning/topics", "/learning/topics/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/tools", "/schools").permitAll()
                         .requestMatchers(HttpMethod.GET, "/screen-intro-videos", "/screen-intro-videos/**").permitAll()
+                        // Must precede the /auth/** rule: logout revokes the caller's own
+                        // sessions, so it needs to know who the caller is.
+                        .requestMatchers(HttpMethod.POST, "/auth/logout").authenticated()
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
