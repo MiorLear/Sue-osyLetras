@@ -129,7 +129,7 @@ class AuthControllerStatusTest {
         user.setPhone("+503 7000 0000");
         user.setRole(UserRole.TEACHER);
         user.setStatus(UserStatus.REJECTED);
-        when(userRepository.findAll()).thenReturn(java.util.List.of(user));
+        when(userRepository.findFirstByPhone("+503 7000 0000")).thenReturn(Optional.of(user));
 
         VerificationCodeService codes = mock(VerificationCodeService.class);
         when(codes.verify(anyString(), anyString())).thenReturn(true);

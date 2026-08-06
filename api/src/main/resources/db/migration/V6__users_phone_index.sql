@@ -1,0 +1,11 @@
+-- SCALE-02: index the column the OTP and forgot-password lookups now filter on.
+--
+-- Those endpoints are public and used to run findAll().stream().filter() — every user row
+-- pulled into memory per request. The derived query replaces the scan; this index keeps it
+-- from becoming a sequential scan in the database instead.
+--
+-- SEC-18 is deliberately NOT fixed here: `phone` still has no UNIQUE constraint, so OTP
+-- login authenticates whichever duplicate row comes first. Adding the constraint requires a
+-- data migration to resolve the duplicates that already exist, which cannot be done blindly
+-- from a schema file.
+CREATE INDEX IF NOT EXISTS idx_users_phone ON users (phone);

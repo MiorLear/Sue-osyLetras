@@ -126,9 +126,7 @@ public class AuthController {
         if (!verificationCodeService.verify(input.phone(), input.code())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid code");
         }
-        User user = userRepository.findAll().stream()
-                .filter(u -> input.phone() != null && input.phone().equals(u.getPhone()))
-                .findFirst()
+        User user = findByPhone(input.phone())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unknown phone"));
         verificationCodeService.consume(input.phone());
         return authResult(user);
@@ -215,10 +213,17 @@ public class AuthController {
 
     private Optional<User> findByEmailOrPhone(String identifier) {
         String idf = identifier == null ? "" : identifier.trim();
-        return userRepository.findByEmailIgnoreCase(idf)
-                .or(() -> userRepository.findAll().stream()
-                        .filter(u -> idf.equals(u.getPhone()))
-                        .findFirst());
+        return userRepository.findByEmailIgnoreCase(idf).or(() -> findByPhone(idf));
+    }
+
+    /**
+     * SCALE-02: this used to be {@code findAll().stream().filter(...)} — every user row
+     * loaded into memory, on public endpoints that had no throttle. It degraded linearly
+     * with user growth and was a trivial denial-of-service vector.
+     */
+    private Optional<User> findByPhone(String phone) {
+        String value = phone == null ? "" : phone.trim();
+        return value.isEmpty() ? Optional.empty() : userRepository.findFirstByPhone(value);
     }
 
     private static boolean isDeliverableEmail(String email) {
