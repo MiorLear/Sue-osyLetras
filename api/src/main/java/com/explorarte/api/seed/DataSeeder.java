@@ -96,7 +96,9 @@ public class DataSeeder implements ApplicationRunner {
 
     private void seedUsers() {
         if (userRepository.count() > 0) return;
-        log.info("Seeding users (dev password: {})", defaultPassword);
+        // SEC-10: the seed password used to be written here verbatim on every cold boot,
+        // and Render keeps those logs readable from the dashboard.
+        log.info("Seeding demo users with the injected SEED_USER_PASSWORD");
         String hash = passwordEncoder.encode(defaultPassword);
         userRepository.saveAll(List.of(
                 user("u-admin", "Carlos", "Méndez", "admin@explorarte.org", "+503 7000 0000",

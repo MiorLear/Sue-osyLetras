@@ -112,10 +112,11 @@ public class AuthController {
     @PostMapping("/auth/otp/request")
     public SentResponse requestOtp(@RequestBody OtpRequestInput input) {
         rateLimiter.checkIdentifier("otp-request", input.phone());
-        String code = verificationCodeService.issue(input.phone());
-        // No SMS provider is wired yet — the code is logged for dev/testing only.
-        // To deliver real SMS, integrate a provider (e.g. Twilio) here.
-        log.info("[otp] code for phone {} is {} (no SMS provider — dev only)", input.phone(), code);
+        // The code is issued and stored, never logged (SEC-10): on Render the logs are
+        // retained and readable from the dashboard, so an OTP written there is a credential
+        // handed to anyone with dashboard access. No SMS provider is wired yet — integrate
+        // one (e.g. Twilio) here; until then, read verification_codes when testing locally.
+        verificationCodeService.issue(input.phone());
         return SentResponse.ok();
     }
 
@@ -145,17 +146,17 @@ public class AuthController {
             if (isDeliverableEmail(email)) {
                 boolean sent = emailService.sendPasswordResetCode(email, code);
                 if (!sent) {
-                    // e.g. Resend rejected the send (no verified domain yet) — log the
-                    // code so testing can still proceed until a domain is configured.
-                    log.warn("[forgot-password] email to {} not delivered — code {} (fallback log)", email, code);
+                    // A delivery failure logs WHO and WHAT FAILED, never the code itself
+                    // (SEC-10). Render retains these logs and shows them in the dashboard.
+                    log.warn("[forgot-password] reset email to {} was not delivered", email);
                 }
             } else {
-                // Phone-only account (or synthesized email): no SMS provider, so log for dev.
-                log.info("[forgot-password] no deliverable email for {} — code {} (dev only)",
-                        input.emailOrPhone(), code);
+                // Phone-only account (or synthesized email) and no SMS provider: nothing to
+                // do but record that a code was issued.
+                log.info("[forgot-password] no deliverable email for the requested account");
             }
         } else {
-            log.info("[forgot-password] no account for {}", input.emailOrPhone());
+            log.info("[forgot-password] no account matched the request");
         }
         return SentResponse.ok();
     }
