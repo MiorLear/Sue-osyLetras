@@ -41,9 +41,12 @@ export async function setAuthToken(token: string | null) {
 }
 
 const baseUrl = process.env.EXPO_PUBLIC_API_URL;
-const mockModules = (process.env.EXPO_PUBLIC_API_MOCK_MODULES ?? '')
+// `process.env.*` is typed `any` by expo-modules-core's ExpoProcess index
+// signature, so the split/map chain needs an explicit annotation to stay
+// noImplicitAny-clean.
+const mockModules = String(process.env.EXPO_PUBLIC_API_MOCK_MODULES ?? '')
   .split(',')
-  .map((m) => m.trim())
+  .map((m: string) => m.trim())
   .filter(Boolean) as ApiModuleKey[];
 
 let sessionExpiredRedirecting = false;
