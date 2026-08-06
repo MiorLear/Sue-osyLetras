@@ -2,6 +2,9 @@ package com.explorarte.api.community;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -11,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.explorarte.api.common.PageResponse;
+import com.explorarte.api.common.Pagination;
 import com.explorarte.api.common.RelativeTime;
 import com.explorarte.api.common.ResourceNotFoundException;
 import com.explorarte.api.media.MediaUrlPolicy;
@@ -18,6 +23,8 @@ import com.explorarte.api.security.CurrentUserService;
 import com.explorarte.api.user.User;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 
 @RestController
 public class PostController {
@@ -41,13 +48,32 @@ public class PostController {
         this.mediaUrlPolicy = mediaUrlPolicy;
     }
 
+    /** Newest first, with the id as tie-breaker so a page boundary cannot drop
+     * or duplicate a post when two share a timestamp. */
+    private static final Sort FEED_SORT = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
+
+    /**
+     * SCALE-01 — the feed used to return the whole {@code posts} table.
+     *
+     * <p>Response shape depends on the request: pass {@code page} and/or
+     * {@code size} and the body is a {@link PageResponse} envelope; pass
+     * neither and it stays the bare JSON array both deployed clients expect,
+     * now capped at {@link Pagination#LEGACY_CAP} rows instead of unbounded.
+     */
     @GetMapping("/posts")
-    public List<PostDto> list(@RequestParam(required = false) String emotion) {
-        List<Post> posts = (emotion == null || emotion.isBlank() || emotion.equals("todos"))
-                ? postRepository.findAllByOrderByCreatedAtDesc()
-                : postRepository.findByModuleOrderByCreatedAtDesc(emotion);
+    public Object list(
+            @RequestParam(required = false) String emotion,
+            @RequestParam(required = false) @Min(0) Integer page,
+            @RequestParam(required = false) @Min(1) @Max(Pagination.MAX_SIZE) Integer size) {
+
+        Pageable pageable = Pagination.of(page, size, FEED_SORT);
+        Page<Post> posts = (emotion == null || emotion.isBlank() || emotion.equals("todos"))
+                ? postRepository.findAll(pageable)
+                : postRepository.findByModule(emotion, pageable);
+
         String userId = currentUserIdOrNull();
-        return posts.stream().map(p -> toDto(p, userId)).toList();
+        List<PostDto> items = posts.getContent().stream().map(p -> toDto(p, userId)).toList();
+        return Pagination.isRequested(page, size) ? PageResponse.of(posts, items) : items;
     }
 
     @PostMapping("/posts")

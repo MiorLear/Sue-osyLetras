@@ -3,6 +3,8 @@ package com.explorarte.api.calendar;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,14 +12,19 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.explorarte.api.common.AccessDeniedByPolicyException;
+import com.explorarte.api.common.PageResponse;
+import com.explorarte.api.common.Pagination;
 import com.explorarte.api.common.ResourceNotFoundException;
 import com.explorarte.api.security.CurrentUserService;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -32,10 +39,25 @@ public class EventController {
         this.currentUserService = currentUserService;
     }
 
+    /** Chronological, with the id as tie-breaker so a page boundary is stable
+     * across requests when several events share a date. */
+    private static final Sort AGENDA_SORT = Sort.by(Sort.Order.asc("date"), Sort.Order.asc("id"));
+
+    /**
+     * SCALE-01 — see PostController.list: {@code page}/{@code size} switch the
+     * body to a {@link PageResponse} envelope, their absence keeps the bare
+     * array the deployed clients read, bounded at
+     * {@link Pagination#LEGACY_CAP}.
+     */
     @GetMapping("/events")
-    public List<CalEventDto> list() {
-        return calendarEventRepository.findByOwnerUserId(currentUserService.currentUserId())
-                .stream().map(CalendarEvent::toDto).toList();
+    public Object list(
+            @RequestParam(required = false) @Min(0) Integer page,
+            @RequestParam(required = false) @Min(1) @Max(Pagination.MAX_SIZE) Integer size) {
+
+        Page<CalendarEvent> events = calendarEventRepository.findByOwnerUserId(
+                currentUserService.currentUserId(), Pagination.of(page, size, AGENDA_SORT));
+        List<CalEventDto> items = events.getContent().stream().map(CalendarEvent::toDto).toList();
+        return Pagination.isRequested(page, size) ? PageResponse.of(events, items) : items;
     }
 
     @PostMapping("/events")
