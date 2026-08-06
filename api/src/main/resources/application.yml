@@ -21,8 +21,12 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: 200MB
-      max-request-size: 200MB
+      # Outer guard only. The real cap is per MediaCategory (see
+      # MediaCategory.maxSizeBytes: 5 MB profile photos ... 50 MB learning
+      # video), so this just has to clear the largest of those. 200 MB with no
+      # rate limiting let any authenticated user exhaust storage and egress.
+      max-file-size: 50MB
+      max-request-size: 55MB
 
 server:
   # Cloud Run injects PORT and requires the container to listen on it; local
@@ -44,12 +48,18 @@ springdoc:
 
 app:
   jwt:
-    secret: ${JWT_SECRET:dev-only-not-for-production-change-me}
+    # NO default on purpose (SEC-03): an unset JWT_SECRET must abort startup, not
+    # fall back to a literal that is published in this repository. JwtService
+    # rejects an empty, well-known, or <32-byte key. Generate one with
+    # `openssl rand -base64 48`.
+    secret: ${JWT_SECRET:}
     expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:8081,http://localhost:19006}
   seed:
-    default-password: ${SEED_USER_PASSWORD:explorarte123}
+    # NO default (SEC-02). Without an injected password the seeder skips user creation
+    # entirely, so a deployed environment cannot end up with a known-password ADMIN.
+    default-password: ${SEED_USER_PASSWORD:}
   supabase:
     url: ${SUPABASE_URL:}
     # Either the service_role key (recommended, bypasses RLS) or the anon key
@@ -63,7 +73,26 @@ app:
     # to your own Resend account email.
     from: ${RESEND_FROM:Sueños y Letras <onboarding@resend.dev>}
   auth:
-    # Optional fixed code accepted in addition to the random emailed/logged code.
-    # Set locally for convenient testing without SMS; leave UNSET in production
-    # so there is no fixed-code backdoor.
-    dev-otp-code: ${AUTH_DEV_OTP_CODE:}
+    # SEC-05: a verification code is destroyed after this many failed guesses, so the
+    # 6-digit space cannot be walked inside the 15-minute TTL. Must stay <= 5.
+    otp-max-attempts: ${AUTH_OTP_MAX_ATTEMPTS:5}
+    # SEC-09: the JWT filter re-reads role/status/token-version from the database on every
+    # authenticated request. This is how long a snapshot may be reused — i.e. the worst-case
+    # delay before a rejection, demotion or logout takes effect. Seconds, not hours.
+    user-cache-seconds: ${AUTH_USER_CACHE_SECONDS:5}
+    user-cache-max-entries: ${AUTH_USER_CACHE_MAX_ENTRIES:20000}
+  rate-limit:
+    # SEC-05: token-bucket throttling on /auth/**. Two budgets — per client IP (applied by
+    # AuthRateLimitFilter) and per account identifier (applied by AuthController).
+    enabled: ${AUTH_RATE_LIMIT_ENABLED:true}
+    ip-capacity: ${AUTH_RATE_LIMIT_IP_CAPACITY:30}
+    ip-window-seconds: ${AUTH_RATE_LIMIT_IP_WINDOW_SECONDS:300}
+    identifier-capacity: ${AUTH_RATE_LIMIT_IDENTIFIER_CAPACITY:10}
+    identifier-window-seconds: ${AUTH_RATE_LIMIT_IDENTIFIER_WINDOW_SECONDS:300}
+    # Upper bound on tracked IPs/identifiers, so the limiter itself can't be a memory DoS.
+    max-tracked-keys: ${AUTH_RATE_LIMIT_MAX_TRACKED_KEYS:50000}
+  # SEC-04: there is no AUTH_DEV_OTP_CODE any more. The fixed code was compared
+  # before any DB lookup and was never bound to the identifier, so it worked as a
+  # master key for /auth/otp/verify AND /auth/reset-password. No env var can
+  # re-enable it. For local testing, read the code from the verification_codes
+  # table (see VerificationCodeService's javadoc).

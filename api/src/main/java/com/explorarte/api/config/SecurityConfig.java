@@ -17,6 +17,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.explorarte.api.security.AuthRateLimitFilter;
+import com.explorarte.api.security.AuthRateLimiter;
 import com.explorarte.api.security.JwtAuthenticationFilter;
 import com.explorarte.api.security.RestAccessDeniedHandler;
 import com.explorarte.api.security.RestAuthenticationEntryPoint;
@@ -37,6 +39,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter,
+            AuthRateLimiter authRateLimiter,
             RestAuthenticationEntryPoint entryPoint,
             RestAccessDeniedHandler accessDeniedHandler) throws Exception {
         http
@@ -50,6 +53,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/learning/topics", "/learning/topics/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/tools", "/schools").permitAll()
                         .requestMatchers(HttpMethod.GET, "/screen-intro-videos", "/screen-intro-videos/**").permitAll()
+                        // Must precede the /auth/** rule: logout revokes the caller's own
+                        // sessions, so it needs to know who the caller is.
+                        .requestMatchers(HttpMethod.POST, "/auth/logout").authenticated()
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
@@ -66,6 +72,9 @@ public class SecurityConfig {
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         // everything else requires a valid token
                         .anyRequest().authenticated())
+                // SEC-05: throttle /auth/** by IP before anything else runs, so an unthrottled
+                // brute force can't reach the password hasher or the code lookup at all.
+                .addFilterBefore(new AuthRateLimitFilter(authRateLimiter), JwtAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

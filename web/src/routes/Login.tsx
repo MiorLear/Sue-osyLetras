@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { AuthResult } from '@explorarte/shared';
+import { ApiError, type AuthResult, type UserStatus } from '@explorarte/shared';
 import { GoogleIcon, Icon } from '@/components/Icon';
 import { Logo } from '@/components/Logo';
 import { Field, PrimaryButton } from '@/components/ui';
@@ -22,6 +22,37 @@ const TITLES: Record<ViewKind, string> = {
   'phone-otp': 'Verificar número',
 };
 
+/**
+ * El servidor rechaza una cuenta no aprobada con 403 y un cuerpo problem+json que
+ * trae `code` y `accountStatus` (SEC-01). Antes esa comprobación vivía solo aquí,
+ * leyendo `user.status` de un 200 — y por eso se saltaba llamando a /auth/login
+ * con curl. Ahora el 200 ni siquiera llega para esas cuentas.
+ */
+function accountStatusFrom403(err: unknown): UserStatus | null {
+  if (!(err instanceof ApiError) || err.status !== 403) return null;
+  try {
+    const body = JSON.parse(err.body) as { code?: string; accountStatus?: string };
+    if (body.code === 'ACCOUNT_REJECTED') return 'rejected';
+    if (body.code === 'ACCOUNT_PENDING') return 'pending';
+  } catch {
+    // Cuerpo no-JSON: cae al mensaje genérico de abajo.
+  }
+  return null;
+}
+
+function messageFor(err: unknown): string {
+  if (!(err instanceof ApiError)) {
+    return 'No pudimos conectar con el servidor. Revisa tu conexión e intenta de nuevo.';
+  }
+  // 429: la API ahora limita los intentos y manda Retry-After (SEC-05).
+  if (err.status === 429) {
+    return 'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.';
+  }
+  if (err.status === 401) return 'Correo o contraseña incorrectos.';
+  if (err.status === 400) return 'Revisa los datos ingresados.';
+  return 'Algo salió mal. Intenta de nuevo en un momento.';
+}
+
 export default function Login() {
   const navigate = useNavigate();
   const { signIn } = useAuth();
@@ -30,18 +61,33 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  // Los registros ya no requieren aprobación. Solo se bloquea a quien una
-  // administradora le quitó el acceso ('rejected'); el resto entra: admins a la
-  // consola y docentes a la app.
+  const showPendingScreen = (status: UserStatus) =>
+    navigate('/pendiente', { replace: true, state: { status } });
+
+  // La comprobación de estado se conserva para el modo mock, que resuelve la
+  // cuenta en memoria y devuelve 200 con el status dentro. Contra la API real
+  // esta rama ya no se alcanza: el servidor responde 403 (ver failed()).
   const enter = (result: AuthResult) => {
+    setError(null);
     const u = result.user;
-    if (u.status === 'rejected') {
-      navigate('/pendiente', { replace: true, state: { status: u.status } });
+    if (u.status === 'rejected' || u.status === 'pending') {
+      showPendingScreen(u.status);
       return;
     }
     signIn(result);
     navigate(u.role === 'admin' ? '/admin' : '/main', { replace: true });
+  };
+
+  /** Una cuenta no aprobada va a su pantalla; el resto de errores se muestran. */
+  const failed = (err: unknown) => {
+    const blockedStatus = accountStatusFrom403(err);
+    if (blockedStatus) {
+      showPendingScreen(blockedStatus);
+      return;
+    }
+    setError(messageFor(err));
   };
 
   const subtitle =
@@ -79,7 +125,8 @@ export default function Login() {
                   ¿Olvidaste tu contraseña?
                 </button>
               </div>
-              <PrimaryButton label="Iniciar sesión" onClick={() => api.auth.login({ email, password }).then(enter)} disabled={!email || !password} />
+              <PrimaryButton label="Iniciar sesión" onClick={() => api.auth.login({ email, password }).then(enter).catch(failed)} disabled={!email || !password} />
+              <ErrorNote message={error} />
 
               {usingMock ? (
                 <div style={{ marginTop: 4, padding: 14, borderRadius: 14, background: 'var(--nav-bg)', border: '1px solid #DCEDEA' }}>
@@ -113,7 +160,8 @@ export default function Login() {
           {view === 'phone-number' ? (
             <>
               <Field label="Número de teléfono" icon="phone" placeholder="+502 1234 5678" value={phone} onChangeText={setPhone} />
-              <PrimaryButton label="Enviar código" onClick={() => api.auth.requestOtp(phone).then(() => setView('phone-otp'))} disabled={phone.length < 8} />
+              <PrimaryButton label="Enviar código" onClick={() => api.auth.requestOtp(phone).then(() => { setError(null); setView('phone-otp'); }).catch(failed)} disabled={phone.length < 8} />
+              <ErrorNote message={error} />
             </>
           ) : null}
 
@@ -125,7 +173,8 @@ export default function Login() {
               </div>
               <label className="field-label">Código de 6 dígitos</label>
               <OtpInput value={otp} onChange={setOtp} />
-              <PrimaryButton label="Verificar e iniciar sesión" onClick={() => api.auth.verifyOtp(phone, otp).then(enter)} disabled={otp.length < 6} />
+              <PrimaryButton label="Verificar e iniciar sesión" onClick={() => api.auth.verifyOtp(phone, otp).then(enter).catch(failed)} disabled={otp.length < 6} />
+              <ErrorNote message={error} />
               <button onClick={() => setView('phone-number')} className="center muted" style={{ fontSize: 12.5, padding: 8 }}>
                 ¿No recibiste el código? <span style={{ color: 'var(--brand)', fontWeight: 700 }}>Reenviar</span>
               </button>
@@ -144,6 +193,23 @@ export default function Login() {
           </div>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Antes de esto ninguna llamada de esta pantalla tenía .catch, así que una
+ * contraseña incorrecta era una promesa rechazada sin capturar: el botón no hacía
+ * nada y no se decía nada. Ahora que el servidor también responde 403, 429 y 400,
+ * hace falta un sitio donde contarlo.
+ */
+function ErrorNote({ message }: { message: string | null }) {
+  if (!message) return null;
+  return (
+    <div
+      role="alert"
+      style={{ padding: '10px 12px', borderRadius: 11, background: '#FFF5F5', border: '1px solid #FED7D7', fontSize: 12.5, color: '#C53030' }}>
+      {message}
     </div>
   );
 }

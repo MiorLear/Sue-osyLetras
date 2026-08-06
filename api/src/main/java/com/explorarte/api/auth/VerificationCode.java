@@ -20,6 +20,10 @@ public class VerificationCode {
     @Column(name = "expires_at")
     private Instant expiresAt;
 
+    /** Failed guesses against this code. The code is destroyed once it reaches the cap (SEC-05). */
+    @Column(nullable = false)
+    private int attempts;
+
     protected VerificationCode() {
     }
 
@@ -27,6 +31,7 @@ public class VerificationCode {
         this.identifier = identifier;
         this.code = code;
         this.expiresAt = expiresAt;
+        this.attempts = 0;
     }
 
     public String getIdentifier() {
@@ -47,5 +52,13 @@ public class VerificationCode {
 
     public void setExpiresAt(Instant expiresAt) {
         this.expiresAt = expiresAt;
+    }
+
+    public int getAttempts() {
+        return attempts;
+    }
+
+    public void setAttempts(int attempts) {
+        this.attempts = attempts;
     }
 }

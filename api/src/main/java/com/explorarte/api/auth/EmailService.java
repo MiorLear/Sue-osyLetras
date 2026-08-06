@@ -55,7 +55,8 @@ public class EmailService {
     /** Emails a password-reset code. Returns false (and logs) if disabled or on any failure. */
     public boolean sendPasswordResetCode(String toEmail, String code) {
         if (!isEnabled()) {
-            log.warn("[email] RESEND_API_KEY not set — reset code for {} is {} (NOT sent)", toEmail, code);
+            // SEC-10: never write the code to the log, not even when delivery is disabled.
+            log.warn("[email] RESEND_API_KEY not set — reset code for {} was NOT sent", toEmail);
             return false;
         }
         try {
@@ -78,10 +79,12 @@ public class EmailService {
                 log.info("[email] reset code sent to {}", toEmail);
                 return true;
             }
-            log.error("[email] Resend rejected send to {}: HTTP {} {}", toEmail, response.statusCode(), response.body());
+            // Identifier and status only — the provider's body is echoed back from a request
+            // that carried the code, so it is not safe to log verbatim (SEC-10).
+            log.error("[email] Resend rejected send to {}: HTTP {}", toEmail, response.statusCode());
             return false;
         } catch (Exception ex) {
-            log.error("[email] failed to send reset code to {}: {}", toEmail, ex.toString());
+            log.error("[email] failed to send reset code to {}: {}", toEmail, ex.getClass().getName());
             return false;
         }
     }
