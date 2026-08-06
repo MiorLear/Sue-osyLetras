@@ -66,8 +66,8 @@ app:
     # recipients. Without a verified domain, onboarding@resend.dev only delivers
     # to your own Resend account email.
     from: ${RESEND_FROM:Sueños y Letras <onboarding@resend.dev>}
-  auth:
-    # Optional fixed code accepted in addition to the random emailed/logged code.
-    # Set locally for convenient testing without SMS; leave UNSET in production
-    # so there is no fixed-code backdoor.
-    dev-otp-code: ${AUTH_DEV_OTP_CODE:}
+  # SEC-04: there is no AUTH_DEV_OTP_CODE any more. The fixed code was compared
+  # before any DB lookup and was never bound to the identifier, so it worked as a
+  # master key for /auth/otp/verify AND /auth/reset-password. No env var can
+  # re-enable it. For local testing, read the code from the verification_codes
+  # table (see VerificationCodeService's javadoc).

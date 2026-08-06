@@ -22,9 +22,10 @@ import com.explorarte.api.user.UserStatus;
 
 /**
  * Auth endpoints. Password reset sends a real, random, expiring code by email
- * (see {@link EmailService} / Resend). Phone OTP has no SMS provider wired yet,
- * so its code is logged for dev; an optional {@code AUTH_DEV_OTP_CODE} keeps
- * local testing convenient without a fixed-code backdoor in production.
+ * (see {@link EmailService} / Resend). Phone OTP has no SMS provider wired yet.
+ *
+ * <p>No code is ever logged and there is no fixed "dev" code (SEC-04 / SEC-10) —
+ * read {@code verification_codes} directly when testing locally.
  */
 @RestController
 public class AuthController {

@@ -57,7 +57,8 @@ services:
       # propio correo de la cuenta de Resend.
       - key: RESEND_FROM
         value: Sueños y Letras <onboarding@resend.dev>
-      # AUTH_DEV_OTP_CODE se deja SIN definir en producción: no hay código fijo.
+      # AUTH_DEV_OTP_CODE fue eliminado del código (SEC-04): ya no existe ningún
+      # código fijo, ni siquiera activable por variable de entorno.
 
 
   # --- Demo WEB (escritorio) — Vite + React, carpeta /web ---
