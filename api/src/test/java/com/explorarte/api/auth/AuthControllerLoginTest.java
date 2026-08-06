@@ -7,7 +7,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.Optional;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,6 +17,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.explorarte.api.security.AuthRateLimiter;
 import com.explorarte.api.security.JwtService;
 import com.explorarte.api.user.User;
 import com.explorarte.api.user.UserRepository;
@@ -49,8 +49,15 @@ class AuthControllerLoginTest {
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final JwtService jwtService = new JwtService(JWT_SECRET, 60);
 
+    /**
+     * Los colaboradores que {@code login} no usa siguen yendo a {@code null} a propósito.
+     * El limitador es la excepción: desde SEC-05 {@code login} sí lo consulta, así que se le
+     * pasa uno real y deshabilitado — el throttling tiene sus propios tests y aquí no debe
+     * ser nunca el motivo de un fallo.
+     */
     private AuthController controller() {
-        return new AuthController(userRepository, passwordEncoder, jwtService, null, null, null);
+        return new AuthController(userRepository, passwordEncoder, jwtService, null, null, null,
+                new AuthRateLimiter(false, 1, 1, 1, 1, 1000), null);
     }
 
     private User user(UserStatus status, UserRole role) {
@@ -148,17 +155,14 @@ class AuthControllerLoginTest {
     }
 
     // ------------------------------------------------------------------
-    // Deuda de seguridad conocida (AUDIT.md §3, SEC-01). Los dos tests
-    // siguientes describen el comportamiento correcto y hoy fallan: login
-    // nunca lee user.getStatus(), así que aprobar/rechazar desde el panel de
-    // administración no tiene ningún efecto en el servidor. No se arreglan
-    // aquí — este PR es de guardrails y hay agentes trabajando en
-    // api/src/main/java en paralelo. Quitar @Disabled al cerrar SEC-01.
+    // Deuda de seguridad que estos dos tests describían y que ya está cerrada
+    // (SEC-01, PR #28): login exige APPROVED antes de firmar un token, así que
+    // aprobar/rechazar desde el panel de administración por fin tiene efecto en
+    // el servidor. Estaban @Disabled porque fallaban; ahora pasan.
     // ------------------------------------------------------------------
 
     @Test
-    @Disabled("SEC-01: login no comprueba user.getStatus(); una cuenta rechazada sigue recibiendo token")
-    @DisplayName("SEC-01: una cuenta rechazada no debería poder iniciar sesión")
+    @DisplayName("SEC-01: una cuenta rechazada no puede iniciar sesión")
     void rejectedUserCannotLogIn() {
         when(userRepository.findByEmailIgnoreCase(anyString()))
                 .thenReturn(Optional.of(user(UserStatus.REJECTED, UserRole.TEACHER)));
@@ -170,8 +174,7 @@ class AuthControllerLoginTest {
     }
 
     @Test
-    @Disabled("SEC-01: login no comprueba user.getStatus(); una cuenta pendiente sigue recibiendo token")
-    @DisplayName("SEC-01: una cuenta pendiente no debería poder iniciar sesión")
+    @DisplayName("SEC-01: una cuenta pendiente no puede iniciar sesión")
     void pendingUserCannotLogIn() {
         when(userRepository.findByEmailIgnoreCase(anyString()))
                 .thenReturn(Optional.of(user(UserStatus.PENDING, UserRole.TEACHER)));
