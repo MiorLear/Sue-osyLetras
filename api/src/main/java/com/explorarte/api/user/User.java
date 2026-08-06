@@ -53,6 +53,13 @@ public class User implements Persistable<String> {
 
     private String photo;
 
+    /**
+     * Bumped to invalidate every token this account is currently holding (SEC-09).
+     * Tokens embed it as the {@code tv} claim and are refused once it no longer matches.
+     */
+    @Column(name = "token_version", nullable = false)
+    private int tokenVersion;
+
     @Column(name = "created_at")
     private Instant createdAt = Instant.now();
 
@@ -89,6 +96,12 @@ public class User implements Persistable<String> {
 
     public String getPhoto() { return photo; }
     public void setPhoto(String photo) { this.photo = photo; }
+
+    public int getTokenVersion() { return tokenVersion; }
+    public void setTokenVersion(int tokenVersion) { this.tokenVersion = tokenVersion; }
+
+    /** Invalidates every token already issued to this account. */
+    public void revokeIssuedTokens() { this.tokenVersion++; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
