@@ -926,6 +926,154 @@ a {
   }
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   TOASTS Y DIÁLOGO DE CONFIRMACIÓN (PWA-1.6)
+   Sustituyen a window.alert y window.confirm, que bloquean el hilo
+   principal, no se pueden estilizar y se comportan de forma errática en una
+   PWA instalada.
+   ════════════════════════════════════════════════════════════════════ */
+.toaster {
+  position: fixed;
+  z-index: 100;
+  left: 12px;
+  right: 12px;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  margin-inline: auto;
+  max-width: 460px;
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 12px 12px 14px;
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--text-muted);
+  box-shadow: 0 16px 40px -18px rgba(24, 48, 45, 0.5);
+  animation: toast-in 0.18s ease-out;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+.toast--success {
+  border-left-color: var(--success);
+}
+.toast--error {
+  border-left-color: var(--danger);
+}
+.toast--info {
+  border-left-color: var(--brand);
+}
+.toast__icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.toast--success .toast__icon {
+  color: var(--success);
+}
+.toast--error .toast__icon {
+  color: var(--danger);
+}
+.toast--info .toast__icon {
+  color: var(--brand);
+}
+.toast__copy {
+  flex: 1;
+  min-width: 0;
+}
+.toast__title {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text-dark);
+  margin-bottom: 2px;
+}
+.toast__message {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-body);
+  white-space: pre-line;
+}
+.toast__close {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  margin: -10px -8px -10px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: var(--text-faint);
+}
+.toast__close:hover {
+  background: #f4eee2;
+  color: var(--text-body);
+}
+
+.confirm-dialog {
+  border: none;
+  padding: 0;
+  background: transparent;
+  max-width: 400px;
+  width: calc(100% - 32px);
+  color: inherit;
+}
+.confirm-dialog::backdrop {
+  background: rgba(24, 48, 45, 0.45);
+}
+.confirm-dialog__inner {
+  background: var(--card);
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  padding: 22px;
+  box-shadow: 0 26px 70px -24px rgba(24, 48, 45, 0.6);
+}
+.confirm-dialog__title {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+.confirm-dialog__message {
+  margin-top: 8px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-body);
+}
+.confirm-dialog__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+.confirm-dialog__cancel,
+.confirm-dialog__confirm {
+  flex: 1;
+  min-height: 44px;
+  padding: 12px 14px;
+  border-radius: 13px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.confirm-dialog__cancel {
+  background: #fff;
+  border: 1.5px solid var(--border-input);
+  color: var(--text-body);
+}
+.confirm-dialog__confirm {
+  background: var(--brand-gradient);
+  color: #fff;
+}
+.confirm-dialog__confirm--danger {
+  background: var(--danger);
+}
+
 /* Mínimo táctil de 44px en los controles compartidos con escritorio. */
 @media (pointer: coarse) {
   .sidebar-nav button,

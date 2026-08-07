@@ -3,6 +3,7 @@ import type { SubTopic, Topic } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
 import { AdminBtn, AdminModal, MediaListEditor } from '@/components/admin/ui';
+import { confirmDialog } from '@/components/confirm-store';
 import { api } from '@/lib/api';
 
 const TOPIC_BG = ['#EEEAF7', '#EAF3E8', '#F8E8DE', '#FBF1DA'];
@@ -74,7 +75,13 @@ export default function AdminAprendiendo() {
   };
 
   const remove = async (t: Topic) => {
-    if (!confirm(`¿Eliminar el tema "${t.title}"?`)) return;
+    const ok = await confirmDialog({
+      title: `¿Eliminar el tema "${t.title}"?`,
+      message: 'Esta acción no se puede deshacer.',
+      confirmLabel: 'Eliminar',
+      tone: 'danger',
+    });
+    if (!ok) return;
     await api.learning.removeTopic(t.id);
     showToast('Tema eliminado');
     load();
