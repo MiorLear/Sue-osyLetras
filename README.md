@@ -9,9 +9,9 @@ Construida con **Expo SDK 54**, **Expo Router** (navegación por archivos), **re
 >
 > 🧭 **¿Ya lo tienes corriendo y quieres saber cómo trabajamos como equipo?** Ve a
 > [`COMO-TRABAJAMOS.md`](./COMO-TRABAJAMOS.md) (arquitectura, cómo agregar una funcionalidad,
-> convenciones). Para el plan de despliegue a producción (Firebase Hosting + Cloud Run), ve a
-> [`DESPLIEGUE.md`](./DESPLIEGUE.md). Para cómo funciona (o funcionará) el acceso sin internet a
-> documentos y videos descargados, ve a [`OFFLINE.md`](./OFFLINE.md).
+> convenciones). Para el despliegue —producción en Google Cloud, staging en Render— ve a
+> [`DESPLIEGUE.md`](./DESPLIEGUE.md), que es el runbook único. Para cómo funciona el acceso sin
+> internet a documentos y videos descargados, ve a [`OFFLINE.md`](./OFFLINE.md).
 
 ## Cómo levantar el proyecto
 
@@ -48,11 +48,15 @@ Esto levanta tres servicios:
 | `api` (docs) | http://localhost:8000/swagger-ui.html | Explora y prueba cada endpoint sin leer una línea de Java |
 | `db` | localhost:5432 | PostgreSQL (Postgres), solo si necesitas conectarte con un cliente SQL |
 
-Cuentas de ejemplo precargadas por la API (misma contraseña para todas:
-`explorarte123`, o la que pongas en `SEED_USER_PASSWORD` dentro de `.env`):
+Cuentas de ejemplo precargadas por la API:
 
 - `admin@explorarte.org` — administrador
 - `maria@ejemplo.com`, `ana@ejemplo.com`, `lucia@ejemplo.com`, `sofia@ejemplo.com` — docentes
+
+La contraseña de todas es la que pongas en `SEED_USER_PASSWORD` dentro de tu `.env`. **No se
+publica aquí**: este repositorio es público y una contraseña escrita en el README acaba sirviendo
+en algún entorno desplegado donde alguien la copió tal cual (SEC-02). Si dejas la variable vacía,
+la API no crea ninguna cuenta de ejemplo.
 
 Comandos útiles (equivalentes a `docker compose ...`, agregados a `package.json`):
 
@@ -84,23 +88,29 @@ Tanto mobile como web soportan además `EXPO_PUBLIC_API_MOCK_MODULES` /
 quedan en el mock aunque la URL de la API esté configurada — útil para seguir
 trabajando en una pantalla sin depender de que esa parte de la API ya esté lista.
 
-## Demos en Render (sin backend)
+## Entorno compartido en Render (desarrollo/staging)
 
-El repo incluye un **blueprint** [`render.yaml`](./render.yaml) que publica **dos
-demos estáticas** en [Render](https://render.com), ambas contra el cliente **mock
-en memoria** (no requieren backend ni variables de entorno):
+El repo incluye un **blueprint** [`render.yaml`](./render.yaml) que publica el
+backend real más dos sitios estáticos en [Render](https://render.com):
 
-| Sitio | Origen | Qué es |
+| Servicio | Origen | Qué es |
 |-------|--------|--------|
-| `explorarte-web` | `/web` (Vite + React) | Demo **web de escritorio** (sidebar, multi-columna) |
-| `explorarte-mobile` | raíz (Expo web export) | Demo **mobile** (vista de móvil en el navegador) |
+| `explorarte-api` | `/api` (Docker) | La API Java real, contra una Postgres persistente |
+| `explorarte-web` | `/web` (Vite + React) | Vista **web de escritorio** (sidebar, multi-columna) |
+| `explorarte-mobile` | raíz (Expo web export) | Vista **mobile** en el navegador |
+
+Los dos sitios apuntan a la API real vía `VITE_API_URL` / `EXPO_PUBLIC_API_URL`, que
+`render.yaml` ya configura — **no corren contra el mock**, aunque este README lo dijera antes.
 
 **Publicar:** en Render → **New → Blueprint** → conecta este repositorio. Render
-detecta `render.yaml` y crea ambos sitios automáticamente. Cada push a la rama
+detecta `render.yaml` y crea todo automáticamente. Cada push a la rama
 re-despliega; los Pull Requests generan previews.
 
-> Login demo: cualquier contraseña sirve. Usa `admin@explorarte.org` (admin),
-> `maria@ejemplo.com` (docente aprobada) o `ana@ejemplo.com` (docente pendiente).
+> **Esto es desarrollo/staging, no producción.** Producción va en Google Cloud (Firebase Hosting +
+> Cloud Run + Cloud SQL). El runbook único es [`DESPLIEGUE.md`](./DESPLIEGUE.md).
+>
+> Las credenciales de este entorno no se publican; pídelas por un canal privado. Y es plan
+> gratuito: tras un rato sin uso, el primer request puede tardar **más de 90 segundos**.
 
 ## Estructura
 
@@ -135,6 +145,10 @@ navegación de los diseños originales.
 - La pantalla de Perfil usa `expo-image-picker` para cambiar la foto (funciona en Expo Go).
 - El Calendario usa el **date/time picker nativo** (`@react-native-community/datetimepicker`)
   para elegir fecha y hora de los eventos.
-- La pestaña **Video** de cada módulo reproduce el video demo (`assets/video/demo.mp4`)
-  con `expo-video` y controles nativos.
+- La pestaña **Video** de cada módulo reproduce el video que un admin haya subido para esa
+  pantalla desde el CMS web (`/admin/videos-intro`), con `expo-video`. Si no hay ninguno, la
+  tarjeta simplemente no se muestra (`src/components/video-placeholder.tsx`). Si el archivo ya se
+  descargó, se reproduce la copia local y funciona sin conexión.
+  <br>*(`assets/video/demo.mp4` sigue en el repo pero ya no lo usa ningún componente — son 14 MB
+  que se pueden borrar en una limpieza aparte.)*
 - Los íconos están reimplementados como SVG en `src/components/icon.tsx`.

@@ -402,12 +402,24 @@ psql "$CLOUD_SQL_URL" \
   -f scripts/migrate-media-urls.sql
 ```
 
-### ⚠️ Antes del paso 4, avisa al equipo
+### ⚠️ Antes del paso 4: qué le pasa a lo que ya está descargado
 
-**Cambian todas las URLs de medios, así que todo archivo ya cacheado en los teléfonos queda
-invalidado y se vuelve a descargar una vez.** Es una sola vez y es inevitable —el archivo cambia de
-dominio—, pero para una docente con varios videos guardados puede ser bastante tráfico de golpe, y
-si está con datos móviles lo va a notar. Hazlo en horario de poco uso y avísalo antes.
+**Cambian todas las URLs de medios.** El efecto en las cachés existentes no es el mismo en los dos
+clientes, y la diferencia está en por qué clave guarda cada uno:
+
+| Cliente | Clave de la caché | Qué pasa |
+|---|---|---|
+| **Mobile (Expo)** | el **id** del `MediaItem`, con `sizeBytes` como versión (`src/lib/offlineStorage.ts:67-73`, `src/lib/media-sync.ts:16-25`) | **Nada.** Ni el id ni el tamaño cambian con la migración, así que `needsUpdate()` sigue devolviendo `false` y `getLocalUri()` sigue resolviendo al archivo local. Los teléfonos que ya bajaron contenido no vuelven a bajar nada. |
+| **PWA (índice de medios en IndexedDB, PR #29)** | la **URL** | **Se invalida todo una vez.** Cada archivo ya cacheado se vuelve a descargar la próxima vez que ese navegador tenga red. Es inevitable: el archivo cambia de dominio. |
+
+O sea que el susto es real pero acotado: le pasa a la PWA, no a la app instalada. Aun así, para una
+docente con varios videos guardados en el navegador puede ser bastante tráfico de golpe, y con
+datos móviles lo va a notar. Hazlo en horario de poco uso y avísalo antes.
+
+> Si alguien quiere evitar incluso esa invalidación, la palanca es la caché de la PWA, no la
+> migración: reindexar por id de `MediaItem` en vez de por URL la haría inmune a este cambio y a
+> cualquier futuro cambio de dominio, igual que ya lo es la de mobile. Es una decisión del lote que
+> mantiene esa caché.
 
 El script corre en una transacción y verifica al final que no quede ninguna fila apuntando a
 `supabase.co`; si queda alguna, aborta sin confirmar nada.
