@@ -1,33 +1,8 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-
-interface NavItem {
-  emoji: string;
-  label: string;
-  href: string;
-}
-
-const TEACHER_NAV: NavItem[] = [
-  { emoji: 'ℹ️', label: 'Sobre ExplorArte', href: '/sobre' },
-  { emoji: '🏠', label: 'Inicio', href: '/main' },
-  { emoji: '💛', label: 'Biblioteca de emociones', href: '/emociones' },
-  { emoji: '🧰', label: 'Caja de herramientas', href: '/herramientas' },
-  { emoji: '🌱', label: 'Aprendiendo', href: '/aprendiendo' },
-  { emoji: '💬', label: 'Comunidad', href: '/comunidad' },
-  { emoji: '🗓️', label: 'Calendario', href: '/calendar' },
-  { emoji: '👤', label: 'Perfil', href: '/profile' },
-];
-
-const ADMIN_NAV: NavItem[] = [
-  { emoji: 'ℹ️', label: 'Sobre ExplorArte', href: '/sobre' },
-  { emoji: '🛠️', label: 'Panel', href: '/admin' },
-  { emoji: '✅', label: 'Usuarios', href: '/admin/usuarios' },
-  { emoji: '💛', label: 'Emociones', href: '/admin/emociones' },
-  { emoji: '🧰', label: 'Herramientas', href: '/admin/herramientas' },
-  { emoji: '🌱', label: 'Aprendiendo', href: '/admin/aprendiendo' },
-  { emoji: '🎬', label: 'Videos de introducción', href: '/admin/videos-intro' },
-  { emoji: '👤', label: 'Perfil', href: '/profile' },
-];
+// Las listas viven en nav-items.ts para que la barra inferior de móvil y la
+// hoja de "Más" naveguen exactamente lo mismo que el sidebar.
+import { ADMIN_NAV, TEACHER_NAV, isActive } from './nav-items';
 
 export function Sidebar() {
   const navigate = useNavigate();
@@ -54,7 +29,7 @@ export function Sidebar() {
 
       <nav className="sidebar-nav escroll">
         {nav.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(item.href + '/');
+          const active = isActive(pathname, item.href);
           return (
             <button
               key={item.href}
