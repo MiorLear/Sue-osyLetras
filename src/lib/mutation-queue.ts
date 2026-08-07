@@ -361,7 +361,80 @@ export async function flushQueue(): Promise<void> {
     });
   } finally {
     flushing = false;
+    rescheduleRetry();
   }
+}
+
+// --- Retry ladder ---------------------------------------------------------
+//
+// The only flush trigger used to be the `online` flag flipping (BUG-07), so a
+// device that booted already-connected with a pending queue never retried, and
+// a transient server error stranded the outbox until the next connectivity
+// change — which on a classroom tablet on stable Wi-Fi may never come.
+//
+// The invariant: while there is queued work, a flush is always scheduled. The
+// timer lives here (pure JS, testable); the app-lifecycle triggers — app start,
+// reconnect, return to foreground — are wired in src/app/_layout.tsx, since
+// react-native's AppState must not leak into this module.
+
+const BASE_RETRY_MS = 15_000;
+const MAX_RETRY_MS = 5 * 60_000;
+
+let autoFlush = false;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+let retryStep = 0;
+
+/** Exponential backoff, capped, with ±25% jitter so a classroom full of tablets
+ *  coming back on the same Wi-Fi doesn't retry in lockstep. */
+function nextRetryDelay(): number {
+  const base = Math.min(MAX_RETRY_MS, BASE_RETRY_MS * 2 ** retryStep);
+  const jitter = base * 0.25 * (Math.random() * 2 - 1);
+  return Math.max(1_000, Math.round(base + jitter));
+}
+
+function clearRetry(): void {
+  if (retryTimer) {
+    clearTimeout(retryTimer);
+    retryTimer = null;
+  }
+}
+
+/** Called after every pass: arms the next attempt while work is pending, and
+ *  stops the timer as soon as the queue drains. */
+function rescheduleRetry(): void {
+  if (!autoFlush) return;
+  if (queue.length === 0) {
+    retryStep = 0;
+    clearRetry();
+    return;
+  }
+  if (retryTimer) return;
+  const delay = nextRetryDelay();
+  retryStep = Math.min(retryStep + 1, 8);
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    void flushQueue();
+  }, delay);
+}
+
+/** Starts the retry ladder and flushes once immediately (the app-start trigger).
+ *  Returns a stop function; call it on unmount. */
+export function startOutboxRetries(): () => void {
+  autoFlush = true;
+  void flushQueue();
+  return () => {
+    autoFlush = false;
+    retryStep = 0;
+    clearRetry();
+  };
+}
+
+/** A flush prompted by an app-lifecycle event (reconnect, foreground). Resets
+ *  the backoff: the conditions changed, so the next failure starts over. */
+export function flushQueueNow(): void {
+  retryStep = 0;
+  clearRetry();
+  void flushQueue();
 }
 
 const subscribe = (cb: () => void): (() => void) => {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as MutationQueue from '@/lib/mutation-queue';
 
@@ -358,5 +358,76 @@ describe('outbox · clasificacion de errores', () => {
 
     await fresh.discardFailedMutations();
     expect(await fresh.listFailedMutations()).toHaveLength(0);
+  });
+});
+
+describe('outbox · escalera de reintentos', () => {
+  // BUG-07: el unico disparador era que el flag `online` cambiara, asi que un
+  // dispositivo que arranca ya conectado con cola pendiente no reintentaba
+  // nunca. La invariante nueva: mientras haya trabajo encolado, siempre hay un
+  // flush programado.
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('arrancar la escalera reintenta ya, sin esperar a un cambio de conectividad', async () => {
+    const q = await load([{ id: 'm-1', kind: 'event.remove', targetId: 'e-9' }]);
+    const stop = q.startOutboxRetries();
+    await vi.waitFor(() => expect(apiMock.events.remove).toHaveBeenCalledWith('e-9'));
+    stop();
+  });
+
+  it('reintenta con backoff mientras quede trabajo, y para al vaciarse la cola', async () => {
+    apiMock.events.remove.mockRejectedValue(Object.assign(new Error('502'), { status: 502 }));
+
+    const q = await load([{ id: 'm-1', kind: 'event.remove', targetId: 'e-9' }]);
+    const stop = q.startOutboxRetries();
+    await vi.waitFor(() => expect(apiMock.events.remove).toHaveBeenCalledTimes(1));
+
+    // El temporizador queda armado aunque nadie toque la conectividad.
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(apiMock.events.remove.mock.calls.length).toBeGreaterThan(1);
+
+    // Cuando el servidor se recupera y la cola se vacia, el temporizador para.
+    apiMock.events.remove.mockResolvedValue(undefined);
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    const afterDrain = apiMock.events.remove.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(30 * 60_000);
+    expect(apiMock.events.remove).toHaveBeenCalledTimes(afterDrain);
+
+    stop();
+  });
+
+  it('el backoff esta topado y no dispara antes del minimo', async () => {
+    apiMock.events.remove.mockRejectedValue(Object.assign(new Error('502'), { status: 502 }));
+
+    const q = await load([{ id: 'm-1', kind: 'event.remove', targetId: 'e-9' }]);
+    const stop = q.startOutboxRetries();
+    await vi.waitFor(() => expect(apiMock.events.remove).toHaveBeenCalledTimes(1));
+
+    // Primer tramo del backoff: 15 s ±25%, asi que a los 10 s no hay reintento.
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(apiMock.events.remove).toHaveBeenCalledTimes(1);
+
+    // Y aun con el tope de 5 min, media hora da varios reintentos, no uno solo.
+    await vi.advanceTimersByTimeAsync(30 * 60_000);
+    expect(apiMock.events.remove.mock.calls.length).toBeGreaterThan(4);
+
+    stop();
+  });
+
+  it('parar la escalera cancela el temporizador', async () => {
+    apiMock.events.remove.mockRejectedValue(Object.assign(new Error('502'), { status: 502 }));
+
+    const q = await load([{ id: 'm-1', kind: 'event.remove', targetId: 'e-9' }]);
+    const stop = q.startOutboxRetries();
+    await vi.waitFor(() => expect(apiMock.events.remove).toHaveBeenCalledTimes(1));
+
+    stop();
+    await vi.advanceTimersByTimeAsync(30 * 60_000);
+    expect(apiMock.events.remove).toHaveBeenCalledTimes(1);
   });
 });
