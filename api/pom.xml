@@ -22,12 +22,31 @@
     <jjwt.version>0.12.6</jjwt.version>
     <springdoc.version>2.6.0</springdoc.version>
     <bucket4j.version>8.10.1</bucket4j.version>
+    <!-- GCP-01 / GCP-04: Google Cloud client libraries. Pinned through the
+         official BOM so the shared transitive graph (google-auth-library,
+         gax, guava, protobuf) resolves to one coherent set instead of
+         whatever Maven's nearest-wins picks between the Cloud SQL connector
+         and the Storage client. -->
+    <google-cloud-libraries.version>26.50.0</google-cloud-libraries.version>
+    <cloud-sql-socket-factory.version>1.20.1</cloud-sql-socket-factory.version>
     <!-- SEC-16 / CVE-2025-22228: Boot 3.3.4 pins Spring Security 6.3.3, where
          BCryptPasswordEncoder.matches() returns true for ANY password over 72 bytes whose
          first 72 bytes match. Fixed in 6.3.8 (and 6.4.4). Still on the 6.3.x line, so this
          is a patch bump, not a minor upgrade. -->
     <spring-security.version>6.3.8</spring-security.version>
   </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.google.cloud</groupId>
+        <artifactId>libraries-bom</artifactId>
+        <version>${google-cloud-libraries.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 
   <dependencies>
     <dependency>
@@ -55,6 +74,48 @@
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
       <scope>runtime</scope>
+    </dependency>
+
+    <!-- GCP-01: Cloud SQL connects over a Unix socket / TLS tunnel instead of a
+         host:port, so the JDBC URL names a socketFactory implementation that has
+         to be on the classpath. Runtime scope: no Java code references it: the
+         only thing that selects it is the value of SPRING_DATASOURCE_URL, which
+         is how the same jar runs unchanged against docker-compose, Render and
+         Cloud SQL. See DESPLIEGUE.md ("Un solo jar, tres bases de datos"). -->
+    <dependency>
+      <groupId>com.google.cloud.sql</groupId>
+      <artifactId>postgres-socket-factory</artifactId>
+      <version>${cloud-sql-socket-factory.version}</version>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!-- GCP-04 / SEC-11: Cloud Storage for Firebase (a Google Cloud Storage
+         bucket) replaces Supabase Storage. Used for uploads and for minting V4
+         signed URLs; credentials come from ADC, never from a checked-in key. -->
+    <dependency>
+      <groupId>com.google.cloud</groupId>
+      <artifactId>google-cloud-storage</artifactId>
+      <exclusions>
+        <!-- GCP-05: the library ships both a JSON/HTTP and a gRPC transport and
+             pulls the whole gRPC + protobuf + OpenTelemetry stack for the
+             latter. GcsMediaStorageClient uses StorageOptions (JSON/HTTP), so
+             dropping gRPC costs nothing at runtime and takes ~40 MB off the fat
+             jar — which is ~40 MB Cloud Run does not have to pull and unpack on
+             every cold start. If anyone ever switches to GrpcStorageOptions,
+             these exclusions have to come back. -->
+        <exclusion>
+          <groupId>com.google.api</groupId>
+          <artifactId>gax-grpc</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>io.grpc</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.google.cloud.opentelemetry</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
