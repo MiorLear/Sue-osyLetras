@@ -199,7 +199,7 @@ function upgrade(db: IDBDatabase, oldVersion: number): void {
 /** Opens (and memoises) the database. */
 export function openDb(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
-  dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
+  const attempt = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = (event) => upgrade(request.result, event.oldVersion);
     request.onsuccess = () => {
@@ -220,6 +220,14 @@ export function openDb(): Promise<IDBDatabase> {
       dbPromise = null;
       reject(new Error('IndexedDB upgrade blocked by another tab'));
     };
+  });
+
+  // Never memoise a rejection. `indexedDB.open` can also throw synchronously
+  // (private-mode Firefox, a revoked storage permission); without this reset a
+  // single transient failure would wedge the cache for the whole session.
+  dbPromise = attempt.catch((err) => {
+    dbPromise = null;
+    throw err;
   });
   return dbPromise;
 }
