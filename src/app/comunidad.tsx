@@ -13,7 +13,14 @@ import { Icon } from '@/components/icon';
 import { brandGradient, colors } from '@/constants/theme';
 import { api } from '@/lib/api';
 import { showNotice } from '@/lib/notice';
-import { enqueuePostComment, enqueuePostCreate, enqueuePostLike, usePendingCount } from '@/lib/mutation-queue';
+import {
+  enqueuePostComment,
+  enqueuePostCreate,
+  enqueuePostLike,
+  isTempPostId,
+  newTempPostId,
+  usePendingCount,
+} from '@/lib/mutation-queue';
 import { useIsOnline } from '@/lib/useNetworkStatus';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
 
@@ -66,8 +73,6 @@ export default function ComunidadExplorArteScreen() {
   const online = useIsOnline();
   const pending = usePendingCount();
   const prevPending = useRef(pending);
-  // Posts created offline (temp id) can't be liked/commented until they sync.
-  const [pendingPostIds, setPendingPostIds] = useState<Set<number>>(() => new Set());
 
   // Mirror the loaded feed into local state so like/comment/publish mutations
   // can update posts in place without refetching.
@@ -78,23 +83,21 @@ export default function ComunidadExplorArteScreen() {
   // When the offline queue drains (its changes just synced), refetch so the
   // optimistic temp posts/likes/comments are replaced by the real server ones.
   useEffect(() => {
-    if (prevPending.current > 0 && pending === 0) {
-      reload();
-      setPendingPostIds(new Set());
-    }
+    if (prevPending.current > 0 && pending === 0) reload();
     prevPending.current = pending;
   }, [pending, reload]);
 
   const toggleLike = async (id: number) => {
-    // A post created offline has no server id yet — can't like it until it syncs.
-    if (likingIds.includes(id) || pendingPostIds.has(id)) return;
+    if (likingIds.includes(id)) return;
     setLikingIds((ids) => [...ids, id]);
     const optimistic = () =>
       setPosts((ps) =>
         ps.map((p) => (p.id === id ? { ...p, liked: !p.liked, likes: p.likes + (p.liked ? -1 : 1) } : p)),
       );
     try {
-      if (online) {
+      // A post created offline has no server id yet, so it always goes through
+      // the queue: the placeholder id is rewritten once its create syncs.
+      if (online && !isTempPostId(id)) {
         const updated = await api.posts.toggleLike(id);
         setPosts((ps) => ps.map((p) => (p.id === id ? updated : p)));
       } else {
@@ -115,13 +118,13 @@ export default function ComunidadExplorArteScreen() {
 
   const sendComment = async (id: number) => {
     const text = (drafts[id] || '').trim();
-    if (!text || sendingIds.includes(id) || pendingPostIds.has(id)) return;
+    if (!text || sendingIds.includes(id)) return;
     setSendingIds((ids) => [...ids, id]);
     const localComment: Comment = { user: 'Tú', initials: 'Tú', avatarBg: '#3DBFB8', time: 'ahora', text };
     const append = (c: Comment) =>
       setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, comments: [...p.comments, c] } : p)));
     try {
-      if (online) {
+      if (online && !isTempPostId(id)) {
         append(await api.posts.addComment(id, { text }));
       } else {
         await enqueuePostComment(id, { text });
@@ -147,7 +150,7 @@ export default function ComunidadExplorArteScreen() {
     setSubmitting(true);
     const input = { text, module: filter === 'todos' ? null : filter, attachments: attachment ? [attachment] : [] };
     const queueLocally = async () => {
-      const tempId = Date.now();
+      const tempId = newTempPostId();
       await enqueuePostCreate(tempId, input);
       const tempPost: Post = {
         id: tempId,
@@ -165,7 +168,6 @@ export default function ComunidadExplorArteScreen() {
         attachments: input.attachments,
       };
       setPosts((ps) => [tempPost, ...ps]);
-      setPendingPostIds((s) => new Set(s).add(tempId));
     };
     try {
       if (online) {

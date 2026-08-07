@@ -158,6 +158,78 @@ describe('outbox · ids temporales', () => {
   });
 });
 
+describe('outbox · ids temporales de posts (BUG-06)', () => {
+  // Un post creado sin conexion no se podia gustar ni comentar hasta que
+  // sincronizara: enqueuePostLike/Comment exigian un id numerico real y las
+  // pantallas lo parcheaban caso por caso. Ahora la cola lleva un mapa
+  // temp -> real y reescribe lo encolado en cuanto el servidor asigna el id.
+
+  it('un like sobre un post creado offline se replica contra el id real', async () => {
+    apiMock.posts.create.mockResolvedValue({ id: 42 } as never);
+
+    const q = await load();
+    const tempId = q.newTempPostId();
+    await q.enqueuePostCreate(tempId, { text: 'hola' } as never);
+    await q.enqueuePostLike(tempId);
+    await q.enqueuePostComment(tempId, { text: 'me respondo' } as never);
+    await q.flushQueue();
+
+    expect(apiMock.posts.toggleLike).toHaveBeenCalledWith(42);
+    expect(apiMock.posts.addComment).toHaveBeenCalledWith(42, expect.objectContaining({ text: 'me respondo' }));
+    expect(persisted()).toHaveLength(0);
+  });
+
+  it('el id temporal se distingue del real a simple vista', async () => {
+    const q = await load();
+    expect(q.isTempPostId(q.newTempPostId())).toBe(true);
+    expect(q.isTempPostId(42)).toBe(false);
+  });
+
+  it('el mapa sobrevive: un like posterior al sync tambien va al id real', async () => {
+    apiMock.posts.create.mockResolvedValue({ id: 42 } as never);
+
+    const q = await load();
+    const tempId = q.newTempPostId();
+    await q.enqueuePostCreate(tempId, { text: 'hola' } as never);
+    await q.flushQueue();
+
+    // La pantalla sigue mostrando el id temporal hasta el siguiente reload.
+    await q.enqueuePostLike(tempId);
+    await q.flushQueue();
+
+    expect(apiMock.posts.toggleLike).toHaveBeenCalledWith(42);
+  });
+
+  it('los dos toggles siguen anulandose aunque uno use el id temporal', async () => {
+    apiMock.posts.create.mockResolvedValue({ id: 42 } as never);
+
+    const q = await load();
+    const tempId = q.newTempPostId();
+    await q.enqueuePostCreate(tempId, { text: 'hola' } as never);
+    await q.flushQueue();
+
+    await q.enqueuePostLike(tempId); // via mapa -> 42
+    await q.enqueuePostLike(42); // el mismo post, ya con id real
+    expect(persisted()).toHaveLength(0);
+  });
+
+  it('si el post no se pudo crear, sus likes y comentarios no quedan huerfanos', async () => {
+    apiMock.posts.create.mockRejectedValue(Object.assign(new Error('bad'), { status: 422 }));
+
+    const q = await load();
+    const tempId = q.newTempPostId();
+    await q.enqueuePostCreate(tempId, { text: 'hola' } as never);
+    await q.enqueuePostLike(tempId);
+    await q.enqueueProfileUpdate({ name: 'Ana' } as never);
+    await q.flushQueue();
+
+    expect(apiMock.posts.toggleLike).not.toHaveBeenCalled();
+    expect(apiMock.profile.update).toHaveBeenCalledTimes(1);
+    expect(persisted()).toHaveLength(0);
+    expect(await q.listFailedMutations()).toHaveLength(2);
+  });
+});
+
 describe('outbox · flush', () => {
   it('despacha en orden y vacia la cola', async () => {
     const order: string[] = [];

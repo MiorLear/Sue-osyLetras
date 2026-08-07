@@ -116,6 +116,12 @@ export async function loadQueue(): Promise<void> {
   } catch {
     failed.length = 0;
   }
+  try {
+    const raw = await AsyncStorage.getItem(ID_MAP_KEY);
+    postIdMap = raw ? (JSON.parse(raw) as Record<string, number>) : {};
+  } catch {
+    postIdMap = {};
+  }
   loaded = true;
   emit();
 }
@@ -183,6 +189,68 @@ export async function enqueueEventRemove(targetId: string): Promise<void> {
   emit();
 }
 
+// --- Temp post ids --------------------------------------------------------
+//
+// A post created offline gets a placeholder id, and BUG-06 was that likes and
+// comments could not attach to it: `enqueuePostLike/Comment` needed a real
+// numeric id, so the screens special-cased pending posts and simply refused the
+// interaction. Events sidestep this by folding edits into their pending create,
+// but a like or a comment is not an edit of the post — it is a separate write
+// that must land *after* the server assigns the id.
+//
+// So the queue keeps a temp→real map instead. Placeholder ids are minted above
+// TEMP_POST_ID_FLOOR, which the server's sequence will never reach, so a temp id
+// is recognisable on sight — in the queue, in a screen, and in a stored queue
+// from an older version of the app.
+
+const ID_MAP_KEY = 'offline-post-id-map-v1';
+const TEMP_POST_ID_FLOOR = 1e12;
+const ID_MAP_LIMIT = 200;
+
+let postIdMap: Record<string, number> = {};
+
+/** A placeholder id for a post created offline. */
+export function newTempPostId(): number {
+  return Date.now();
+}
+
+/** True for a placeholder id the server has never seen. */
+export function isTempPostId(postId: number): boolean {
+  return postId >= TEMP_POST_ID_FLOOR;
+}
+
+/** The server id for a post, if its create already synced; otherwise unchanged. */
+export function resolvePostId(postId: number): number {
+  return postIdMap[String(postId)] ?? postId;
+}
+
+async function persistIdMap(): Promise<void> {
+  try {
+    await AsyncStorage.setItem(ID_MAP_KEY, JSON.stringify(postIdMap));
+  } catch {
+    /* best-effort */
+  }
+}
+
+/** Records the id the server assigned and rewrites everything still queued
+ *  against the placeholder, so replay never dispatches a temp id. */
+async function mapPostId(tempId: number, realId: number): Promise<void> {
+  postIdMap[String(tempId)] = realId;
+  // Temp ids are Date.now(), so the numeric key order is chronological: drop the
+  // oldest entries once the map grows past its cap.
+  const keys = Object.keys(postIdMap);
+  if (keys.length > ID_MAP_LIMIT) {
+    const keep = keys.map(Number).sort((a, b) => a - b).slice(-ID_MAP_LIMIT);
+    postIdMap = Object.fromEntries(keep.map((k) => [String(k), postIdMap[String(k)]]));
+  }
+  for (const m of queue) {
+    if ((m.kind === 'post.like' || m.kind === 'post.comment') && m.postId === tempId) {
+      m.postId = realId;
+    }
+  }
+  await persistIdMap();
+}
+
 /** Queue creating a post; tempId is the placeholder id shown until it syncs. */
 export async function enqueuePostCreate(tempId: number, input: CreatePostInput): Promise<void> {
   await loadQueue();
@@ -191,23 +259,25 @@ export async function enqueuePostCreate(tempId: number, input: CreatePostInput):
   emit();
 }
 
-/** Queue a like toggle for a synced post. Two toggles cancel out (coalesced). */
+/** Queue a like toggle. Works on a post created offline too: the placeholder id
+ *  is rewritten once its create syncs. Two toggles cancel out (coalesced). */
 export async function enqueuePostLike(postId: number): Promise<void> {
   await loadQueue();
-  const existingIdx = queue.findIndex((m) => m.kind === 'post.like' && m.postId === postId);
+  const target = resolvePostId(postId);
+  const existingIdx = queue.findIndex((m) => m.kind === 'post.like' && m.postId === target);
   if (existingIdx >= 0) {
     queue.splice(existingIdx, 1); // like + unlike → no net change
   } else {
-    queue.push({ id: newId(), kind: 'post.like', postId });
+    queue.push({ id: newId(), kind: 'post.like', postId: target });
   }
   await persist();
   emit();
 }
 
-/** Queue a comment on a synced post. */
+/** Queue a comment. Works on a post created offline too (see enqueuePostLike). */
 export async function enqueuePostComment(postId: number, input: CreateCommentInput): Promise<void> {
   await loadQueue();
-  queue.push({ id: newId(), kind: 'post.comment', postId, input });
+  queue.push({ id: newId(), kind: 'post.comment', postId: resolvePostId(postId), input });
   await persist();
   emit();
 }
@@ -226,14 +296,19 @@ async function dispatch(m: Mutation): Promise<void> {
     case 'event.remove':
       await api.events.remove(m.targetId);
       break;
-    case 'post.create':
-      await api.posts.create(m.input);
+    case 'post.create': {
+      const created = await api.posts.create(m.input);
+      // The moment the server assigns an id, everything queued against the
+      // placeholder is rewritten — this is what lets a like or comment made
+      // offline on an offline-created post replay correctly.
+      if (typeof created?.id === 'number') await mapPostId(m.tempId, created.id);
       break;
+    }
     case 'post.like':
-      await api.posts.toggleLike(m.postId);
+      await api.posts.toggleLike(resolvePostId(m.postId));
       break;
     case 'post.comment':
-      await api.posts.addComment(m.postId, m.input);
+      await api.posts.addComment(resolvePostId(m.postId), m.input);
       break;
   }
 }
@@ -292,10 +367,31 @@ function reasonFor(status: number | undefined, exhausted: boolean): string {
   }
 }
 
-/** Moves a mutation out of the queue and into the failed store, in place. */
+/** Moves a mutation out of the queue and into the failed store, in place.
+ *
+ *  If it is a post create, its queued likes and comments go with it: their
+ *  placeholder id will never be mapped to a real one, so replaying them would
+ *  only produce a stream of 404s against an id the server never issued. */
 async function parkAsFailed(mutation: Mutation, status: number | undefined, exhausted: boolean): Promise<void> {
+  const reason = reasonFor(status, exhausted);
   removeById(mutation.id);
-  failed.push({ mutation, reason: reasonFor(status, exhausted), status, failedAt: Date.now() });
+  failed.push({ mutation, reason, status, failedAt: Date.now() });
+
+  if (mutation.kind === 'post.create') {
+    const orphans = queue.filter(
+      (m) => (m.kind === 'post.like' || m.kind === 'post.comment') && m.postId === mutation.tempId,
+    );
+    for (const orphan of orphans) {
+      removeById(orphan.id);
+      failed.push({
+        mutation: orphan,
+        reason: 'La publicación no se pudo crear.',
+        status,
+        failedAt: Date.now(),
+      });
+    }
+  }
+
   await persistFailed();
 }
 
