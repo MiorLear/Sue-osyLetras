@@ -286,6 +286,13 @@ va en la misma release en que los clientes dejen de asignar la URL directo a `sr
 { "source": "/media/**", "run": { "serviceId": "explorarte-api", "region": "us-central1" } }
 ```
 
+> 📌 **Y la CSP de ese mismo archivo necesita `https://storage.googleapis.com` en `img-src` y
+> `media-src`.** Una URL de medios responde 302 hacia Cloud Storage, y **la CSP se aplica a la URL
+> final de la redirección, no a la inicial**. Sin esa entrada, las fotos de perfil y los videos se
+> rompen en silencio: no hay error de red, solo una violación en la consola del navegador. Ya está
+> aplicado en el espejo de `render.yaml`, de donde se puede copiar la forma exacta. Los
+> `https://*.supabase.co` que hay hoy se pueden quitar cuando termine §7.
+
 Sin ese rewrite, `APP_MEDIA_PUBLIC_BASE_URL` tiene que apuntar a la URL directa de Cloud Run
 (`https://explorarte-api-xxxx.run.app`) y los medios quedan en otro origen que la PWA — con lo que
 el service worker no los puede enrutar y hace falta CORS también en Cloud Run, no solo en el

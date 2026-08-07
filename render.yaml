@@ -129,9 +129,15 @@ services:
       - path: /*
         name: Referrer-Policy
         value: strict-origin-when-cross-origin
+      # GCP-04 + SEC-12: una URL de medios redirige (302) a storage.googleapis.com,
+      # y la CSP se aplica a la URL FINAL de la redirección, no a la inicial. Sin
+      # storage.googleapis.com en img-src/media-src, las fotos y los videos se
+      # rompen en silencio y solo se ve en la consola del navegador.
+      # Los https://*.supabase.co se quitan cuando la migración haya terminado y
+      # ninguna fila apunte ya al host viejo (ver DESPLIEGUE.md §7).
       - path: /*
         name: Content-Security-Policy
-        value: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; worker-src 'self'; manifest-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://*.supabase.co; media-src 'self' blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co https://explorarte-api.onrender.com; upgrade-insecure-requests"
+        value: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; worker-src 'self'; manifest-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://storage.googleapis.com https://explorarte-api.onrender.com https://*.supabase.co; media-src 'self' blob: https://storage.googleapis.com https://explorarte-api.onrender.com https://*.supabase.co; connect-src 'self' https://storage.googleapis.com https://explorarte-api.onrender.com https://*.supabase.co; upgrade-insecure-requests"
       - path: /sw.js
         name: Cache-Control
         value: no-cache, no-store, must-revalidate
