@@ -18,15 +18,37 @@ import { withSync } from '@/lib/sync-status';
 // an id the server hasn't assigned yet (no id remapping needed).
 
 const KEY = 'offline-mutations-v1';
+const FAILED_KEY = 'offline-mutations-failed-v1';
+
+/** How many transient failures a single change is given before it is parked in
+ *  the failed store. Roughly a day of reconnect attempts at the retry cadence. */
+export const MAX_ATTEMPTS = 6;
+
+/** `attempts` counts *transient* failures only; a permanent rejection parks the
+ *  change immediately and an expired session doesn't count against it at all. */
+interface Attempted {
+  id: string;
+  attempts?: number;
+}
 
 export type Mutation =
-  | { id: string; kind: 'profile.update'; input: UpdateProfileInput }
-  | { id: string; kind: 'event.create'; tempId: string; input: CreateEventInput }
-  | { id: string; kind: 'event.update'; targetId: string; input: UpdateEventInput }
-  | { id: string; kind: 'event.remove'; targetId: string }
-  | { id: string; kind: 'post.create'; tempId: number; input: CreatePostInput }
-  | { id: string; kind: 'post.like'; postId: number }
-  | { id: string; kind: 'post.comment'; postId: number; input: CreateCommentInput };
+  | (Attempted & { kind: 'profile.update'; input: UpdateProfileInput })
+  | (Attempted & { kind: 'event.create'; tempId: string; input: CreateEventInput })
+  | (Attempted & { kind: 'event.update'; targetId: string; input: UpdateEventInput })
+  | (Attempted & { kind: 'event.remove'; targetId: string })
+  | (Attempted & { kind: 'post.create'; tempId: number; input: CreatePostInput })
+  | (Attempted & { kind: 'post.like'; postId: number })
+  | (Attempted & { kind: 'post.comment'; postId: number; input: CreateCommentInput });
+
+/** A change the server will never accept, kept out of the queue so the rest can
+ *  drain, and out of the pending count so the banner stops lying about it. */
+export interface FailedMutation {
+  mutation: Mutation;
+  /** Short Spanish reason, shown to the user. */
+  reason: string;
+  status?: number;
+  failedAt: number;
+}
 
 // The queue array is created once and never reassigned: `flushQueue` runs
 // across awaits, and an enqueue landing mid-flush used to swap the reference
@@ -59,9 +81,19 @@ function removeById(id: string): void {
   if (i >= 0) queue.splice(i, 1);
 }
 
+const failed: FailedMutation[] = [];
+
 async function persist(): Promise<void> {
   try {
     await AsyncStorage.setItem(KEY, JSON.stringify(queue));
+  } catch {
+    /* best-effort */
+  }
+}
+
+async function persistFailed(): Promise<void> {
+  try {
+    await AsyncStorage.setItem(FAILED_KEY, JSON.stringify(failed));
   } catch {
     /* best-effort */
   }
@@ -75,6 +107,14 @@ export async function loadQueue(): Promise<void> {
     replaceQueue(raw ? (JSON.parse(raw) as Mutation[]) : []);
   } catch {
     replaceQueue([]);
+  }
+  try {
+    const raw = await AsyncStorage.getItem(FAILED_KEY);
+    const stored = raw ? (JSON.parse(raw) as FailedMutation[]) : [];
+    failed.length = 0;
+    failed.push(...stored);
+  } catch {
+    failed.length = 0;
   }
   loaded = true;
   emit();
@@ -198,15 +238,94 @@ async function dispatch(m: Mutation): Promise<void> {
   }
 }
 
+// --- Error classification -------------------------------------------------
+//
+// The outbox used to treat every failure the same: `catch { break }`. A change
+// the server will never accept — a comment on a deleted post, a 403 from a
+// revoked account — stopped the whole queue forever while the banner kept
+// promising "N cambios se sincronizarán al reconectar" (BUG-03). Worse, a 401
+// was indistinguishable from a network blip, so it retried into the login
+// redirect on every pass. The verdicts below are the invariant to port:
+
+type Verdict =
+  /** Session is gone. Stop the pass, change nothing: the API client is already
+   *  bouncing to login, and retrying would just loop through the redirect. */
+  | 'session'
+  /** Might work later (offline, timeout, rate limit, server error). Count an
+   *  attempt and stop the pass so ordering is preserved. */
+  | 'transient'
+  /** The server will never accept this. Park it and keep draining the rest. */
+  | 'permanent';
+
+function statusOf(error: unknown): number | undefined {
+  const status = (error as { status?: unknown } | null)?.status;
+  return typeof status === 'number' ? status : undefined;
+}
+
+function classify(error: unknown): Verdict {
+  const status = statusOf(error);
+  // No HTTP status at all: a fetch-level failure, i.e. the network. Retry.
+  if (status === undefined) return 'transient';
+  if (status === 401) return 'session';
+  if (status === 408 || status === 429 || status >= 500) return 'transient';
+  // Every other 4xx is a rejection of *this* payload — replaying it verbatim
+  // cannot change the answer (400, 403, 404, 409, 410, 422, …).
+  if (status >= 400) return 'permanent';
+  return 'transient';
+}
+
+function reasonFor(status: number | undefined, exhausted: boolean): string {
+  if (exhausted) return 'No se pudo sincronizar tras varios intentos.';
+  switch (status) {
+    case 403:
+      return 'No tienes permiso para hacer este cambio.';
+    case 404:
+    case 410:
+      return 'El contenido ya no existe.';
+    case 409:
+      return 'El contenido cambió en el servidor.';
+    case 400:
+    case 422:
+      return 'El servidor rechazó el cambio.';
+    default:
+      return 'El servidor rechazó el cambio.';
+  }
+}
+
+/** Moves a mutation out of the queue and into the failed store, in place. */
+async function parkAsFailed(mutation: Mutation, status: number | undefined, exhausted: boolean): Promise<void> {
+  removeById(mutation.id);
+  failed.push({ mutation, reason: reasonFor(status, exhausted), status, failedAt: Date.now() });
+  await persistFailed();
+}
+
+/** Changes that could not be synced and need the user to decide. */
+export async function listFailedMutations(): Promise<FailedMutation[]> {
+  await loadQueue();
+  return failed.slice();
+}
+
+/** Discards the failed changes (the only action offered today: the local copy
+ *  is already gone, so there is nothing to restore — see PWA-3.7 for retry/edit). */
+export async function discardFailedMutations(): Promise<void> {
+  await loadQueue();
+  failed.length = 0;
+  await persistFailed();
+  emit();
+}
+
 let flushing = false;
 
-/** Replays queued mutations in order; stops at the first failure so nothing runs
- *  out of order (the rest stay queued for the next reconnect).
+/** Replays queued mutations in order.
  *
  *  The pass walks a snapshot of stable ids and re-reads each entry by id right
  *  before dispatching it. Anything enqueued while the pass is in flight is left
  *  for the next one, and an entry that was cancelled or coalesced away
- *  meanwhile is simply skipped instead of being dispatched from a stale index. */
+ *  meanwhile is simply skipped instead of being dispatched from a stale index.
+ *
+ *  A retryable failure still stops the pass — the rest stay queued and in order
+ *  for the next attempt — but a permanent one only takes its own mutation down
+ *  with it, so one bad change can no longer wedge the outbox. */
 export async function flushQueue(): Promise<void> {
   await loadQueue();
   if (flushing || queue.length === 0) return;
@@ -219,8 +338,21 @@ export async function flushQueue(): Promise<void> {
         if (!mutation) continue; // cancelled or merged away while we were awaiting
         try {
           await dispatch(mutation);
-        } catch {
-          return;
+        } catch (error) {
+          const verdict = classify(error);
+          if (verdict === 'session') return; // no attempt counted; retry after login
+          if (verdict === 'transient') {
+            mutation.attempts = (mutation.attempts ?? 0) + 1;
+            if (mutation.attempts < MAX_ATTEMPTS) {
+              await persist();
+              emit();
+              return; // stop here so the queue replays in order next time
+            }
+          }
+          await parkAsFailed(mutation, statusOf(error), verdict === 'transient');
+          await persist();
+          emit();
+          continue; // the rest of the queue is not this mutation's fault
         }
         removeById(id);
         await persist();
@@ -239,8 +371,14 @@ const subscribe = (cb: () => void): (() => void) => {
   };
 };
 const getCount = (): number => queue.length;
+const getFailedCount = (): number => failed.length;
 
 /** Reactive number of changes waiting to sync. */
 export function usePendingCount(): number {
   return useSyncExternalStore(subscribe, getCount, getCount);
+}
+
+/** Reactive number of changes that could not be synced and need the user's call. */
+export function useFailedCount(): number {
+  return useSyncExternalStore(subscribe, getFailedCount, getFailedCount);
 }

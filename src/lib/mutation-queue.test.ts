@@ -216,13 +216,7 @@ describe('outbox · flush', () => {
     expect(persisted().map((m) => m.kind)).toEqual(['post.create']);
   });
 
-  // --- Deuda conocida, documentada como test en rojo -----------------------
-  // Ver AUDIT.md §6.
-
-  it.skip('BUG-03: una mutacion permanentemente invalida deberia ir al dead-letter, no bloquear la cola', async () => {
-    // Hoy flushQueue hace `catch { break }` sin contador de intentos ni tope, y
-    // un 403 es indistinguible de un corte de red: la cola queda bloqueada para
-    // siempre mientras el banner sigue diciendo "N cambios se sincronizaran".
+  it('BUG-03: una mutacion permanentemente invalida va al dead-letter, no bloquea la cola', async () => {
     const permanent = Object.assign(new Error('forbidden'), { status: 403 });
     apiMock.posts.addComment.mockRejectedValue(permanent);
 
@@ -231,12 +225,12 @@ describe('outbox · flush', () => {
     await q.enqueueProfileUpdate({ name: 'Ana' } as never);
     await q.flushQueue();
 
-    // Esperado: el comentario invalido se descarta y el perfil sigue adelante.
+    // El comentario invalido se descarta y el perfil sigue adelante.
     expect(apiMock.profile.update).toHaveBeenCalledTimes(1);
     expect(persisted()).toHaveLength(0);
   });
 
-  it('BUG-04: encolar durante el flush no deberia re-despachar lo ya enviado', async () => {
+  it('BUG-04: encolar durante el flush no re-despacha lo ya enviado', async () => {
     const q = await load();
     await q.enqueueEventCreate('tmp-1', eventInput);
     apiMock.events.create.mockImplementation(async () => {
@@ -250,7 +244,7 @@ describe('outbox · flush', () => {
     expect(apiMock.events.create).toHaveBeenCalledTimes(1);
   });
 
-  it('BUG-04: encolar durante el flush tampoco deberia tragarse lo pendiente', async () => {
+  it('BUG-04: encolar durante el flush tampoco se traga lo pendiente', async () => {
     // La variante que si perdia datos: la profesora vuelve a guardar el perfil
     // mientras el flush esta en vuelo. enqueueProfileUpdate hacia
     // `queue = queue.filter(...)`, reemplazando la referencia del array; el
@@ -270,5 +264,99 @@ describe('outbox · flush', () => {
     expect(apiMock.events.create).toHaveBeenCalledTimes(1);
     expect(apiMock.profile.update).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'Ana Maria' }));
     expect(persisted()).toHaveLength(0);
+  });
+});
+
+describe('outbox · clasificacion de errores', () => {
+  const failing = (status?: number) => Object.assign(new Error('boom'), status ? { status } : {});
+
+  it.each([400, 403, 404, 409, 422])('un %i se aparca y el flush continua', async (status) => {
+    apiMock.posts.addComment.mockRejectedValue(failing(status));
+
+    const q = await load();
+    await q.enqueuePostComment(1, { text: 'x' } as never);
+    await q.enqueueProfileUpdate({ name: 'Ana' } as never);
+    await q.flushQueue();
+
+    expect(apiMock.profile.update).toHaveBeenCalledTimes(1);
+    expect(persisted()).toHaveLength(0);
+    const parked = await q.listFailedMutations();
+    expect(parked).toHaveLength(1);
+    expect(parked[0]).toMatchObject({ status, mutation: { kind: 'post.comment' } });
+  });
+
+  it.each([408, 429, 500, 503])('un %i se reintenta y detiene la pasada', async (status) => {
+    apiMock.posts.addComment.mockRejectedValue(failing(status));
+
+    const q = await load();
+    await q.enqueuePostComment(1, { text: 'x' } as never);
+    await q.enqueueProfileUpdate({ name: 'Ana' } as never);
+    await q.flushQueue();
+
+    expect(apiMock.profile.update).not.toHaveBeenCalled();
+    expect(persisted()).toHaveLength(2);
+    expect(persisted()[0]).toMatchObject({ kind: 'post.comment', attempts: 1 });
+    expect(await q.listFailedMutations()).toHaveLength(0);
+  });
+
+  it('un fallo de red (sin status) cuenta como transitorio', async () => {
+    apiMock.posts.addComment.mockRejectedValue(failing());
+
+    const q = await load();
+    await q.enqueuePostComment(1, { text: 'x' } as never);
+    await q.flushQueue();
+
+    expect(persisted()[0]).toMatchObject({ attempts: 1 });
+    expect(await q.listFailedMutations()).toHaveLength(0);
+  });
+
+  it('un 401 detiene la pasada sin gastar intentos ni reintentar en bucle', async () => {
+    // La sesion caduco: el cliente de API ya esta rebotando a login. Reintentar
+    // solo daria vueltas por la redireccion.
+    apiMock.posts.addComment.mockRejectedValue(failing(401));
+
+    const q = await load();
+    await q.enqueuePostComment(1, { text: 'x' } as never);
+    await q.enqueueProfileUpdate({ name: 'Ana' } as never);
+    await q.flushQueue();
+    await q.flushQueue();
+
+    expect(apiMock.posts.addComment).toHaveBeenCalledTimes(2);
+    expect(apiMock.profile.update).not.toHaveBeenCalled();
+    expect(persisted()[0]).not.toHaveProperty('attempts');
+    expect(await q.listFailedMutations()).toHaveLength(0);
+  });
+
+  it('al agotar el tope de intentos la mutacion se aparca y la cola sigue', async () => {
+    apiMock.posts.addComment.mockRejectedValue(failing(503));
+
+    const q = await load();
+    await q.enqueuePostComment(1, { text: 'x' } as never);
+    await q.enqueueProfileUpdate({ name: 'Ana' } as never);
+    for (let i = 0; i < q.MAX_ATTEMPTS; i += 1) await q.flushQueue();
+
+    expect(apiMock.posts.addComment).toHaveBeenCalledTimes(q.MAX_ATTEMPTS);
+    expect(apiMock.profile.update).toHaveBeenCalledTimes(1);
+    expect(persisted()).toHaveLength(0);
+    const parked = await q.listFailedMutations();
+    expect(parked).toHaveLength(1);
+    expect(parked[0].reason).toMatch(/varios intentos/);
+  });
+
+  it('los fallos aparcados sobreviven al reinicio y se pueden descartar', async () => {
+    apiMock.posts.addComment.mockRejectedValue(failing(404));
+
+    const q = await load();
+    await q.enqueuePostComment(1, { text: 'x' } as never);
+    await q.flushQueue();
+    expect(await q.listFailedMutations()).toHaveLength(1);
+
+    // Reinicio de la app con el mismo AsyncStorage.
+    vi.resetModules();
+    const fresh = await import('@/lib/mutation-queue');
+    expect(await fresh.listFailedMutations()).toHaveLength(1);
+
+    await fresh.discardFailedMutations();
+    expect(await fresh.listFailedMutations()).toHaveLength(0);
   });
 });
