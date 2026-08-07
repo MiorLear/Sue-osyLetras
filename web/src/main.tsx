@@ -5,6 +5,7 @@ import './styles/global.css';
 import { AuthProvider } from './context/AuthContext';
 import { App } from './App';
 import { InstallPrompt } from './components/InstallPrompt';
+import { UpdateToast } from './components/UpdateToast';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -12,6 +13,7 @@ createRoot(document.getElementById('root')!).render(
       <AuthProvider>
         <App />
         {/* Capa PWA: vive fuera de <App /> para no chocar con el árbol de rutas. */}
+        <UpdateToast />
         <InstallPrompt />
       </AuthProvider>
     </BrowserRouter>

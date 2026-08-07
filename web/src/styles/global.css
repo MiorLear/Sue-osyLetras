@@ -848,6 +848,66 @@ a {
   background: #f4eee2;
 }
 
+/* ── aviso de versión nueva (PWA-1.2) ──
+   Nunca recarga sola: el service worker espera a que la usuaria diga cuándo. */
+.update-banner {
+  position: fixed;
+  z-index: 95;
+  left: 12px;
+  right: 12px;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  margin-inline: auto;
+  max-width: 520px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--text-dark);
+  color: #fff;
+  box-shadow: 0 18px 46px -18px rgba(24, 48, 45, 0.6);
+}
+.update-banner__copy {
+  flex: 1;
+  min-width: 0;
+}
+.update-banner__title {
+  font-size: 14px;
+  font-weight: 800;
+}
+.update-banner__body {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.78);
+}
+.update-banner__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.update-banner__cta {
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--brand-dark);
+  font-size: 13.5px;
+  font-weight: 800;
+}
+.update-banner__dismiss {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
+}
+.update-banner__dismiss:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
 @media (max-width: 420px) {
   .install-banner {
     flex-wrap: wrap;
