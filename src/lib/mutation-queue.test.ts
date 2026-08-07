@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as MutationQueue from '@/lib/mutation-queue';
 
@@ -158,6 +158,78 @@ describe('outbox · ids temporales', () => {
   });
 });
 
+describe('outbox · ids temporales de posts (BUG-06)', () => {
+  // Un post creado sin conexion no se podia gustar ni comentar hasta que
+  // sincronizara: enqueuePostLike/Comment exigian un id numerico real y las
+  // pantallas lo parcheaban caso por caso. Ahora la cola lleva un mapa
+  // temp -> real y reescribe lo encolado en cuanto el servidor asigna el id.
+
+  it('un like sobre un post creado offline se replica contra el id real', async () => {
+    apiMock.posts.create.mockResolvedValue({ id: 42 } as never);
+
+    const q = await load();
+    const tempId = q.newTempPostId();
+    await q.enqueuePostCreate(tempId, { text: 'hola' } as never);
+    await q.enqueuePostLike(tempId);
+    await q.enqueuePostComment(tempId, { text: 'me respondo' } as never);
+    await q.flushQueue();
+
+    expect(apiMock.posts.toggleLike).toHaveBeenCalledWith(42);
+    expect(apiMock.posts.addComment).toHaveBeenCalledWith(42, expect.objectContaining({ text: 'me respondo' }));
+    expect(persisted()).toHaveLength(0);
+  });
+
+  it('el id temporal se distingue del real a simple vista', async () => {
+    const q = await load();
+    expect(q.isTempPostId(q.newTempPostId())).toBe(true);
+    expect(q.isTempPostId(42)).toBe(false);
+  });
+
+  it('el mapa sobrevive: un like posterior al sync tambien va al id real', async () => {
+    apiMock.posts.create.mockResolvedValue({ id: 42 } as never);
+
+    const q = await load();
+    const tempId = q.newTempPostId();
+    await q.enqueuePostCreate(tempId, { text: 'hola' } as never);
+    await q.flushQueue();
+
+    // La pantalla sigue mostrando el id temporal hasta el siguiente reload.
+    await q.enqueuePostLike(tempId);
+    await q.flushQueue();
+
+    expect(apiMock.posts.toggleLike).toHaveBeenCalledWith(42);
+  });
+
+  it('los dos toggles siguen anulandose aunque uno use el id temporal', async () => {
+    apiMock.posts.create.mockResolvedValue({ id: 42 } as never);
+
+    const q = await load();
+    const tempId = q.newTempPostId();
+    await q.enqueuePostCreate(tempId, { text: 'hola' } as never);
+    await q.flushQueue();
+
+    await q.enqueuePostLike(tempId); // via mapa -> 42
+    await q.enqueuePostLike(42); // el mismo post, ya con id real
+    expect(persisted()).toHaveLength(0);
+  });
+
+  it('si el post no se pudo crear, sus likes y comentarios no quedan huerfanos', async () => {
+    apiMock.posts.create.mockRejectedValue(Object.assign(new Error('bad'), { status: 422 }));
+
+    const q = await load();
+    const tempId = q.newTempPostId();
+    await q.enqueuePostCreate(tempId, { text: 'hola' } as never);
+    await q.enqueuePostLike(tempId);
+    await q.enqueueProfileUpdate({ name: 'Ana' } as never);
+    await q.flushQueue();
+
+    expect(apiMock.posts.toggleLike).not.toHaveBeenCalled();
+    expect(apiMock.profile.update).toHaveBeenCalledTimes(1);
+    expect(persisted()).toHaveLength(0);
+    expect(await q.listFailedMutations()).toHaveLength(2);
+  });
+});
+
 describe('outbox · flush', () => {
   it('despacha en orden y vacia la cola', async () => {
     const order: string[] = [];
@@ -216,14 +288,7 @@ describe('outbox · flush', () => {
     expect(persisted().map((m) => m.kind)).toEqual(['post.create']);
   });
 
-  // --- Deuda conocida, documentada como test en rojo -----------------------
-  // Ver AUDIT.md §6. No se arreglan aqui: este PR es de guardrails y los bugs
-  // tienen su propio ticket. Quitar el .skip cuando se cierren.
-
-  it.skip('BUG-03: una mutacion permanentemente invalida deberia ir al dead-letter, no bloquear la cola', async () => {
-    // Hoy flushQueue hace `catch { break }` sin contador de intentos ni tope, y
-    // un 403 es indistinguible de un corte de red: la cola queda bloqueada para
-    // siempre mientras el banner sigue diciendo "N cambios se sincronizaran".
+  it('BUG-03: una mutacion permanentemente invalida va al dead-letter, no bloquea la cola', async () => {
     const permanent = Object.assign(new Error('forbidden'), { status: 403 });
     apiMock.posts.addComment.mockRejectedValue(permanent);
 
@@ -232,15 +297,12 @@ describe('outbox · flush', () => {
     await q.enqueueProfileUpdate({ name: 'Ana' } as never);
     await q.flushQueue();
 
-    // Esperado: el comentario invalido se descarta y el perfil sigue adelante.
+    // El comentario invalido se descarta y el perfil sigue adelante.
     expect(apiMock.profile.update).toHaveBeenCalledTimes(1);
     expect(persisted()).toHaveLength(0);
   });
 
-  it.skip('BUG-04: encolar durante el flush no deberia re-despachar lo ya enviado', async () => {
-    // enqueueEventRemove hace `queue = queue.filter(...)`, reemplazando la
-    // referencia del array mientras flushQueue lo esta recorriendo. El bucle en
-    // vuelo sigue mutando un array huerfano.
+  it('BUG-04: encolar durante el flush no re-despacha lo ya enviado', async () => {
     const q = await load();
     await q.enqueueEventCreate('tmp-1', eventInput);
     apiMock.events.create.mockImplementation(async () => {
@@ -252,5 +314,192 @@ describe('outbox · flush', () => {
     await q.flushQueue();
 
     expect(apiMock.events.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('BUG-04: encolar durante el flush tampoco se traga lo pendiente', async () => {
+    // La variante que si perdia datos: la profesora vuelve a guardar el perfil
+    // mientras el flush esta en vuelo. enqueueProfileUpdate hacia
+    // `queue = queue.filter(...)`, reemplazando la referencia del array; el
+    // `queue.shift()` del bucle caia entonces sobre el array nuevo y se comia
+    // el evento que aun no se habia despachado.
+    const q = await load();
+    await q.enqueueProfileUpdate({ name: 'Ana' } as never);
+    await q.enqueueEventCreate('tmp-1', eventInput);
+    apiMock.profile.update.mockImplementationOnce(async () => {
+      await q.enqueueProfileUpdate({ name: 'Ana Maria' } as never);
+      return {};
+    });
+
+    await q.flushQueue();
+    await q.flushQueue();
+
+    expect(apiMock.events.create).toHaveBeenCalledTimes(1);
+    expect(apiMock.profile.update).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'Ana Maria' }));
+    expect(persisted()).toHaveLength(0);
+  });
+});
+
+describe('outbox · clasificacion de errores', () => {
+  const failing = (status?: number) => Object.assign(new Error('boom'), status ? { status } : {});
+
+  it.each([400, 403, 404, 409, 422])('un %i se aparca y el flush continua', async (status) => {
+    apiMock.posts.addComment.mockRejectedValue(failing(status));
+
+    const q = await load();
+    await q.enqueuePostComment(1, { text: 'x' } as never);
+    await q.enqueueProfileUpdate({ name: 'Ana' } as never);
+    await q.flushQueue();
+
+    expect(apiMock.profile.update).toHaveBeenCalledTimes(1);
+    expect(persisted()).toHaveLength(0);
+    const parked = await q.listFailedMutations();
+    expect(parked).toHaveLength(1);
+    expect(parked[0]).toMatchObject({ status, mutation: { kind: 'post.comment' } });
+  });
+
+  it.each([408, 429, 500, 503])('un %i se reintenta y detiene la pasada', async (status) => {
+    apiMock.posts.addComment.mockRejectedValue(failing(status));
+
+    const q = await load();
+    await q.enqueuePostComment(1, { text: 'x' } as never);
+    await q.enqueueProfileUpdate({ name: 'Ana' } as never);
+    await q.flushQueue();
+
+    expect(apiMock.profile.update).not.toHaveBeenCalled();
+    expect(persisted()).toHaveLength(2);
+    expect(persisted()[0]).toMatchObject({ kind: 'post.comment', attempts: 1 });
+    expect(await q.listFailedMutations()).toHaveLength(0);
+  });
+
+  it('un fallo de red (sin status) cuenta como transitorio', async () => {
+    apiMock.posts.addComment.mockRejectedValue(failing());
+
+    const q = await load();
+    await q.enqueuePostComment(1, { text: 'x' } as never);
+    await q.flushQueue();
+
+    expect(persisted()[0]).toMatchObject({ attempts: 1 });
+    expect(await q.listFailedMutations()).toHaveLength(0);
+  });
+
+  it('un 401 detiene la pasada sin gastar intentos ni reintentar en bucle', async () => {
+    // La sesion caduco: el cliente de API ya esta rebotando a login. Reintentar
+    // solo daria vueltas por la redireccion.
+    apiMock.posts.addComment.mockRejectedValue(failing(401));
+
+    const q = await load();
+    await q.enqueuePostComment(1, { text: 'x' } as never);
+    await q.enqueueProfileUpdate({ name: 'Ana' } as never);
+    await q.flushQueue();
+    await q.flushQueue();
+
+    expect(apiMock.posts.addComment).toHaveBeenCalledTimes(2);
+    expect(apiMock.profile.update).not.toHaveBeenCalled();
+    expect(persisted()[0]).not.toHaveProperty('attempts');
+    expect(await q.listFailedMutations()).toHaveLength(0);
+  });
+
+  it('al agotar el tope de intentos la mutacion se aparca y la cola sigue', async () => {
+    apiMock.posts.addComment.mockRejectedValue(failing(503));
+
+    const q = await load();
+    await q.enqueuePostComment(1, { text: 'x' } as never);
+    await q.enqueueProfileUpdate({ name: 'Ana' } as never);
+    for (let i = 0; i < q.MAX_ATTEMPTS; i += 1) await q.flushQueue();
+
+    expect(apiMock.posts.addComment).toHaveBeenCalledTimes(q.MAX_ATTEMPTS);
+    expect(apiMock.profile.update).toHaveBeenCalledTimes(1);
+    expect(persisted()).toHaveLength(0);
+    const parked = await q.listFailedMutations();
+    expect(parked).toHaveLength(1);
+    expect(parked[0].reason).toMatch(/varios intentos/);
+  });
+
+  it('los fallos aparcados sobreviven al reinicio y se pueden descartar', async () => {
+    apiMock.posts.addComment.mockRejectedValue(failing(404));
+
+    const q = await load();
+    await q.enqueuePostComment(1, { text: 'x' } as never);
+    await q.flushQueue();
+    expect(await q.listFailedMutations()).toHaveLength(1);
+
+    // Reinicio de la app con el mismo AsyncStorage.
+    vi.resetModules();
+    const fresh = await import('@/lib/mutation-queue');
+    expect(await fresh.listFailedMutations()).toHaveLength(1);
+
+    await fresh.discardFailedMutations();
+    expect(await fresh.listFailedMutations()).toHaveLength(0);
+  });
+});
+
+describe('outbox · escalera de reintentos', () => {
+  // BUG-07: el unico disparador era que el flag `online` cambiara, asi que un
+  // dispositivo que arranca ya conectado con cola pendiente no reintentaba
+  // nunca. La invariante nueva: mientras haya trabajo encolado, siempre hay un
+  // flush programado.
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('arrancar la escalera reintenta ya, sin esperar a un cambio de conectividad', async () => {
+    const q = await load([{ id: 'm-1', kind: 'event.remove', targetId: 'e-9' }]);
+    const stop = q.startOutboxRetries();
+    await vi.waitFor(() => expect(apiMock.events.remove).toHaveBeenCalledWith('e-9'));
+    stop();
+  });
+
+  it('reintenta con backoff mientras quede trabajo, y para al vaciarse la cola', async () => {
+    apiMock.events.remove.mockRejectedValue(Object.assign(new Error('502'), { status: 502 }));
+
+    const q = await load([{ id: 'm-1', kind: 'event.remove', targetId: 'e-9' }]);
+    const stop = q.startOutboxRetries();
+    await vi.waitFor(() => expect(apiMock.events.remove).toHaveBeenCalledTimes(1));
+
+    // El temporizador queda armado aunque nadie toque la conectividad.
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(apiMock.events.remove.mock.calls.length).toBeGreaterThan(1);
+
+    // Cuando el servidor se recupera y la cola se vacia, el temporizador para.
+    apiMock.events.remove.mockResolvedValue(undefined);
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    const afterDrain = apiMock.events.remove.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(30 * 60_000);
+    expect(apiMock.events.remove).toHaveBeenCalledTimes(afterDrain);
+
+    stop();
+  });
+
+  it('el backoff esta topado y no dispara antes del minimo', async () => {
+    apiMock.events.remove.mockRejectedValue(Object.assign(new Error('502'), { status: 502 }));
+
+    const q = await load([{ id: 'm-1', kind: 'event.remove', targetId: 'e-9' }]);
+    const stop = q.startOutboxRetries();
+    await vi.waitFor(() => expect(apiMock.events.remove).toHaveBeenCalledTimes(1));
+
+    // Primer tramo del backoff: 15 s ±25%, asi que a los 10 s no hay reintento.
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(apiMock.events.remove).toHaveBeenCalledTimes(1);
+
+    // Y aun con el tope de 5 min, media hora da varios reintentos, no uno solo.
+    await vi.advanceTimersByTimeAsync(30 * 60_000);
+    expect(apiMock.events.remove.mock.calls.length).toBeGreaterThan(4);
+
+    stop();
+  });
+
+  it('parar la escalera cancela el temporizador', async () => {
+    apiMock.events.remove.mockRejectedValue(Object.assign(new Error('502'), { status: 502 }));
+
+    const q = await load([{ id: 'm-1', kind: 'event.remove', targetId: 'e-9' }]);
+    const stop = q.startOutboxRetries();
+    await vi.waitFor(() => expect(apiMock.events.remove).toHaveBeenCalledTimes(1));
+
+    stop();
+    await vi.advanceTimersByTimeAsync(30 * 60_000);
+    expect(apiMock.events.remove).toHaveBeenCalledTimes(1);
   });
 });

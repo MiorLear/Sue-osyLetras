@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GoogleIcon, Icon, IconName } from '@/components/icon';
@@ -8,6 +8,7 @@ import { Logo } from '@/components/logo';
 import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
 import { colors } from '@/constants/theme';
 import { api, setAuthToken } from '@/lib/api';
+import { showNotice } from '@/lib/notice';
 import { useSchools } from '@/lib/useSchools';
 
 type Method = 'google' | 'phone' | 'email' | null;
@@ -88,7 +89,7 @@ export default function RegisterScreen() {
     if (m === 'google') {
       // No real Google OAuth yet — don't fake success / create an empty-credential
       // account. Mirror the login screen's honest "coming soon".
-      Alert.alert(
+      showNotice(
         'Próximamente',
         'El registro con Google estará disponible muy pronto. Por ahora usa tu correo o teléfono.',
       );

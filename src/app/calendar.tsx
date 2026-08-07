@@ -1,7 +1,7 @@
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { CalEvent as ApiCalEvent } from '@explorarte/shared';
@@ -10,6 +10,7 @@ import { Icon } from '@/components/icon';
 import { Select } from '@/components/ui';
 import { colors } from '@/constants/theme';
 import { api } from '@/lib/api';
+import { showNotice } from '@/lib/notice';
 import { enqueueEventCreate, enqueueEventRemove, enqueueEventUpdate, usePendingCount } from '@/lib/mutation-queue';
 import { useIsOnline } from '@/lib/useNetworkStatus';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
@@ -218,7 +219,7 @@ export default function CalendarScreen() {
         showToast('Se guardará al reconectar');
         closeModal();
       } catch {
-        Alert.alert('Error', 'No se pudo guardar el evento. Intenta de nuevo.');
+        showNotice('Error', 'No se pudo guardar el evento. Intenta de nuevo.');
       }
     } finally {
       setSubmitting(false);
@@ -244,7 +245,7 @@ export default function CalendarScreen() {
         closeModal();
         showToast('Se eliminará al reconectar');
       } catch {
-        Alert.alert('Error', 'No se pudo eliminar el evento. Intenta de nuevo.');
+        showNotice('Error', 'No se pudo eliminar el evento. Intenta de nuevo.');
       }
     } finally {
       setDeleting(false);
@@ -268,7 +269,7 @@ export default function CalendarScreen() {
         await enqueueEventUpdate(id, { completed: next });
         setEvents((es) => es.map((e) => (e.id === id ? { ...e, completed: next } : e)));
       } catch {
-        Alert.alert('Error', 'No se pudo actualizar la tarea. Intenta de nuevo.');
+        showNotice('Error', 'No se pudo actualizar la tarea. Intenta de nuevo.');
       }
     } finally {
       setTogglingId(null);
@@ -669,8 +670,72 @@ const fmtDateLong = (iso: string) => {
   return `${dt.getDate()} de ${MONTHS[dt.getMonth()]}, ${dt.getFullYear()}`;
 };
 
+// Selectores de fecha y hora (BUG-01).
+//
+// @react-native-community/datetimepicker no tiene implementacion web: su
+// src/datetimepicker.js devuelve null con un console.warn. El boton se pintaba
+// igual y no abria nada, asi que crear y editar eventos estaba roto en el
+// export web desplegado — que es el que las profesoras usan hoy.
+//
+// Arreglo minimo: en web se usa el <input type="date"/"time"> del navegador,
+// cuyo formato de valor ("YYYY-MM-DD" y "HH:MM") coincide exactamente con el
+// que ya guarda el formulario, asi que no hay conversion de por medio. En
+// nativo no cambia nada. La eleccion se hace a nivel de modulo, no dentro del
+// componente, para no meter hooks condicionales.
+
+const webInputStyle = {
+  width: '100%',
+  boxSizing: 'border-box',
+  paddingTop: 10,
+  paddingBottom: 10,
+  paddingLeft: 12,
+  paddingRight: 12,
+  borderRadius: 10,
+  borderWidth: 1.5,
+  borderStyle: 'solid',
+  borderColor: colors.borderInput,
+  backgroundColor: '#fff',
+  fontSize: 13,
+  fontFamily: 'inherit',
+  color: colors.textDark,
+} as React.CSSProperties;
+
+function WebDateField({ label, value, onChange }: { label: string; value: string; onChange: (iso: string) => void }) {
+  return (
+    <FormField label={label}>
+      <input
+        type="date"
+        value={value}
+        aria-label={label}
+        onChange={(e) => {
+          // Un campo vaciado devuelve "": conservamos el valor anterior en vez
+          // de guardar un evento sin fecha.
+          if (e.target.value) onChange(e.target.value);
+        }}
+        style={webInputStyle}
+      />
+    </FormField>
+  );
+}
+
+function WebTimeField({ label, value, onChange }: { label: string; value: string; onChange: (hhmm: string) => void }) {
+  return (
+    <FormField label={label}>
+      <input
+        type="time"
+        value={value}
+        aria-label={label}
+        onChange={(e) => {
+          if (e.target.value) onChange(e.target.value);
+        }}
+        style={webInputStyle}
+      />
+    </FormField>
+  );
+}
+
 // Campo de fecha con selector nativo.
-function DateField({ label, value, onChange }: { label: string; value: string; onChange: (iso: string) => void }) {
+function NativeDateField({ label, value, onChange }: { label: string; value: string; onChange: (iso: string) => void }) {
   const [show, setShow] = useState(false);
   const handle = (event: DateTimePickerEvent, date?: Date) => {
     if (Platform.OS !== 'ios') setShow(false);
@@ -685,7 +750,7 @@ function DateField({ label, value, onChange }: { label: string; value: string; o
 }
 
 // Campo de hora con selector nativo.
-function TimeField({ label, value, onChange }: { label: string; value: string; onChange: (hhmm: string) => void }) {
+function NativeTimeField({ label, value, onChange }: { label: string; value: string; onChange: (hhmm: string) => void }) {
   const [show, setShow] = useState(false);
   const [h, m] = value.split(':').map(Number);
   const base = new Date(2026, 0, 1, h || 0, m || 0);
@@ -702,6 +767,9 @@ function TimeField({ label, value, onChange }: { label: string; value: string; o
     </FormField>
   );
 }
+
+const DateField = Platform.OS === 'web' ? WebDateField : NativeDateField;
+const TimeField = Platform.OS === 'web' ? WebTimeField : NativeTimeField;
 
 function PickerTrigger({ icon, text, onPress }: { icon: 'calendar' | 'clock'; text: string; onPress: () => void }) {
   return (
