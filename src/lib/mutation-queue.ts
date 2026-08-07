@@ -28,12 +28,36 @@ export type Mutation =
   | { id: string; kind: 'post.like'; postId: number }
   | { id: string; kind: 'post.comment'; postId: number; input: CreateCommentInput };
 
-let queue: Mutation[] = [];
+// The queue array is created once and never reassigned: `flushQueue` runs
+// across awaits, and an enqueue landing mid-flush used to swap the reference
+// out from under the in-flight loop (BUG-04), which then shifted an orphaned
+// array — dropping or re-dispatching a change. Every mutation of the queue goes
+// through the helpers below, which edit this same array in place.
+const queue: Mutation[] = [];
 let loaded = false;
 const listeners = new Set<() => void>();
 const emit = () => {
   for (const l of listeners) l();
 };
+
+/** Replaces the queue contents without replacing the array reference. */
+function replaceQueue(next: Mutation[]): void {
+  queue.length = 0;
+  queue.push(...next);
+}
+
+/** Drops every entry matching `pred`, in place. */
+function removeWhere(pred: (m: Mutation) => boolean): void {
+  for (let i = queue.length - 1; i >= 0; i -= 1) {
+    if (pred(queue[i])) queue.splice(i, 1);
+  }
+}
+
+/** Drops a single entry by its stable id, in place. */
+function removeById(id: string): void {
+  const i = queue.findIndex((m) => m.id === id);
+  if (i >= 0) queue.splice(i, 1);
+}
 
 async function persist(): Promise<void> {
   try {
@@ -48,9 +72,9 @@ export async function loadQueue(): Promise<void> {
   if (loaded) return;
   try {
     const raw = await AsyncStorage.getItem(KEY);
-    queue = raw ? (JSON.parse(raw) as Mutation[]) : [];
+    replaceQueue(raw ? (JSON.parse(raw) as Mutation[]) : []);
   } catch {
-    queue = [];
+    replaceQueue([]);
   }
   loaded = true;
   emit();
@@ -63,7 +87,7 @@ function newId(): string {
 /** Queue a profile update to sync later. Coalesces to the most recent edit. */
 export async function enqueueProfileUpdate(input: UpdateProfileInput): Promise<void> {
   await loadQueue();
-  queue = queue.filter((m) => m.kind !== 'profile.update');
+  removeWhere((m) => m.kind === 'profile.update');
   queue.push({ id: newId(), kind: 'profile.update', input });
   await persist();
   emit();
@@ -106,13 +130,13 @@ export async function enqueueEventRemove(targetId: string): Promise<void> {
   await loadQueue();
   const hadCreate = queue.some((m) => m.kind === 'event.create' && m.tempId === targetId);
   if (hadCreate) {
-    queue = queue.filter(
+    removeWhere(
       (m) =>
-        !(m.kind === 'event.create' && m.tempId === targetId) &&
-        !(m.kind === 'event.update' && m.targetId === targetId),
+        (m.kind === 'event.create' && m.tempId === targetId) ||
+        (m.kind === 'event.update' && m.targetId === targetId),
     );
   } else {
-    queue = queue.filter((m) => !(m.kind === 'event.update' && m.targetId === targetId));
+    removeWhere((m) => m.kind === 'event.update' && m.targetId === targetId);
     queue.push({ id: newId(), kind: 'event.remove', targetId });
   }
   await persist();
@@ -177,20 +201,28 @@ async function dispatch(m: Mutation): Promise<void> {
 let flushing = false;
 
 /** Replays queued mutations in order; stops at the first failure so nothing runs
- *  out of order (the rest stay queued for the next reconnect). */
+ *  out of order (the rest stay queued for the next reconnect).
+ *
+ *  The pass walks a snapshot of stable ids and re-reads each entry by id right
+ *  before dispatching it. Anything enqueued while the pass is in flight is left
+ *  for the next one, and an entry that was cancelled or coalesced away
+ *  meanwhile is simply skipped instead of being dispatched from a stale index. */
 export async function flushQueue(): Promise<void> {
   await loadQueue();
   if (flushing || queue.length === 0) return;
   flushing = true;
   try {
     await withSync(async () => {
-      while (queue.length > 0) {
+      const ids = queue.map((m) => m.id);
+      for (const id of ids) {
+        const mutation = queue.find((m) => m.id === id);
+        if (!mutation) continue; // cancelled or merged away while we were awaiting
         try {
-          await dispatch(queue[0]);
+          await dispatch(mutation);
         } catch {
-          break;
+          return;
         }
-        queue.shift();
+        removeById(id);
         await persist();
         emit();
       }

@@ -217,8 +217,7 @@ describe('outbox · flush', () => {
   });
 
   // --- Deuda conocida, documentada como test en rojo -----------------------
-  // Ver AUDIT.md §6. No se arreglan aqui: este PR es de guardrails y los bugs
-  // tienen su propio ticket. Quitar el .skip cuando se cierren.
+  // Ver AUDIT.md §6.
 
   it.skip('BUG-03: una mutacion permanentemente invalida deberia ir al dead-letter, no bloquear la cola', async () => {
     // Hoy flushQueue hace `catch { break }` sin contador de intentos ni tope, y
@@ -237,10 +236,7 @@ describe('outbox · flush', () => {
     expect(persisted()).toHaveLength(0);
   });
 
-  it.skip('BUG-04: encolar durante el flush no deberia re-despachar lo ya enviado', async () => {
-    // enqueueEventRemove hace `queue = queue.filter(...)`, reemplazando la
-    // referencia del array mientras flushQueue lo esta recorriendo. El bucle en
-    // vuelo sigue mutando un array huerfano.
+  it('BUG-04: encolar durante el flush no deberia re-despachar lo ya enviado', async () => {
     const q = await load();
     await q.enqueueEventCreate('tmp-1', eventInput);
     apiMock.events.create.mockImplementation(async () => {
@@ -252,5 +248,27 @@ describe('outbox · flush', () => {
     await q.flushQueue();
 
     expect(apiMock.events.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('BUG-04: encolar durante el flush tampoco deberia tragarse lo pendiente', async () => {
+    // La variante que si perdia datos: la profesora vuelve a guardar el perfil
+    // mientras el flush esta en vuelo. enqueueProfileUpdate hacia
+    // `queue = queue.filter(...)`, reemplazando la referencia del array; el
+    // `queue.shift()` del bucle caia entonces sobre el array nuevo y se comia
+    // el evento que aun no se habia despachado.
+    const q = await load();
+    await q.enqueueProfileUpdate({ name: 'Ana' } as never);
+    await q.enqueueEventCreate('tmp-1', eventInput);
+    apiMock.profile.update.mockImplementationOnce(async () => {
+      await q.enqueueProfileUpdate({ name: 'Ana Maria' } as never);
+      return {};
+    });
+
+    await q.flushQueue();
+    await q.flushQueue();
+
+    expect(apiMock.events.create).toHaveBeenCalledTimes(1);
+    expect(apiMock.profile.update).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'Ana Maria' }));
+    expect(persisted()).toHaveLength(0);
   });
 });
