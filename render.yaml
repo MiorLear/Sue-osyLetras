@@ -87,9 +87,24 @@ services:
         source: /*
         destination: /index.html
     headers:
+      # Espejo de las cabeceras de producción (web/firebase.json). La que cuenta
+      # es la de Firebase Hosting; esta mantiene dev/staging en las mismas
+      # reglas para que una violación de CSP salga aquí y no en producción.
       - path: /*
         name: X-Frame-Options
-        value: SAMEORIGIN
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Content-Security-Policy
+        value: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; worker-src 'self'; manifest-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://*.supabase.co; media-src 'self' blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co https://explorarte-api.onrender.com; upgrade-insecure-requests"
+      - path: /sw.js
+        name: Cache-Control
+        value: no-cache, no-store, must-revalidate
+      - path: /manifest.webmanifest
+        name: Cache-Control
+        value: no-cache, no-store, must-revalidate
 
   # --- Demo MOBILE (vista de móvil en el navegador) — Expo web export ---
   - type: web

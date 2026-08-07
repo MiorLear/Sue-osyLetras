@@ -4,6 +4,7 @@ import { useSchools } from '@/lib/useSchools';
 import { GoogleIcon, Icon, type IconName } from '@/components/Icon';
 import { Logo } from '@/components/Logo';
 import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
+import { toast } from '@/components/toast-store';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { OtpInput } from './Login';
@@ -48,7 +49,7 @@ export default function Register() {
     if (m === 'google') {
       // No real Google OAuth yet — don't fake success / create an empty-credential
       // account. Honest "coming soon", matching the login screen.
-      window.alert('Próximamente: el registro con Google estará disponible muy pronto. Por ahora usa tu correo o teléfono.');
+      toast.info('El registro con Google estará disponible muy pronto. Por ahora usa tu correo o teléfono.', { title: 'Próximamente' });
       return;
     }
     setMethod(m);
@@ -126,7 +127,7 @@ export default function Register() {
                   await api.auth.checkOtp(phone, otp);
                   setStep(2);
                 } catch {
-                  window.alert('Código incorrecto. Verifica e intenta de nuevo.');
+                  toast.error('Código incorrecto. Verifica e intenta de nuevo.');
                 }
               }}
               disabled={otp.length < 6}
