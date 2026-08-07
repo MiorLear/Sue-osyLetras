@@ -61,6 +61,20 @@ class MediaUrlPolicyTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    /** The local default for app.media.public-base-url is http://localhost:8000,
+     * so the API's own canonical URLs have to survive its own policy. Loopback
+     * only: a plaintext URL on any routable host is still refused. */
+    @Test
+    void allowsPlainHttpOnLoopbackOnly() {
+        MediaUrlPolicy local = new MediaUrlPolicy("http://localhost:8000", "");
+
+        assertThatCode(() -> local.checkStorageUrl("http://localhost:8000/media/posts/9f1c-x.pdf"))
+                .doesNotThrowAnyException();
+        assertThatThrownBy(() -> unconfigured.checkStorageUrl("http://192.168.1.23:8000/media/posts/x.pdf"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("https");
+    }
+
     @Test
     void skipsTheHostCheckWhenStorageIsNotConfigured() {
         assertThatCode(() -> unconfigured.checkAttachments(List.of(attachment("https://localhost:9000/x.pdf"))))

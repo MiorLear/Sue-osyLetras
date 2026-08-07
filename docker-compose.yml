@@ -39,9 +39,22 @@ services:
       # cuentas de ejemplo. .env.example trae una contraseña local lista para usar.
       SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:8081,http://localhost:19006}
-      # Supabase Storage — subida de archivos (fotos/videos/documentos).
-      SUPABASE_URL: ${SUPABASE_URL:-}
-      SUPABASE_KEY: ${SUPABASE_KEY:-}
+      # Cloud Storage for Firebase — subida de archivos (fotos/videos/docs).
+      # Vacío (lo normal en local) => /media/upload responde 503 y el resto del
+      # stack funciona igual: desarrollar no requiere una cuenta de Google.
+      # No hay variable con una llave: las credenciales son ADC (GCP-04/SEC-11).
+      # Para probar contra un bucket real desde el contenedor hay que montar
+      # además las credenciales de aplicación del host:
+      #   volumes: - ${APPDATA}/gcloud:/root/.config/gcloud:ro
+      GCS_BUCKET: ${GCS_BUCKET:-}
+      GCS_SIGNED_URL_TTL_SECONDS: ${GCS_SIGNED_URL_TTL_SECONDS:-900}
+      # Origen sobre el que se construyen las URLs de medios. Apunta al puerto
+      # publicado de la API, no al nombre de servicio de Docker: esta URL la
+      # consume el navegador/teléfono, no otro contenedor.
+      APP_MEDIA_PUBLIC_BASE_URL: ${APP_MEDIA_PUBLIC_BASE_URL:-http://localhost:8000}
+      APP_MEDIA_LEGACY_HOSTS: ${APP_MEDIA_LEGACY_HOSTS:-}
+      APP_MEDIA_REDIRECT_CACHE_SECONDS: ${APP_MEDIA_REDIRECT_CACHE_SECONDS:-300}
+      APP_MEDIA_REQUIRE_AUTH_FOR_PRIVATE: ${APP_MEDIA_REQUIRE_AUTH_FOR_PRIVATE:-false}
       # Envío real de correo (recuperar contraseña) vía Resend. Vacío => solo se
       # loguea el código, no se envía. Ver .env.example.
       RESEND_API_KEY: ${RESEND_API_KEY:-}

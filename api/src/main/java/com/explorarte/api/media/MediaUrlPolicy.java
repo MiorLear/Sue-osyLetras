@@ -114,16 +114,30 @@ public class MediaUrlPolicy {
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException("Media URL is not a valid URL");
         }
-        if (!"https".equalsIgnoreCase(uri.getScheme())) {
-            throw new IllegalArgumentException("Media URLs must use https");
-        }
         if (uri.getHost() == null || uri.getHost().isBlank()) {
             throw new IllegalArgumentException("Media URL is missing a host");
+        }
+        if (!"https".equalsIgnoreCase(uri.getScheme()) && !isLoopback(uri.getHost())) {
+            throw new IllegalArgumentException("Media URLs must use https");
         }
         if (uri.getUserInfo() != null) {
             throw new IllegalArgumentException("Media URLs must not embed credentials");
         }
         return uri;
+    }
+
+    /**
+     * The one carve-out to the https rule. {@code app.media.public-base-url} is
+     * {@code http://localhost:8000} on a developer machine, so the API's own
+     * canonical URLs would otherwise fail the policy that exists to validate
+     * them. Loopback only — never a routable host, so this cannot be used to
+     * smuggle a plaintext URL into a deployment, and {@code javascript:},
+     * {@code data:}, {@code file:} and {@code blob:} still have no host at all
+     * and are rejected above.
+     */
+    private static boolean isLoopback(String host) {
+        String h = lower(host);
+        return "localhost".equals(h) || "127.0.0.1".equals(h) || "[::1]".equals(h) || "::1".equals(h);
     }
 
     private static String lower(String value) {

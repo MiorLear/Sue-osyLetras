@@ -1,4 +1,13 @@
 # Render Blueprint — ExplorArte (Sueños y Letras)
+#
+# ESTE ES EL ENTORNO DE DESARROLLO/STAGING, NO EL DE PRODUCCIÓN (MAINT-15).
+# Producción es Google Cloud: Firebase Hosting + Cloud Run + Cloud SQL + Cloud
+# Storage for Firebase. El runbook único y autoritativo es DESPLIEGUE.md.
+# Render se mantiene al día a propósito — es el backend compartido del equipo,
+# para que mobile no dependa de túneles ni de que la laptop de alguien esté
+# prendida (ver COMO-EMPEZAR.md). No es aspiracional ni está abandonado; lo que
+# cambia es su rol.
+#
 # Despliega DOS sitios estáticos (web y la vista web de mobile), ambos
 # apuntando a la API real vía VITE_API_URL/EXPO_PUBLIC_API_URL, MÁS el backend
 # real: la API en Java (Spring Boot, mismo Dockerfile que usa docker-compose
@@ -8,16 +17,23 @@
 # Render detecta este archivo y crea todo automáticamente.
 #
 # Plan gratuito — limitaciones a tener en cuenta:
-#   - El servicio web (API) se "duerme" tras 15 min sin tráfico; el primer
-#     request después de eso tarda ~30-60s en responder (cold start).
+#   - El servicio web (API) se "duerme" tras 15 min sin tráfico. El primer
+#     request después de eso tardó MÁS DE 90 SEGUNDOS medido de verdad
+#     (SCALE-06), no los "30-60s" que decía este comentario antes. Es una de
+#     las razones del cambio a Cloud Run — ver DESPLIEGUE.md, "Arranque en
+#     frío: los números".
 #
-# La base de datos YA NO es la Postgres gratuita de Render (que expiraba cada
-# 30 días) — es un proyecto Supabase Postgres persistente. DATABASE_URL debe
-# configurarse manualmente en el dashboard de Render con la cadena de conexión
-# del "Session pooler" de Supabase (Project Settings → Database), no la del
-# host directo (IPv6-only, no compatible con la red de Render). Igual para
-# SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (Project Settings → API), usados
-# para subir archivos a Supabase Storage.
+# La base de datos de este entorno es un proyecto Supabase Postgres persistente
+# (ya no la Postgres gratuita de Render, que expiraba cada 30 días).
+# DATABASE_URL se configura manualmente en el dashboard de Render con la cadena
+# del "Session pooler" de Supabase (Project Settings → Database), no la del host
+# directo (IPv6-only, incompatible con la red de Render).
+#
+# ALMACENAMIENTO DE ARCHIVOS: desde GCP-04 el API sube a Cloud Storage for
+# Firebase, no a Supabase Storage. SUPABASE_URL/SUPABASE_KEY ya no existen como
+# variables del backend; en su lugar va GCS_BUCKET, y las credenciales son ADC.
+# Render no corre en Google Cloud, así que aquí hay que darle a ADC una service
+# account explícita: ver DESPLIEGUE.md, "Render después de la migración".
 services:
   # --- API real en Java (Spring Boot) — mismo Dockerfile que docker-compose ---
   - type: web
@@ -32,12 +48,29 @@ services:
       # del Session pooler de Supabase (postgresql://postgres.<ref>:[PASSWORD]@aws-0-<region>.pooler.supabase.com:5432/postgres).
       - key: DATABASE_URL
         sync: false
-      - key: SUPABASE_URL
-        value: https://whwczhxwhowtqdfvcavv.supabase.co
-      # Configurar manualmente: la service_role key (Project Settings → API,
-      # recomendada) o la anon key. Se deja como secreto y no se versiona.
-      - key: SUPABASE_KEY
+      # GCP-04: bucket de Cloud Storage for Firebase. Se puede compartir el de
+      # producción o crear uno aparte para staging; si se comparte, ojo con que
+      # un admin de staging sube al mismo bucket que ven las docentes reales.
+      - key: GCS_BUCKET
         sync: false
+      # Render no tiene metadata server de Google, así que ADC necesita una key
+      # de service account. Pegar el JSON completo aquí (secreto, no se versiona)
+      # y montarlo con GOOGLE_APPLICATION_CREDENTIALS. Esta key SÍ es material
+      # sensible — es la única que sigue existiendo después de GCP-04, y existe
+      # solo porque este entorno está fuera de Google Cloud. En Cloud Run no hay
+      # ninguna. Darle únicamente roles/storage.objectAdmin sobre este bucket.
+      - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
+        sync: false
+      # URLs de medios de ESTE entorno. Apunta a la API de Render, que es quien
+      # firma y redirige.
+      - key: APP_MEDIA_PUBLIC_BASE_URL
+        value: https://explorarte-api.onrender.com
+      # Mientras queden filas apuntando a Supabase en la base de staging.
+      - key: APP_MEDIA_LEGACY_HOSTS
+        value: whwczhxwhowtqdfvcavv.supabase.co
+      # generateValue funciona en Render y NO tiene equivalente en Cloud Run:
+      # allí el secreto se crea antes en Secret Manager y se inyecta con
+      # --set-secrets. Ver DESPLIEGUE.md, "Secretos".
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRATION_MINUTES
@@ -107,8 +140,10 @@ services:
       - key: EXPO_PUBLIC_API_URL
         value: https://explorarte-api.onrender.com
     routes:
-      # Expo prerenderiza un .html por ruta; este rewrite solo actúa como
-      # fallback para deep-links de rutas dinámicas (p. ej. /emociones/:id).
+      # MAINT-11: aquí decía que Expo prerenderiza un .html por ruta y que este
+      # rewrite era solo un fallback. Es falso — app.json usa output: "single",
+      # o sea que el export produce UN índice y nada más. Este rewrite no es un
+      # fallback, es lo único que hace que funcione cualquier ruta distinta de /.
       - type: rewrite
         source: /*
         destination: /index.html
