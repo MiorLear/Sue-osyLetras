@@ -53,6 +53,13 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/learning/topics", "/learning/topics/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/tools", "/schools").permitAll()
                         .requestMatchers(HttpMethod.GET, "/screen-intro-videos", "/screen-intro-videos/**").permitAll()
+                        // GCP-04: resolving a media URL to a signed Cloud Storage URL.
+                        // Reachable without a token because <img src>/<video src> cannot
+                        // send an Authorization header; MediaAccessController applies the
+                        // per-category rule (app.media.require-auth-for-private) itself.
+                        // POST /media/upload is NOT covered by this — it falls through to
+                        // anyRequest().authenticated() below.
+                        .requestMatchers(HttpMethod.GET, "/media/*/*").permitAll()
                         // Must precede the /auth/** rule: logout revokes the caller's own
                         // sessions, so it needs to know who the caller is.
                         .requestMatchers(HttpMethod.POST, "/auth/logout").authenticated()

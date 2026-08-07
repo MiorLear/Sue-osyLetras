@@ -146,6 +146,18 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(problem(HttpStatus.PAYLOAD_TOO_LARGE, "The uploaded file is too large"));
     }
 
+    /** GCP-04: an unconfigured or unreachable media bucket is an environment
+     * problem, so it answers 503 (the client may retry) rather than a 500 that
+     * looks like a bug in the request. The underlying message is logged, never
+     * returned — a Cloud Storage error string names the bucket and the service
+     * account. */
+    @ExceptionHandler(StorageUnavailableException.class)
+    public ResponseEntity<ProblemDetail> handleStorageUnavailable(StorageUnavailableException ex) {
+        log.error("Media storage is unavailable", ex);
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(problem(HttpStatus.SERVICE_UNAVAILABLE, "File storage is not available right now"));
+    }
+
     private static ProblemDetail problem(HttpStatus status, String detail) {
         return ProblemDetail.forStatusAndDetail(status, detail == null ? status.getReasonPhrase() : detail);
     }

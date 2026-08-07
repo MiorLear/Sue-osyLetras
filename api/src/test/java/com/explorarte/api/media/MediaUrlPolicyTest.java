@@ -1,5 +1,6 @@
 package com.explorarte.api.media;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -10,8 +11,8 @@ import org.junit.jupiter.api.Test;
 
 class MediaUrlPolicyTest {
 
-    private final MediaUrlPolicy pinned = new MediaUrlPolicy("https://abc123.supabase.co");
-    private final MediaUrlPolicy unconfigured = new MediaUrlPolicy("");
+    private final MediaUrlPolicy pinned = new MediaUrlPolicy("https://explorarte-prod.web.app", "");
+    private final MediaUrlPolicy unconfigured = new MediaUrlPolicy("", "");
 
     private static MediaItem attachment(String url) {
         return new MediaItem("id-1", "archivo.pdf", url, "application/pdf", 10);
@@ -20,7 +21,7 @@ class MediaUrlPolicyTest {
     @Test
     void acceptsAUrlOnTheConfiguredStorageHost() {
         assertThatCode(() -> pinned.checkAttachments(
-                List.of(attachment("https://abc123.supabase.co/storage/v1/object/public/explorarte-media/posts/x.pdf"))))
+                List.of(attachment("https://explorarte-prod.web.app/media/posts/9f1c-x.pdf"))))
                 .doesNotThrowAnyException();
     }
 
@@ -39,8 +40,8 @@ class MediaUrlPolicyTest {
                 "javascript:alert(1)",
                 "data:text/html;base64,PHNjcmlwdD4=",
                 "file:///etc/passwd",
-                "http://abc123.supabase.co/x.pdf",
-                "blob:https://abc123.supabase.co/uuid")) {
+                "http://explorarte-prod.web.app/media/posts/x.pdf",
+                "blob:https://explorarte-prod.web.app/uuid")) {
             assertThatThrownBy(() -> unconfigured.checkAttachments(List.of(attachment(url))))
                     .as("url %s", url)
                     .isInstanceOf(IllegalArgumentException.class);
@@ -49,7 +50,7 @@ class MediaUrlPolicyTest {
 
     @Test
     void rejectsEmbeddedCredentialsAndMissingHosts() {
-        assertThatThrownBy(() -> unconfigured.checkStorageUrl("https://user:pass@abc123.supabase.co/x.pdf"))
+        assertThatThrownBy(() -> unconfigured.checkStorageUrl("https://user:pass@explorarte-prod.web.app/x.pdf"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("credentials");
         assertThatThrownBy(() -> unconfigured.checkStorageUrl("https:///x.pdf"))
@@ -80,6 +81,41 @@ class MediaUrlPolicyTest {
     void imageUrlsKeepTheSchemeRuleOnly() {
         assertThatCode(() -> pinned.checkImageUrl("https://legacy.example/avatar.png")).doesNotThrowAnyException();
         assertThatThrownBy(() -> pinned.checkImageUrl("javascript:alert(1)"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    // --- GCP-04 -----------------------------------------------------------
+
+    /** The exact shape other work builds on: origin + /media/ + object path,
+     * no query string, nothing that expires. */
+    @Test
+    void buildsACanonicalUrlWithNoQueryString() {
+        String url = pinned.canonicalUrl("posts/9f1c8e2a-0000-4000-8000-000000000000-ficha.pdf");
+
+        assertThat(url).isEqualTo(
+                "https://explorarte-prod.web.app/media/posts/9f1c8e2a-0000-4000-8000-000000000000-ficha.pdf");
+        assertThat(url).doesNotContain("?").doesNotContain("X-Goog-Signature");
+    }
+
+    @Test
+    void toleratesATrailingSlashInTheConfiguredBaseUrl() {
+        assertThat(new MediaUrlPolicy("https://explorarte-prod.web.app/", "").canonicalUrl("profile/a-b.png"))
+                .isEqualTo("https://explorarte-prod.web.app/media/profile/a-b.png");
+    }
+
+    /** Cutover window: rows written before the migration still name the old
+     * Supabase host, and re-saving one of those posts must not 400. */
+    @Test
+    void acceptsALegacyHostWhileTheSupabaseUrlsAreStillInTheDatabase() {
+        MediaUrlPolicy duringCutover =
+                new MediaUrlPolicy("https://explorarte-prod.web.app", "abc123.supabase.co, OTHER.example");
+
+        assertThatCode(() -> duringCutover.checkStorageUrl(
+                "https://abc123.supabase.co/storage/v1/object/public/explorarte-media/posts/x.pdf"))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> duringCutover.checkStorageUrl("https://other.example/x.pdf"))
+                .doesNotThrowAnyException();
+        assertThatThrownBy(() -> duringCutover.checkStorageUrl("https://evil.example/x.pdf"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }
