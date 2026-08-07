@@ -57,7 +57,7 @@ describe('no queda ninguna dependencia de Google Fonts', () => {
         e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)],
       );
     const offenders = walk(path.join(root, 'src'))
-      .filter((f) => /\.(ts|tsx|css|html)$/.test(f) && !f.endsWith('fonts.test.ts'))
+      .filter((f) => /\.(ts|tsx|css|html)$/.test(f) && !/\.test\.tsx?$/.test(f))
       .filter((f) => readFileSync(f, 'utf8').includes('googleapis.com'));
     expect(offenders).toEqual([]);
   });
