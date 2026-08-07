@@ -1,6 +1,6 @@
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { MediaItem } from '@explorarte/shared';
@@ -12,6 +12,7 @@ import { Logo } from '@/components/logo';
 import { VideoPlaceholder } from '@/components/video-placeholder';
 import { colors } from '@/constants/theme';
 import { api } from '@/lib/api';
+import { showNotice } from '@/lib/notice';
 import { openLocalFile } from '@/lib/open-file';
 import { download, getLocalUri } from '@/lib/offlineStorage';
 import { useIsOnline } from '@/lib/useNetworkStatus';
@@ -24,7 +25,7 @@ function ManualButton({ manual }: { manual: MediaItem | null }) {
   if (!manual) {
     return (
       <Pressable
-        onPress={() => Alert.alert('Aún no disponible')}
+        onPress={() => showNotice('Aún no disponible')}
         style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 11, borderRadius: 12, backgroundColor: colors.disabled ?? '#CBD5D5' }}>
         <Icon name="download" size={14} color="#fff" strokeWidth={2.2} />
         <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>No disponible</Text>
@@ -52,12 +53,12 @@ function ManualButton({ manual }: { manual: MediaItem | null }) {
         await WebBrowser.openBrowserAsync(manual.url, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN });
         return;
       }
-      Alert.alert(
+      showNotice(
         'No disponible sin conexión',
         'Conéctate a internet una vez para descargar el manual; luego podrás abrirlo sin conexión.',
       );
     } catch {
-      Alert.alert('No se pudo abrir el manual', 'Intenta de nuevo.');
+      showNotice('No se pudo abrir el manual', 'Intenta de nuevo.');
     } finally {
       setBusy(false);
     }

@@ -9,6 +9,21 @@ import type * as MediaSync from '@/lib/media-sync';
 
 const cacheStore: Record<string, unknown> = {};
 
+// El guardia de frescura (lastFullSyncAt) vive en AsyncStorage, igual que la
+// cola offline: en Node hay que mockearlo.
+const kv: Record<string, string> = {};
+vi.mock('@react-native-async-storage/async-storage', () => ({
+  default: {
+    getItem: vi.fn(async (k: string) => kv[k] ?? null),
+    setItem: vi.fn(async (k: string, v: string) => {
+      kv[k] = v;
+    }),
+    removeItem: vi.fn(async (k: string) => {
+      delete kv[k];
+    }),
+  },
+}));
+
 vi.mock('@/lib/offline-cache', () => ({
   writeCache: vi.fn(async (key: string, data: unknown) => {
     cacheStore[key] = data;
@@ -52,6 +67,7 @@ vi.mock('@/lib/api', () => ({ api: apiMock }));
 
 async function load(): Promise<typeof MediaSync> {
   for (const k of Object.keys(cacheStore)) delete cacheStore[k];
+  for (const k of Object.keys(kv)) delete kv[k];
   vi.resetModules();
   return import('@/lib/media-sync');
 }
@@ -179,6 +195,56 @@ describe('media-sync · re-entrada', () => {
     await s.syncAllContent();
     await s.syncAllContent();
     expect(apiMock.tools.get).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('media-sync · pasada automatica acotada (SCALE-03)', () => {
+  // La pasada completa corria en CADA cambio del flag `online` y recorria ~12
+  // endpoints mas cada fichero referenciado. Una tablet saltando entre wifi y
+  // datos machacaba el API y quemaba el plan de datos de la profesora.
+
+  it('la pasada automatica trae el JSON pero no descarga medios', async () => {
+    const s = await load();
+    await s.maybeSyncContent();
+
+    expect(cacheStore['tools']).toBeDefined();
+    expect(cacheStore['learning:topics']).toBeDefined();
+    expect(offlineStorage.download).not.toHaveBeenCalled();
+  });
+
+  it('una segunda pasada dentro de la ventana se salta entera', async () => {
+    const s = await load();
+    expect(await s.maybeSyncContent()).toBe(true);
+    expect(await s.maybeSyncContent()).toBe(false);
+    expect(apiMock.tools.get).toHaveBeenCalledTimes(1);
+  });
+
+  it('pasada la ventana vuelve a correr', async () => {
+    const s = await load();
+    await s.maybeSyncContent();
+
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.now() + s.SYNC_WINDOW_MS + 1_000);
+    const ran = await s.maybeSyncContent();
+    vi.useRealTimers();
+
+    expect(ran).toBe(true);
+    expect(apiMock.tools.get).toHaveBeenCalledTimes(2);
+  });
+
+  it('no sincroniza sola con conexion de pago', async () => {
+    const s = await load();
+    expect(await s.maybeSyncContent({ metered: true })).toBe(false);
+    expect(apiMock.tools.get).not.toHaveBeenCalled();
+  });
+
+  it('la descarga de medios sigue disponible, pero iniciada por el usuario', async () => {
+    const s = await load();
+    await s.maybeSyncContent();
+    expect(offlineStorage.download).not.toHaveBeenCalled();
+
+    await s.syncAllContent();
+    expect(offlineStorage.download.mock.calls.map((c) => c[0])).toContain('manual');
   });
 });
 

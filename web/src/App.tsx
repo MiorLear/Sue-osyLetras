@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import type { UserRole } from '@explorarte/shared';
 import { useAuth } from './context/AuthContext';
 import { TabsLayout } from './components/TabsLayout';
+import { OfflineBanner } from './components/OfflineBanner';
 
 import Onboarding from './routes/Onboarding';
 import Login from './routes/Login';
@@ -39,7 +40,11 @@ function RequireRole({ role, children }: { role: UserRole; children: React.React
 
 export function App() {
   return (
-    <Routes>
+    <>
+      {/* Overlay: renders nothing when online and idle, so it never reflows
+          the routes below. */}
+      <OfflineBanner />
+      <Routes>
       {/* pre-login */}
       <Route path="/" element={<Onboarding />} />
       <Route path="/login" element={<Login />} />
@@ -74,7 +79,8 @@ export function App() {
         <Route path="/admin/videos-intro" element={<RequireRole role="admin"><AdminIntroVideos /></RequireRole>} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }

@@ -3,7 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
@@ -11,9 +11,11 @@ import { Icon } from '@/components/icon';
 import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
 import { brandGradient, colors } from '@/constants/theme';
 import { api, setAuthToken } from '@/lib/api';
+import { syncAllContent } from '@/lib/media-sync';
 import { enqueueProfileUpdate } from '@/lib/mutation-queue';
+import { showNotice } from '@/lib/notice';
 import { writeCache } from '@/lib/offline-cache';
-import { useIsOnline } from '@/lib/useNetworkStatus';
+import { useIsMetered, useIsOnline } from '@/lib/useNetworkStatus';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
 import { useSchools } from '@/lib/useSchools';
 
@@ -31,6 +33,65 @@ function SectionLabel({ children }: { children: string }) {
       }}>
       {children}
     </Text>
+  );
+}
+
+// Descarga de contenido para uso sin conexión (SCALE-03).
+//
+// Bajar los vídeos y PDFs son megabytes; hacerlo solo porque la tablet cambió
+// de wifi a datos gastaba el plan de la profesora sin que ella lo pidiera. Ahora
+// la app sincroniza sola el JSON (kilobytes) y la descarga pesada vive aquí,
+// detrás de un botón, con aviso explícito cuando la conexión es de pago.
+function OfflineContentRow() {
+  const online = useIsOnline();
+  const metered = useIsMetered();
+  const [downloading, setDownloading] = useState(false);
+
+  const start = async () => {
+    if (!online) {
+      showNotice('Sin conexión', 'Conéctate a internet para descargar el contenido.');
+      return;
+    }
+    setDownloading(true);
+    try {
+      await syncAllContent();
+      showNotice('Contenido descargado', 'Ya puedes abrir los materiales sin conexión.');
+    } catch {
+      showNotice('No se pudo descargar todo', 'Vuelve a intentarlo cuando tengas mejor conexión.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <Pressable
+      onPress={start}
+      disabled={downloading}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        backgroundColor: '#fff',
+        borderWidth: 1.5,
+        borderColor: colors.border,
+        opacity: downloading ? 0.6 : 1,
+      }}>
+      <Icon name="download" size={18} color={colors.brand} />
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 13.5, fontWeight: '600', color: colors.textDark }}>
+          {downloading ? 'Descargando contenido…' : 'Descargar contenido sin conexión'}
+        </Text>
+        <Text style={{ marginTop: 2, fontSize: 11.5, color: colors.textMuted }}>
+          {metered
+            ? 'Estás usando datos móviles: puede consumir tu plan.'
+            : 'Guarda vídeos y documentos para usarlos sin internet.'}
+        </Text>
+      </View>
+      {downloading ? <ActivityIndicator size="small" color={colors.brand} /> : null}
+    </Pressable>
   );
 }
 
@@ -100,7 +161,7 @@ export default function ProfileScreen() {
         // Offline: queue the text fields (a new photo needs a connection to upload).
         await enqueueProfileUpdate(textInput);
         void writeCache('profile:me', cacheMerged);
-        Alert.alert(
+        showNotice(
           'Guardado sin conexión',
           hasNewPhoto
             ? 'Tus datos se sincronizarán al reconectar. La foto nueva necesita conexión para subirse.'
@@ -112,9 +173,9 @@ export default function ProfileScreen() {
       try {
         await enqueueProfileUpdate(textInput);
         void writeCache('profile:me', cacheMerged);
-        Alert.alert('Guardado sin conexión', 'Tus cambios se sincronizarán cuando haya conexión.');
+        showNotice('Guardado sin conexión', 'Tus cambios se sincronizarán cuando haya conexión.');
       } catch {
-        Alert.alert('Error', 'No se pudo guardar el perfil. Intenta de nuevo.');
+        showNotice('Error', 'No se pudo guardar el perfil. Intenta de nuevo.');
       }
     } finally {
       setSaving(false);
@@ -288,6 +349,8 @@ export default function ProfileScreen() {
             </Pressable>
           </View>
         ) : null}
+
+        <OfflineContentRow />
 
         <Pressable
           onPress={() => router.push('/sobre')}

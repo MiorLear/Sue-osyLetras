@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GoogleIcon, Icon } from '@/components/icon';
@@ -8,6 +8,7 @@ import { Logo } from '@/components/logo';
 import { Field, PrimaryButton } from '@/components/ui';
 import { colors } from '@/constants/theme';
 import { api, setAuthToken } from '@/lib/api';
+import { showNotice } from '@/lib/notice';
 
 type View_ = 'main' | 'phone-number' | 'phone-otp';
 
@@ -126,7 +127,7 @@ export default function LoginScreen() {
                 icon="google"
                 label="Continuar con Google"
                 onPress={() =>
-                  Alert.alert(
+                  showNotice(
                     'Próximamente',
                     'El inicio de sesión con Google estará disponible muy pronto. Por ahora usa tu correo o teléfono.',
                   )
@@ -163,7 +164,7 @@ export default function LoginScreen() {
               <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
                 <Pressable
                   onPress={() =>
-                    Alert.alert(
+                    showNotice(
                       'Próximamente',
                       'La recuperación de contraseña estará disponible muy pronto. Por ahora, si olvidaste tu contraseña, contacta al administrador.',
                     )

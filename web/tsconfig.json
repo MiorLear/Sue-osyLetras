@@ -21,5 +21,7 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "vite.config.ts"]
+  // sw.ts targets WorkerGlobalScope, so it is typechecked by tsconfig.worker.json.
+  "include": ["src", "vite.config.ts"],
+  "exclude": ["src/sw.ts"]
 }
