@@ -356,7 +356,11 @@ curl -sf "https://$PROJECT_ID.web.app/api/schools" | head -c 200
 # La cadena de medios completa: la canónica devuelve 302 hacia una firmada.
 curl -sI "https://$PROJECT_ID.web.app/media/tools/<uuid>-<archivo>.pdf" | grep -i "^location"
 # Debe empezar con https://storage.googleapis.com/... y traer X-Goog-Signature.
-# Si esto responde 503, falta roles/iam.serviceAccountTokenCreator (ver §4).
+# Si responde 503: faltan credenciales, o roles/iam.serviceAccountTokenCreator (§4).
+# Si responde 404 sobre un archivo que SÍ existe en el bucket: GCS_BUCKET apunta
+# a otro bucket, o la service account no tiene lectura sobre él. Sin credenciales
+# el cliente devuelve "no está" en vez de "no puedo", así que un 404 aquí no
+# significa necesariamente que falte el objeto.
 
 # Y que el bucket NO sea de lectura pública:
 curl -sI "https://storage.googleapis.com/$GCS_BUCKET/tools/<uuid>-<archivo>.pdf" | head -1
@@ -438,11 +442,16 @@ terminado.
 |---|---|---|
 | Render, plan gratuito, primer request tras 15 min de inactividad | **más de 90 segundos** (timeout del test) | Medido en la auditoría (SCALE-06). `render.yaml` documentaba "~30-60s" — ya está corregido ahí. |
 | Tamaño del jar antes de este batch | 61,699,142 B (58.8 MB) | `mvn package` local |
-| Tamaño del jar después | 88,729,151 B (84.6 MB) | `mvn package` local |
+| Tamaño del jar después | 90,161,222 B (86.0 MB) | `mvn package` local |
+| **Arranque del contenedor `prod` contra un Postgres limpio** | **6.9 s** (`Started ApiApplication in 6.945 seconds`) | `docker run` local, 1 contenedor, incluye Flyway V1→V7 |
 
-Las librerías de Google Cloud suman 27 MB al jar. Serían 50 MB si no se excluyera el transporte
-gRPC de `google-cloud-storage` (`api/pom.xml`), que no se usa porque el cliente va por JSON/HTTP.
-Se probó: 111 MB con gRPC, 89 MB sin él.
+Las librerías de Google Cloud suman 28.5 MB al jar. Serían 49 MB si no se excluyera el transporte
+gRPC de `google-cloud-storage` (`api/pom.xml`), que no se usa porque el cliente va por JSON/HTTP:
+medido, 111 MB con él y 90 MB sin él.
+
+Esos 6.9 s son el dato más útil que hay sin desplegar: es el arranque real de este jar, con este
+esquema, en un contenedor. En Cloud Run hay que sumarle el arranque del sandbox y el pull de la
+imagen la primera vez, y restarle o sumarle según la CPU asignada.
 
 ### Lo estimado, y por qué es una estimación
 
@@ -453,13 +462,17 @@ despliegue real:
 
 | Escenario | Estimación de la primera respuesta | Nota |
 |---|---|---|
-| Cloud Run, `min-instances=0`, sin `--cpu-boost` | ~10–20 s | Arranque de JVM + contexto de Spring con 1 vCPU. |
-| Cloud Run, `min-instances=0`, con `--cpu-boost` | ~5–10 s | El flag ya está en el comando de §6.1. |
+| Cloud Run, `min-instances=0`, sin `--cpu-boost` | ~10–20 s | Los 6.9 s medidos más el sandbox y menos CPU durante el arranque. |
+| Cloud Run, `min-instances=0`, con `--cpu-boost` | ~7–12 s | El flag ya está en el comando de §6.1. |
 | Cloud Run, `min-instances=1` | **~0 s** | Nunca hay arranque en frío para el primer usuario. |
 | Render gratuito (hoy) | **>90 s medido** | El punto de comparación. |
 
 Es decir: incluso el peor caso de Cloud Run es entre **4 y 9 veces mejor** que lo que hay hoy. Pero
 `min-instances=0` **sí** parte de cero, así que el problema se reduce mucho y no desaparece.
+
+> Conviene volver a medir esta tabla con `gcloud run services describe` y las trazas del primer
+> despliegue, y reemplazar las estimaciones por números reales. Una estimación que se queda en un
+> documento tres años acaba citándose como si fuera una medición.
 
 ### El compromiso, con el costo
 
@@ -505,6 +518,51 @@ cuestan dinero:
   spinner genérico cuando la espera pasa de unos segundos. Eso es de otro lote (SCALE-06 depende de
   PWA-1.2), pero es la mitad de la solución: 90 s con explicación se toleran, 90 s sin ella parecen
   una app rota.
+
+---
+
+## 8.bis Qué se verificó de verdad, y qué encontró (GCP-07)
+
+"Está listo para migrar" no es una afirmación que se pueda hacer sin ejecutar nada. Esto es lo que
+se ejecutó, en esta máquina, y lo que apareció.
+
+**Ejecutado:**
+
+| Verificación | Resultado |
+|---|---|
+| `./mvnw test` | **154 tests, 0 fallos** |
+| Cadena Flyway V1→V7 sobre un PostgreSQL 16 limpio | Aplica limpia; `validate()` pasa; la segunda pasada no ejecuta nada (`MigrationChainTest`) |
+| `scripts/migrate-media-urls.sql` contra el esquema real | Reescribe las siete columnas y no deja nada apuntando a `supabase.co` (`MigrationChainTest`) |
+| `docker build --target prod` | Construye, con la suite completa corriendo dentro |
+| Contenedor `prod` con variables con forma de Cloud Run, contra un Postgres vacío | Arranca en **6.9 s**, escucha en el `PORT` inyectado (8080), aplica V1→V7, `/actuator/health` → `{"status":"UP"}` |
+| Sin `JWT_SECRET` | **No arranca**, con el mensaje correcto. Es la razón de la advertencia en §4. |
+| Autorización tras el cambio de medios | `/schools` 200 · `/posts` 401 · `POST /media/upload` 401 · `GET /media/**` **no** 401 |
+
+**No ejecutado, y por qué:** nada contra Google Cloud. No se creó ningún proyecto, bucket,
+instancia ni secreto, no se firmó ninguna URL real y no se movió ningún dato. La firma V4 y el
+camino de IAM `signBlob` **no están probados contra el servicio real** — solo el comportamiento
+degradado sin credenciales. La comprobación de §6.3 es la que cierra ese hueco el día del
+despliegue.
+
+**Tres arranques rotos que ya estaban en `main` y que ningún test veía.** La suite era 100 %
+unitaria, así que nada levantaba el contexto de Spring: 147 tests en verde y un contenedor que no
+arrancaba en ningún entorno.
+
+1. **`SecurityConfig`**: anclaba el filtro de rate limiting contra `JwtAuthenticationFilter` antes
+   de agregarlo. Spring Security 6.3 → `does not have a registered order`, el contexto no levanta.
+2. **`ApiExceptionHandler`**: declaraba un `@ExceptionHandler(MaxUploadSizeExceededException)`
+   propio además del que ya trae `ResponseEntityExceptionHandler` →
+   `Ambiguous @ExceptionHandler method mapped`, el contexto no levanta.
+3. **`DataSeeder`**: sembraba posts y eventos con clave foránea a los usuarios de ejemplo, aunque
+   la siembra de usuarios se hubiera saltado. Y saltarse esa siembra es justo lo que pasa en
+   producción, donde `SEED_USER_PASSWORD` se deja sin setear a propósito (SEC-02) — o sea que
+   fallaba **solo** contra una base vacía sin cuentas demo, que es exactamente el primer arranque
+   contra Cloud SQL.
+
+Los tres están arreglados en este PR, y `ApplicationStartsTest` levanta ahora el contexto completo
+contra un Postgres real, así que los tres vuelven a aparecer como test rojo y no como despliegue
+fallido. El primero y el segundo rompían cualquier despliegue, incluido el de Render que está vivo
+hoy; el tercero rompía específicamente el primer despliegue en Cloud SQL.
 
 ---
 

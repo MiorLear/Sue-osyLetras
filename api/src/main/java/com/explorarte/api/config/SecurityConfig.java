@@ -79,10 +79,18 @@ public class SecurityConfig {
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         // everything else requires a valid token
                         .anyRequest().authenticated())
+                // El orden de estas dos lineas importa, y no por el orden de los filtros.
+                // addFilterBefore(f, X.class) exige que X ya este REGISTRADO en el
+                // comparador de HttpSecurity, y un filtro propio solo se registra cuando se
+                // agrega. Al reves —anclando el limitador contra JwtAuthenticationFilter
+                // antes de haberlo agregado— Spring Security 6.3 lanza
+                // "does not have a registered order" y el contexto no levanta: la API no
+                // arranca en ningun entorno. Lo detecto GCP-07 corriendo la imagen de
+                // produccion; ApplicationStartsTest lo cubre desde ahora.
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 // SEC-05: throttle /auth/** by IP before anything else runs, so an unthrottled
                 // brute force can't reach the password hasher or the code lookup at all.
-                .addFilterBefore(new AuthRateLimitFilter(authRateLimiter), JwtAuthenticationFilter.class)
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(new AuthRateLimitFilter(authRateLimiter), JwtAuthenticationFilter.class);
 
         return http.build();
     }

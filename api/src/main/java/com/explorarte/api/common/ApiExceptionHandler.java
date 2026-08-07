@@ -138,10 +138,22 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(problem(HttpStatus.PAYLOAD_TOO_LARGE, ex.getMessage()));
     }
 
-    /** The container rejects the part before any controller code runs once the
-     * multipart limit in application.yml is hit; without this it is a bare 500. */
-    @ExceptionHandler(MaxUploadSizeExceededException.class)
-    public ResponseEntity<ProblemDetail> handleMaxUploadSize(MaxUploadSizeExceededException ex) {
+    /**
+     * The container rejects the part before any controller code runs once the
+     * multipart limit in application.yml is hit; without this it is a bare 500.
+     *
+     * <p>Tiene que ser este override y no un {@code @ExceptionHandler} propio.
+     * {@link ResponseEntityExceptionHandler} ya declara
+     * {@code MaxUploadSizeExceededException} entre las excepciones que atiende,
+     * así que un segundo método anotado para el mismo tipo deja dos candidatos
+     * empatados: Spring responde "Ambiguous @ExceptionHandler method mapped" al
+     * construir {@code handlerExceptionResolver} y <b>el contexto no levanta</b>.
+     * Lo detectó GCP-07 corriendo la imagen de producción; ApplicationStartsTest
+     * lo cubre desde ahora.
+     */
+    @Override
+    protected ResponseEntity<Object> handleMaxUploadSizeExceededException(
+            MaxUploadSizeExceededException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
                 .body(problem(HttpStatus.PAYLOAD_TOO_LARGE, "The uploaded file is too large"));
     }

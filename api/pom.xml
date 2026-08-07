@@ -29,6 +29,11 @@
          and the Storage client. -->
     <google-cloud-libraries.version>26.50.0</google-cloud-libraries.version>
     <cloud-sql-socket-factory.version>1.20.1</cloud-sql-socket-factory.version>
+    <embedded-postgres.version>2.0.7</embedded-postgres.version>
+    <!-- La misma familia que Cloud SQL (POSTGRES_16, ver DESPLIEGUE.md) y que
+         el postgres:16-alpine de docker-compose. Validar contra otra mayor
+         probaria poco. -->
+    <embedded-postgres-binaries.version>16.2.0</embedded-postgres-binaries.version>
     <!-- SEC-16 / CVE-2025-22228: Boot 3.3.4 pins Spring Security 6.3.3, where
          BCryptPasswordEncoder.matches() returns true for ANY password over 72 bytes whose
          first 72 bytes match. Fixed in 6.3.8 (and 6.4.4). Still on the 6.3.x line, so this
@@ -96,20 +101,45 @@
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-storage</artifactId>
       <exclusions>
-        <!-- GCP-05: the library ships both a JSON/HTTP and a gRPC transport and
-             pulls the whole gRPC + protobuf + OpenTelemetry stack for the
-             latter. GcsMediaStorageClient uses StorageOptions (JSON/HTTP), so
-             dropping gRPC costs nothing at runtime and takes ~40 MB off the fat
-             jar — which is ~40 MB Cloud Run does not have to pull and unpack on
-             every cold start. If anyone ever switches to GrpcStorageOptions,
-             these exclusions have to come back. -->
+        <!-- GCP-05: la librería trae un transporte JSON/HTTP y otro gRPC, y por
+             el segundo se arrastra toda la pila de gRPC. GcsMediaStorageClient
+             usa StorageOptions (JSON/HTTP), así que el transporte gRPC sobra y
+             sacarlo baja el jar ~19 MB — 19 MB que Cloud Run no descarga ni
+             descomprime en cada arranque en frío.
+
+             OJO con querer sacar más: excluir io.grpc entero rompe en tiempo de
+             ejecución con NoClassDefFoundError: io/grpc/Context, porque gax lo
+             usa para propagar contexto también en el camino HTTP. Lo detectó
+             ApplicationStartsTest, no una revisión: por eso lo que se excluye es
+             el transporte (netty, alts, xds...) y no la API de gRPC. Si alguien
+             cambia a GrpcStorageOptions, esto se revierte entero. -->
         <exclusion>
           <groupId>com.google.api</groupId>
           <artifactId>gax-grpc</artifactId>
         </exclusion>
         <exclusion>
           <groupId>io.grpc</groupId>
-          <artifactId>*</artifactId>
+          <artifactId>grpc-netty-shaded</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>io.grpc</groupId>
+          <artifactId>grpc-alts</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>io.grpc</groupId>
+          <artifactId>grpc-xds</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>io.grpc</groupId>
+          <artifactId>grpc-googleapis</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>io.grpc</groupId>
+          <artifactId>grpc-services</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>io.grpc</groupId>
+          <artifactId>grpc-rls</artifactId>
         </exclusion>
         <exclusion>
           <groupId>com.google.cloud.opentelemetry</groupId>
@@ -178,6 +208,40 @@
     <dependency>
       <groupId>org.springframework.security</groupId>
       <artifactId>spring-security-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- GCP-07: un PostgreSQL de verdad, para poder afirmar que la cadena
+         V1..V7 aplica sobre una base limpia y que scripts/migrate-media-urls.sql
+         es SQL valido contra el esquema que esas migraciones producen. Se usa
+         embedded-postgres y no Testcontainers a proposito: no necesita un daemon
+         de Docker, asi que el mismo test corre en CI, en el build de la imagen y
+         en la maquina de cualquiera del equipo. La suite sigue sin depender de
+         ningun servicio externo. -->
+    <dependency>
+      <groupId>io.zonky.test</groupId>
+      <artifactId>embedded-postgres</artifactId>
+      <version>${embedded-postgres.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- El binario nativo por plataforma. linux-amd64 es CI y la imagen Docker;
+         windows-amd64 y darwin-arm64 son las maquinas del equipo. -->
+    <dependency>
+      <groupId>io.zonky.test.postgres</groupId>
+      <artifactId>embedded-postgres-binaries-linux-amd64</artifactId>
+      <version>${embedded-postgres-binaries.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.zonky.test.postgres</groupId>
+      <artifactId>embedded-postgres-binaries-windows-amd64</artifactId>
+      <version>${embedded-postgres-binaries.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.zonky.test.postgres</groupId>
+      <artifactId>embedded-postgres-binaries-darwin-arm64v8</artifactId>
+      <version>${embedded-postgres-binaries.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

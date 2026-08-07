@@ -14,13 +14,22 @@ CMD ["mvn", "-q", "spring-boot:run"]
 
 # --- build stage: compiles a runnable jar ---
 FROM maven:3.9-eclipse-temurin-21 AS build
+# GCP-07: la suite arranca un PostgreSQL real para validar la cadena de
+# migraciones (MigrationChainTest), y initdb se niega a correr como root. La
+# imagen de Maven corre como root, asi que el build se hace con un usuario
+# normal. Tiene que crearse ANTES de poblar el cache de Maven, o las
+# dependencias quedan en /root/.m2 y este usuario no las ve.
+RUN useradd --create-home --uid 1001 builder
 WORKDIR /app
-COPY pom.xml .
+RUN chown builder:builder /app
+USER builder
+COPY --chown=builder:builder pom.xml .
 RUN mvn -B -q dependency:go-offline
-COPY src src
-# Sin -DskipTests: la imagen que se despliega en Render no se construye si los
-# tests estan en rojo (MAINT-02). La suite es hermetica — no toca base de datos
-# ni red — asi que corre igual dentro del build de Docker.
+COPY --chown=builder:builder src src
+# Sin -DskipTests: la imagen que se despliega no se construye si los tests estan
+# en rojo (MAINT-02). La suite no toca red ni ningun servicio externo — el
+# Postgres de MigrationChainTest es un binario embebido, no un contenedor — asi
+# que corre igual dentro del build de Docker.
 RUN mvn -B -q package
 
 # --- prod target: small runtime image ---
