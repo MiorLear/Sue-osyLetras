@@ -38,4 +38,11 @@ export default defineConfig([
       globals: globals.node,
     },
   },
+  {
+    // El service worker corre en ServiceWorkerGlobalScope, no en window.
+    files: ['src/sw.ts'],
+    languageOptions: {
+      globals: globals.serviceworker,
+    },
+  },
 ]);

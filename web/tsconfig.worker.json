@@ -1,0 +1,11 @@
+{
+  // The service worker runs in a WorkerGlobalScope, not a window: it needs the
+  // WebWorker lib, which cannot be mixed with DOM in the same program. Hence a
+  // second project instead of widening tsconfig.json.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2021", "WebWorker"],
+    "types": ["vite-plugin-pwa/client"]
+  },
+  "include": ["src/sw.ts", "src/sw-navigation.ts"]
+}

@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { MODTAG, type MediaItem, type Post } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
+import { toast } from '@/components/toast-store';
 import { api } from '@/lib/api';
 import { useAsync } from '@/lib/useAsync';
 import { useAuth } from '@/context/AuthContext';
@@ -62,7 +63,7 @@ export default function Comunidad() {
       const updated = await api.posts.toggleLike(id);
       setPosts((ps) => ps.map((p) => (p.id === id ? updated : p)));
     } catch {
-      window.alert('No se pudo actualizar tu reacción. Inténtalo de nuevo.');
+      toast.error('No se pudo actualizar tu reacción. Inténtalo de nuevo.');
     } finally {
       setLikingId(null);
     }

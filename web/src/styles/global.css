@@ -1,3 +1,4 @@
+@import './fonts.css';
 @import './tokens.css';
 
 * {
@@ -702,61 +703,218 @@ a {
   max-width: 560px;
 }
 
-/* responsive: tablet/phone widths — collapse the sidebar to a top bar */
+/* ════════════════════════════════════════════════════════════════════
+   SHELL MÓVIL (PWA-1.4) — barra de tabs inferior, safe areas, 44px
+   Antes, por debajo de 760px el sidebar se convertía en un carrusel
+   horizontal de iconos: un apaño de escritorio, no un patrón de teléfono.
+   Además los insets de iOS no se tocaban (en RN los daba useSafeAreaInsets,
+   que en web devuelve 0) y los botones medían 8px de padding.
+   ════════════════════════════════════════════════════════════════════ */
+:root {
+  --bottom-nav-height: 0px;
+}
+
+/* En escritorio manda el sidebar; el shell móvil no existe. */
+.mobile-topbar,
+.bottom-nav,
+.more-sheet-backdrop {
+  display: none;
+}
+
+/* ── barra de tabs inferior ── */
+.bottom-nav {
+  position: fixed;
+  z-index: 40;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  gap: 4px;
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -8px 24px -18px rgba(24, 48, 45, 0.5);
+}
+.bottom-nav button {
+  flex: 1;
+  /* 44px es el mínimo táctil; con el label el botón queda en ~56. */
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 6px 4px;
+  border-radius: 14px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.bottom-nav button:active {
+  transform: scale(0.96);
+}
+.bottom-nav button.active {
+  background: var(--nav-bg);
+  color: var(--brand-dark);
+}
+
+/* ── hoja de "Más" ── */
+.more-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  background: rgba(24, 48, 45, 0.42);
+  align-items: flex-end;
+  justify-content: center;
+}
+.more-sheet {
+  width: 100%;
+  max-height: 72vh;
+  overflow-y: auto;
+  background: var(--card);
+  border-radius: 22px 22px 0 0;
+  padding: 10px 14px calc(18px + env(safe-area-inset-bottom, 0px) + var(--bottom-nav-height));
+  box-shadow: 0 -20px 50px -20px rgba(24, 48, 45, 0.5);
+}
+.more-sheet:focus {
+  outline: none;
+}
+.more-sheet__grabber {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  margin: 0 auto 12px;
+}
+.more-sheet__title {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold-label);
+  font-weight: 700;
+  padding: 0 6px 8px;
+}
+.more-sheet__list {
+  display: grid;
+  gap: 4px;
+}
+.more-sheet__list button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #5a6e6a;
+  text-align: left;
+  width: 100%;
+}
+.more-sheet__list button .tile {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  background: #f4eee2;
+}
+.more-sheet__list button.active {
+  background: var(--nav-bg);
+  color: var(--brand-dark);
+  font-weight: 700;
+}
+.more-sheet__list button.active .tile {
+  background: #fff;
+}
+
+/* ── barra superior de identidad (solo móvil) ── */
+.mobile-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  align-items: center;
+  gap: 10px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px;
+  background: rgba(250, 246, 239, 0.92);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+.mobile-topbar__logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand-gradient);
+  font-family: var(--font-serif);
+  font-size: 19px;
+  color: #fff;
+  flex-shrink: 0;
+}
+.mobile-topbar__name {
+  flex: 1;
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+.mobile-topbar__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: linear-gradient(150deg, var(--clay), var(--clay-dark));
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.mobile-topbar__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* responsive: tablet/phone widths */
 @media (max-width: 760px) {
+  /* Alto real de la barra: lo consumen el padding del contenido, la hoja de
+     "Más" y el banner de instalación para no taparse entre ellos. */
+  :root {
+    --bottom-nav-height: 62px;
+  }
   .app-layout {
     flex-direction: column;
   }
+  /* El sidebar es un patrón de escritorio. En teléfono lo sustituyen la barra
+     superior y la barra de tabs. */
   .sidebar {
-    width: 100%;
-    height: auto;
-    position: sticky;
-    top: 0;
-    z-index: 30;
-    flex-direction: row;
-    align-items: center;
-    padding: 10px 12px;
-    gap: 10px;
-    overflow-x: auto;
-  }
-  .sidebar-brand {
-    margin: 0;
-    padding: 0 6px 0 0;
-    flex-shrink: 0;
-  }
-  .sidebar-brand .org {
     display: none;
   }
-  .sidebar-kicker {
-    display: none;
+  .mobile-topbar {
+    display: flex;
   }
-  .sidebar-nav {
-    flex-direction: row;
-    overflow-x: auto;
-    flex: 1;
-    margin: 0;
+  .bottom-nav {
+    display: flex;
   }
-  .sidebar-nav button {
-    flex-shrink: 0;
-    padding: 8px;
-  }
-  .sidebar-nav button .label,
-  .sidebar-nav button .dot {
-    display: none;
-  }
-  .sidebar-user {
-    margin: 0;
-    flex-shrink: 0;
-  }
-  .sidebar-user .meta,
-  .sidebar-user .chev {
-    display: none;
+  .more-sheet-backdrop {
+    display: flex;
   }
   .main-area {
     height: auto;
   }
   .page {
-    padding: 24px 18px 48px;
+    /* El padding inferior deja pasar la barra de tabs y el home indicator. */
+    padding: 24px 18px calc(48px + var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+    padding-left: calc(18px + env(safe-area-inset-left, 0px));
+    padding-right: calc(18px + env(safe-area-inset-right, 0px));
   }
   .masthead {
     flex-direction: column;
@@ -765,5 +923,315 @@ a {
   }
   .masthead h1 {
     font-size: 34px;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   TOASTS Y DIÁLOGO DE CONFIRMACIÓN (PWA-1.6)
+   Sustituyen a window.alert y window.confirm, que bloquean el hilo
+   principal, no se pueden estilizar y se comportan de forma errática en una
+   PWA instalada.
+   ════════════════════════════════════════════════════════════════════ */
+.toaster {
+  position: fixed;
+  z-index: 100;
+  left: 12px;
+  right: 12px;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  margin-inline: auto;
+  max-width: 460px;
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 12px 12px 14px;
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--text-muted);
+  box-shadow: 0 16px 40px -18px rgba(24, 48, 45, 0.5);
+  animation: toast-in 0.18s ease-out;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+.toast--success {
+  border-left-color: var(--success);
+}
+.toast--error {
+  border-left-color: var(--danger);
+}
+.toast--info {
+  border-left-color: var(--brand);
+}
+.toast__icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.toast--success .toast__icon {
+  color: var(--success);
+}
+.toast--error .toast__icon {
+  color: var(--danger);
+}
+.toast--info .toast__icon {
+  color: var(--brand);
+}
+.toast__copy {
+  flex: 1;
+  min-width: 0;
+}
+.toast__title {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text-dark);
+  margin-bottom: 2px;
+}
+.toast__message {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-body);
+  white-space: pre-line;
+}
+.toast__close {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  margin: -10px -8px -10px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: var(--text-faint);
+}
+.toast__close:hover {
+  background: #f4eee2;
+  color: var(--text-body);
+}
+
+.confirm-dialog {
+  border: none;
+  padding: 0;
+  background: transparent;
+  max-width: 400px;
+  width: calc(100% - 32px);
+  color: inherit;
+}
+.confirm-dialog::backdrop {
+  background: rgba(24, 48, 45, 0.45);
+}
+.confirm-dialog__inner {
+  background: var(--card);
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  padding: 22px;
+  box-shadow: 0 26px 70px -24px rgba(24, 48, 45, 0.6);
+}
+.confirm-dialog__title {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+.confirm-dialog__message {
+  margin-top: 8px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-body);
+}
+.confirm-dialog__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+.confirm-dialog__cancel,
+.confirm-dialog__confirm {
+  flex: 1;
+  min-height: 44px;
+  padding: 12px 14px;
+  border-radius: 13px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.confirm-dialog__cancel {
+  background: #fff;
+  border: 1.5px solid var(--border-input);
+  color: var(--text-body);
+}
+.confirm-dialog__confirm {
+  background: var(--brand-gradient);
+  color: #fff;
+}
+.confirm-dialog__confirm--danger {
+  background: var(--danger);
+}
+
+/* Mínimo táctil de 44px en los controles compartidos con escritorio. */
+@media (pointer: coarse) {
+  .sidebar-nav button,
+  .sidebar-user,
+  .btn {
+    min-height: 44px;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   PWA — banner de instalación (PWA-1.1)
+   En iOS instalar no es un adorno: Safari borra el storage del origen tras
+   7 días sin interacción y solo los sitios en la pantalla de inicio se salvan.
+   ════════════════════════════════════════════════════════════════════ */
+.install-banner {
+  position: fixed;
+  z-index: 90;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px) + var(--bottom-nav-height, 0px));
+  margin-inline: auto;
+  max-width: 520px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: 0 18px 46px -18px rgba(24, 48, 45, 0.45);
+}
+.install-banner__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+.install-banner__copy {
+  flex: 1;
+  min-width: 0;
+}
+.install-banner__title {
+  font-size: 14.5px;
+  font-weight: 800;
+  color: var(--text-dark);
+}
+.install-banner__body {
+  margin-top: 2px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-body);
+}
+.install-banner__steps {
+  margin: 10px 0 0 18px;
+  display: grid;
+  gap: 6px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-body);
+}
+.install-banner__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.install-banner__cta {
+  min-height: 44px;
+  min-width: 88px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: var(--brand-gradient);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 800;
+  box-shadow: 0 10px 22px -10px rgba(31, 126, 118, 0.6);
+}
+.install-banner__dismiss {
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.install-banner__dismiss:hover {
+  background: #f4eee2;
+}
+
+/* ── aviso de versión nueva (PWA-1.2) ──
+   Nunca recarga sola: el service worker espera a que la usuaria diga cuándo. */
+.update-banner {
+  position: fixed;
+  z-index: 95;
+  left: 12px;
+  right: 12px;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  margin-inline: auto;
+  max-width: 520px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--text-dark);
+  color: #fff;
+  box-shadow: 0 18px 46px -18px rgba(24, 48, 45, 0.6);
+}
+.update-banner__copy {
+  flex: 1;
+  min-width: 0;
+}
+.update-banner__title {
+  font-size: 14px;
+  font-weight: 800;
+}
+.update-banner__body {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.78);
+}
+.update-banner__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.update-banner__cta {
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--brand-dark);
+  font-size: 13.5px;
+  font-weight: 800;
+}
+.update-banner__dismiss {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
+}
+.update-banner__dismiss:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+@media (max-width: 420px) {
+  .install-banner {
+    flex-wrap: wrap;
+  }
+  .install-banner__actions {
+    flex-direction: row;
+    width: 100%;
+  }
+  .install-banner__cta {
+    flex: 1;
   }
 }

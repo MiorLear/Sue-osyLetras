@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="ExplorArte">
+  <defs>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2FA7A0" />
+      <stop offset="1" stop-color="#1E7E78" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#brand)" />
+  <g fill="#F5C860">
+    <path d="M168.0,102.0L174.9,118.5L192.7,120.0L179.1,131.6L183.3,149.0L168.0,139.7L152.7,149.0L156.9,131.6L143.3,120.0L161.1,118.5Z" />
+    <path d="M256.0,76.0L261.3,88.7L275.0,89.8L264.6,98.8L267.8,112.2L256.0,105.0L244.2,112.2L247.4,98.8L237.0,89.8L250.7,88.7Z" />
+    <path d="M344.0,108.0L350.3,123.3L366.8,124.6L354.3,135.3L358.1,151.4L344.0,142.8L329.9,151.4L333.7,135.3L321.2,124.6L337.7,123.3Z" />
+  </g>
+  <path d="M76 214 C 136 182, 210 184, 256 224 L 256 428 C 210 388, 136 386, 76 418 Z" fill="#FFFFFF" />
+  <path d="M436 214 C 376 182, 302 184, 256 224 L 256 428 C 302 388, 376 386, 436 418 Z" fill="#FFF6E9" />
+  <rect x="246" y="214" width="20" height="214" rx="10" fill="#D98763" />
+</svg>

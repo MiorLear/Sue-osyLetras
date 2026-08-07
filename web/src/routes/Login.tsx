@@ -4,6 +4,7 @@ import { ApiError, type AuthResult, type UserStatus } from '@explorarte/shared';
 import { GoogleIcon, Icon } from '@/components/Icon';
 import { Logo } from '@/components/Logo';
 import { Field, PrimaryButton } from '@/components/ui';
+import { toast } from '@/components/toast-store';
 import { useAuth } from '@/context/AuthContext';
 import { api, usingMock } from '@/lib/api';
 
@@ -115,13 +116,13 @@ export default function Login() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {view === 'main' ? (
             <>
-              <SocialButton kind="google" label="Continuar con Google" onClick={() => window.alert('Próximamente\n\nEl inicio de sesión con Google estará disponible muy pronto. Por ahora usa tu correo.')} />
+              <SocialButton kind="google" label="Continuar con Google" onClick={() => toast.info('El inicio de sesión con Google estará disponible muy pronto. Por ahora usa tu correo.', { title: 'Próximamente' })} />
               <SocialButton kind="phone" label="Continuar con teléfono" onClick={() => setView('phone-number')} />
               <Divider />
               <Field label="Correo electrónico" icon="mail" placeholder="correo@ejemplo.com" type="email" autoCapitalize="none" value={email} onChangeText={setEmail} />
               <Field label="Contraseña" password placeholder="Tu contraseña" value={password} onChangeText={setPassword} />
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button onClick={() => window.alert('Próximamente\n\nLa recuperación de contraseña estará disponible muy pronto. Por ahora, si olvidaste tu contraseña, contacta al administrador.')} style={{ fontSize: 12, color: 'var(--brand)', fontWeight: 600 }}>
+                <button onClick={() => toast.info('La recuperación de contraseña estará disponible muy pronto. Por ahora, si olvidaste tu contraseña, contacta al administrador.', { title: 'Próximamente' })} style={{ fontSize: 12, color: 'var(--brand)', fontWeight: 600 }}>
                   ¿Olvidaste tu contraseña?
                 </button>
               </div>

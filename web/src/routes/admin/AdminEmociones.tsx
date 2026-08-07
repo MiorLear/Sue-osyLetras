@@ -3,6 +3,7 @@ import type { Emotion, EmotionDetail } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
 import { AdminBtn, AdminModal, MediaListEditor, StringListEditor } from '@/components/admin/ui';
+import { confirmDialog } from '@/components/confirm-store';
 import { api } from '@/lib/api';
 
 const BLANK: EmotionDetail = {
@@ -93,7 +94,13 @@ export default function AdminEmociones() {
   };
 
   const remove = async (e: Emotion) => {
-    if (!confirm(`¿Eliminar la emoción "${e.name}"? Esto la quita de la biblioteca de las docentes.`)) return;
+    const ok = await confirmDialog({
+      title: `¿Eliminar la emoción "${e.name}"?`,
+      message: 'Esto la quita de la biblioteca de las docentes.',
+      confirmLabel: 'Eliminar',
+      tone: 'danger',
+    });
+    if (!ok) return;
     await api.emotions.remove(e.id);
     showToast('Emoción eliminada');
     load();
