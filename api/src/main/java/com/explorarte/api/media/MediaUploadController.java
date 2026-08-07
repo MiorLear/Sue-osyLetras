@@ -25,18 +25,27 @@ import com.explorarte.api.user.UserRole;
  * (PUT /tools, PUT /me, POST /posts, ...), which already enforce the right
  * authorization for that write.
  *
- * <p>Uploads land in a public-read bucket, so the content type is never taken
- * from the client: it is detected from the bytes themselves
- * ({@link MediaTypeSniffer}) and checked against the target category's
- * allowlist, together with that category's size cap. */
+ * <p>The content type is never taken from the client: it is detected from the
+ * bytes themselves ({@link MediaTypeSniffer}) and checked against the target
+ * category's allowlist, together with that category's size cap.
+ *
+ * <p>GCP-04: the returned {@code url} is the canonical one built by
+ * {@link MediaUrlPolicy} — permanent, unsigned, and safe to write to a database
+ * row or a phone's cache index. The bucket itself is private; reads go through
+ * {@link MediaAccessController}. */
 @RestController
 public class MediaUploadController {
 
-    private final SupabaseStorageClient storageClient;
+    private final MediaStorageClient storageClient;
+    private final MediaUrlPolicy mediaUrlPolicy;
     private final CurrentUserService currentUserService;
 
-    public MediaUploadController(SupabaseStorageClient storageClient, CurrentUserService currentUserService) {
+    public MediaUploadController(
+            MediaStorageClient storageClient,
+            MediaUrlPolicy mediaUrlPolicy,
+            CurrentUserService currentUserService) {
         this.storageClient = storageClient;
+        this.mediaUrlPolicy = mediaUrlPolicy;
         this.currentUserService = currentUserService;
     }
 
@@ -78,9 +87,10 @@ public class MediaUploadController {
                             new java.util.TreeSet<>(mediaCategory.allowedMimeTypes())));
         }
 
-        String path = mediaCategory.storagePrefix() + "/" + id + "-" + sanitizedFilename;
-        String url = storageClient.upload(path, bytes, detectedType);
-        return new MediaItem(id, sanitizedFilename, url, detectedType, bytes.length);
+        String objectPath = mediaCategory.storagePrefix() + "/" + id + "-" + sanitizedFilename;
+        storageClient.upload(objectPath, bytes, detectedType);
+        return new MediaItem(id, sanitizedFilename, mediaUrlPolicy.canonicalUrl(objectPath),
+                detectedType, bytes.length);
     }
 
     private static long megabytes(long bytes) {

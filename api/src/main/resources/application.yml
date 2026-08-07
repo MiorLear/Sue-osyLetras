@@ -3,6 +3,18 @@ spring:
     name: explorarte-api
 
   datasource:
+    # GCP-01: one jar, three databases, no profile and no branch in the code —
+    # only the value of this URL changes.
+    #   docker-compose : jdbc:postgresql://db:5432/explorarte
+    #   Render         : DATABASE_URL is translated into these three properties
+    #                    by RenderDatabaseUrlEnvironmentPostProcessor
+    #   Cloud SQL      : jdbc:postgresql:///explorarte
+    #                      ?cloudSqlInstance=<PROJECT>:<REGION>:<INSTANCE>
+    #                      &socketFactory=com.google.cloud.sql.postgres.SocketFactory
+    # The Cloud SQL form has no host:port at all; the driver hands the connection
+    # to the socket factory from com.google.cloud.sql:postgres-socket-factory
+    # (api/pom.xml, runtime scope), which opens the TLS tunnel itself.
+    # DO NOT set DATABASE_URL on Cloud Run: it takes precedence over these.
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/explorarte}
     username: ${SPRING_DATASOURCE_USERNAME:explorarte}
     password: ${SPRING_DATASOURCE_PASSWORD:explorarte_dev_password}
@@ -60,11 +72,36 @@ app:
     # NO default (SEC-02). Without an injected password the seeder skips user creation
     # entirely, so a deployed environment cannot end up with a known-password ADMIN.
     default-password: ${SEED_USER_PASSWORD:}
-  supabase:
-    url: ${SUPABASE_URL:}
-    # Either the service_role key (recommended, bypasses RLS) or the anon key
-    # (needs a storage RLS policy allowing uploads). See render.yaml.
-    key: ${SUPABASE_KEY:}
+  gcs:
+    # GCP-04: Cloud Storage for Firebase bucket that holds every uploaded file,
+    # e.g. explorarte-prod.firebasestorage.app. PRIVATE — no allUsers binding.
+    # Empty (local dev, tests) => uploads answer 503 and everything else works.
+    # Credentials come from Application Default Credentials, never from a key in
+    # an env var. There is no successor to SUPABASE_KEY on purpose (SEC-11).
+    bucket: ${GCS_BUCKET:}
+    # Lifetime of the signed URL that GET /media/** redirects to. Short by
+    # design: it is never stored and never a cache key, so nothing breaks when
+    # it expires. Must be at least twice app.media.redirect-cache-seconds — the
+    # API refuses to start otherwise (MediaAccessController).
+    signed-url-ttl-seconds: ${GCS_SIGNED_URL_TTL_SECONDS:900}
+  media:
+    # Origin that media URLs are built on, and the host attachments are pinned
+    # to. In production this is the Firebase Hosting domain, NOT the Cloud Run
+    # URL: media must be same-origin with the PWA for the service worker to be
+    # able to route and cache it. Requires a /media/** rewrite in
+    # web/firebase.json alongside the existing /api/** one.
+    public-base-url: ${APP_MEDIA_PUBLIC_BASE_URL:http://localhost:8000}
+    # Extra hosts accepted on stored attachment URLs during the Supabase
+    # cutover, e.g. whwczhxwhowtqdfvcavv.supabase.co. Empty it once
+    # scripts/migrate-media-urls.sql has run.
+    legacy-hosts: ${APP_MEDIA_LEGACY_HOSTS:}
+    # How long a client may reuse the 302 from GET /media/**.
+    redirect-cache-seconds: ${APP_MEDIA_REDIRECT_CACHE_SECONDS:300}
+    # SEC-11, second half: require a session to read POSTS/PROFILE files. Off
+    # until the clients stop putting media URLs straight into <img src>, which
+    # cannot carry an Authorization header. Flip to true in the same release as
+    # that client change — nothing else needs to move.
+    require-auth-for-private: ${APP_MEDIA_REQUIRE_AUTH_FOR_PRIVATE:false}
   resend:
     # Resend API key (send-only). Empty -> email disabled (codes only logged).
     api-key: ${RESEND_API_KEY:}

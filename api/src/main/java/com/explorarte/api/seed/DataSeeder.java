@@ -305,6 +305,20 @@ public class DataSeeder implements ApplicationRunner {
 
     private void seedPosts() {
         if (postRepository.count() > 0) return;
+        // GCP-07: los posts y los eventos de ejemplo apuntan por clave foránea a
+        // los usuarios de ejemplo (u-ana, u-lucia, u-sofia). Sin usuarios, este
+        // insert viola posts_author_user_id_fkey y ABORTA EL ARRANQUE.
+        //
+        // Y no tener usuarios es justo lo que pasa en producción: SEED_USER_PASSWORD
+        // se deja sin setear a propósito (SEC-02), así que seedUsers() se salta. O
+        // sea que este seeder solo funcionaba en los entornos donde hay cuentas de
+        // ejemplo, y rompía el primer arranque contra una base vacía —exactamente
+        // el primer despliegue en Cloud SQL—. Se detectó levantando la imagen de
+        // producción contra un Postgres limpio.
+        if (userRepository.count() == 0) {
+            log.info("Skipping demo posts/events: there are no users to attribute them to.");
+            return;
+        }
 
         Post p1 = post("u-ana", "Maestra Ana", "@ana_maestro", true, "#7C3AED", "alegria",
                 "¡Trabajamos la alegría con mi grupo! 🎉 Los niños aprendieron palabras nuevas: alegría, sonrisa, abrazo... ¿Cuál es su favorita? 📚", 12, 2);
@@ -359,6 +373,8 @@ public class DataSeeder implements ApplicationRunner {
 
     private void seedEvents() {
         if (calendarEventRepository.count() > 0) return;
+        // Mismo motivo que en seedPosts(): owner es una FK a users.
+        if (userRepository.count() == 0) return;
         String owner = "u-maria";
         calendarEventRepository.saveAll(List.of(
                 event(owner, "Sesión de lectura Grupo 1", EventType.SESION, LocalDate.of(2026, 6, 4), "10:00", "11:00", "30 minutos antes", null),

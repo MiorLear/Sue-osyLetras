@@ -138,12 +138,36 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(problem(HttpStatus.PAYLOAD_TOO_LARGE, ex.getMessage()));
     }
 
-    /** The container rejects the part before any controller code runs once the
-     * multipart limit in application.yml is hit; without this it is a bare 500. */
-    @ExceptionHandler(MaxUploadSizeExceededException.class)
-    public ResponseEntity<ProblemDetail> handleMaxUploadSize(MaxUploadSizeExceededException ex) {
+    /**
+     * The container rejects the part before any controller code runs once the
+     * multipart limit in application.yml is hit; without this it is a bare 500.
+     *
+     * <p>Tiene que ser este override y no un {@code @ExceptionHandler} propio.
+     * {@link ResponseEntityExceptionHandler} ya declara
+     * {@code MaxUploadSizeExceededException} entre las excepciones que atiende,
+     * así que un segundo método anotado para el mismo tipo deja dos candidatos
+     * empatados: Spring responde "Ambiguous @ExceptionHandler method mapped" al
+     * construir {@code handlerExceptionResolver} y <b>el contexto no levanta</b>.
+     * Lo detectó GCP-07 corriendo la imagen de producción; ApplicationStartsTest
+     * lo cubre desde ahora.
+     */
+    @Override
+    protected ResponseEntity<Object> handleMaxUploadSizeExceededException(
+            MaxUploadSizeExceededException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
                 .body(problem(HttpStatus.PAYLOAD_TOO_LARGE, "The uploaded file is too large"));
+    }
+
+    /** GCP-04: an unconfigured or unreachable media bucket is an environment
+     * problem, so it answers 503 (the client may retry) rather than a 500 that
+     * looks like a bug in the request. The underlying message is logged, never
+     * returned — a Cloud Storage error string names the bucket and the service
+     * account. */
+    @ExceptionHandler(StorageUnavailableException.class)
+    public ResponseEntity<ProblemDetail> handleStorageUnavailable(StorageUnavailableException ex) {
+        log.error("Media storage is unavailable", ex);
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(problem(HttpStatus.SERVICE_UNAVAILABLE, "File storage is not available right now"));
     }
 
     private static ProblemDetail problem(HttpStatus status, String detail) {

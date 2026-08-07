@@ -25,21 +25,21 @@ class MediaUploadControllerTest {
     private RecordingStorageClient storageClient;
     private MediaUploadController controller;
 
-    private static class RecordingStorageClient extends SupabaseStorageClient {
+    private static class RecordingStorageClient implements MediaStorageClient {
         String lastPath;
         String lastContentType;
         int uploadCount;
 
-        RecordingStorageClient() {
-            super("https://supabase.test", "key");
-        }
-
         @Override
-        public String upload(String path, byte[] bytes, String contentType) {
+        public void upload(String path, byte[] bytes, String contentType) {
             this.lastPath = path;
             this.lastContentType = contentType;
             this.uploadCount++;
-            return "https://supabase.test/storage/v1/object/public/explorarte-media/" + path;
+        }
+
+        @Override
+        public java.net.URI signedReadUrl(String objectPath) {
+            throw new UnsupportedOperationException("not used by the upload path");
         }
     }
 
@@ -74,7 +74,10 @@ class MediaUploadControllerTest {
     @BeforeEach
     void setUp() {
         storageClient = new RecordingStorageClient();
-        controller = new MediaUploadController(storageClient, new StubCurrentUserService(UserRole.TEACHER));
+        controller = new MediaUploadController(
+                storageClient,
+                new MediaUrlPolicy("https://explorarte-prod.web.app", ""),
+                new StubCurrentUserService(UserRole.TEACHER));
     }
 
     /** SEC-08: the stored Content-Type comes from the bytes, never from the
@@ -146,6 +149,22 @@ class MediaUploadControllerTest {
 
         assertThatThrownBy(() -> controller.upload(file, "tools"))
                 .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+    }
+
+    /** GCP-04: what the API hands back — and therefore what ends up in a
+     * database row and in the PWA's shared media index — is the canonical URL
+     * on this deployment's own origin, with nothing in it that expires. */
+    @Test
+    void returnsACanonicalUrlWithNoSignature() {
+        MockMultipartFile file = new MockMultipartFile("file", "foto.png", "image/png", PNG);
+
+        MediaItem item = controller.upload(file, "profile");
+
+        assertThat(item.url())
+                .startsWith("https://explorarte-prod.web.app/media/profile/")
+                .endsWith("-foto.png")
+                .doesNotContain("?");
+        assertThat(item.url()).isEqualTo("https://explorarte-prod.web.app/media/" + storageClient.lastPath);
     }
 
     @Test

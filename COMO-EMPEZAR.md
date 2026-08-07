@@ -63,13 +63,20 @@ Si ambas cargan, ¡ya tienes todo el backend + web corriendo! 🎉
 
 ### Cuentas para probar la app
 
-Todas usan la misma contraseña: **`explorarte123`**
-
 | Correo | Rol |
 |---|---|
 | `admin@explorarte.org` | administrador |
 | `maria@ejemplo.com` | docente |
 | `ana@ejemplo.com` | docente |
+
+**La contraseña es la que tú pusiste en `SEED_USER_PASSWORD` dentro de tu `.env`** (mínimo 8
+caracteres). No está escrita en este documento a propósito: este repositorio es público, y una
+contraseña publicada aquí es una contraseña que sirve en cualquier entorno donde alguien la haya
+copiado tal cual.
+
+Si dejas `SEED_USER_PASSWORD` vacía, la API **no crea ninguna cuenta de ejemplo** — es el
+comportamiento seguro por defecto (SEC-02), para que ningún entorno desplegado termine con un ADMIN
+de contraseña conocida.
 
 ### Comandos que vas a usar seguido
 
@@ -127,11 +134,15 @@ corriendo en tu laptop ni preocuparte por tu red Wi-Fi. Solo edita tu `.env`:
 EXPO_PUBLIC_API_URL=https://explorarte-api.onrender.com
 ```
 
-> Cuentas de ejemplo en este backend compartido: mismas que las locales (ver arriba), pero con
-> la contraseña `explorarte-team-2026` (documentada también en `render.yaml`).
+> **Las credenciales de este backend compartido no se publican aquí.** Este repositorio es público
+> y antes había una contraseña de ADMIN escrita en este mismo párrafo (SEC-02). Pídesela a alguien
+> del equipo por un canal privado. Puede que ni siquiera existan cuentas de ejemplo: si
+> `SEED_USER_PASSWORD` no está configurada en el dashboard de Render, el seeder no crea ninguna.
 >
-> ⚠️ Es un plan gratuito de Render: si nadie lo usó en un rato, el primer request tarda
-> ~30-60 segundos en responder (se estaba "durmiendo"). Es normal, solo espera.
+> ⚠️ Es un plan gratuito de Render: si nadie lo usó en un rato, el primer request puede tardar
+> **más de 90 segundos** en responder (se estaba "durmiendo"). Está medido — no son los 30-60 s
+> que decía esta guía antes. Es normal, solo espera. Producción va en Cloud Run justamente para no
+> tener esto; ver [`DESPLIEGUE.md`](./DESPLIEGUE.md), "Arranque en frío: los números".
 
 #### Opción B: usar tu propio backend local (Docker)
 
