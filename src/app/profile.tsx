@@ -3,7 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
@@ -12,6 +12,7 @@ import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/compo
 import { brandGradient, colors } from '@/constants/theme';
 import { api, setAuthToken } from '@/lib/api';
 import { enqueueProfileUpdate } from '@/lib/mutation-queue';
+import { showNotice } from '@/lib/notice';
 import { writeCache } from '@/lib/offline-cache';
 import { useIsOnline } from '@/lib/useNetworkStatus';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
@@ -100,7 +101,7 @@ export default function ProfileScreen() {
         // Offline: queue the text fields (a new photo needs a connection to upload).
         await enqueueProfileUpdate(textInput);
         void writeCache('profile:me', cacheMerged);
-        Alert.alert(
+        showNotice(
           'Guardado sin conexión',
           hasNewPhoto
             ? 'Tus datos se sincronizarán al reconectar. La foto nueva necesita conexión para subirse.'
@@ -112,9 +113,9 @@ export default function ProfileScreen() {
       try {
         await enqueueProfileUpdate(textInput);
         void writeCache('profile:me', cacheMerged);
-        Alert.alert('Guardado sin conexión', 'Tus cambios se sincronizarán cuando haya conexión.');
+        showNotice('Guardado sin conexión', 'Tus cambios se sincronizarán cuando haya conexión.');
       } catch {
-        Alert.alert('Error', 'No se pudo guardar el perfil. Intenta de nuevo.');
+        showNotice('Error', 'No se pudo guardar el perfil. Intenta de nuevo.');
       }
     } finally {
       setSaving(false);

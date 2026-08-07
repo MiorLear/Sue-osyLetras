@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SyncBanner } from '@/components/sync-banner';
 import { colors } from '@/constants/theme';
 import { syncAllContent } from '@/lib/media-sync';
+import { NoticeHost } from '@/lib/notice';
 import { flushQueueNow, loadQueue, startOutboxRetries } from '@/lib/mutation-queue';
 import { useIsOnline } from '@/lib/useNetworkStatus';
 
@@ -51,6 +52,7 @@ export default function RootLayout() {
         }}
       />
       <SyncBanner />
+      <NoticeHost />
     </SafeAreaProvider>
   );
 }

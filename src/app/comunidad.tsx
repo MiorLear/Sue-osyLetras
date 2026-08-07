@@ -4,7 +4,7 @@ import * as Linking from 'expo-linking';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { Comment, MediaItem, Post } from '@explorarte/shared';
@@ -12,6 +12,7 @@ import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
 import { Icon } from '@/components/icon';
 import { brandGradient, colors } from '@/constants/theme';
 import { api } from '@/lib/api';
+import { showNotice } from '@/lib/notice';
 import { enqueuePostComment, enqueuePostCreate, enqueuePostLike, usePendingCount } from '@/lib/mutation-queue';
 import { useIsOnline } from '@/lib/useNetworkStatus';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
@@ -105,7 +106,7 @@ export default function ComunidadExplorArteScreen() {
         await enqueuePostLike(id);
         optimistic();
       } catch {
-        Alert.alert('Error', 'No se pudo actualizar el "me gusta". Intenta de nuevo.');
+        showNotice('Error', 'No se pudo actualizar el "me gusta". Intenta de nuevo.');
       }
     } finally {
       setLikingIds((ids) => ids.filter((x) => x !== id));
@@ -133,7 +134,7 @@ export default function ComunidadExplorArteScreen() {
         append(localComment);
         setDrafts((d) => ({ ...d, [id]: '' }));
       } catch {
-        Alert.alert('Error', 'No se pudo enviar el comentario. Intenta de nuevo.');
+        showNotice('Error', 'No se pudo enviar el comentario. Intenta de nuevo.');
       }
     } finally {
       setSendingIds((ids) => ids.filter((x) => x !== id));
@@ -183,7 +184,7 @@ export default function ComunidadExplorArteScreen() {
         setComposeText('');
         setAttachment(null);
       } catch {
-        Alert.alert('Error', 'No se pudo publicar. Intenta de nuevo.');
+        showNotice('Error', 'No se pudo publicar. Intenta de nuevo.');
       }
     } finally {
       setSubmitting(false);
@@ -203,7 +204,7 @@ export default function ComunidadExplorArteScreen() {
       const filename = asset.fileName ?? (kind === 'image' ? 'foto.jpg' : 'video.mp4');
       setAttachment(await api.media.upload(blob, filename, 'posts'));
     } catch {
-      Alert.alert('No se pudo adjuntar el archivo');
+      showNotice('No se pudo adjuntar el archivo');
     } finally {
       setAttaching(false);
     }

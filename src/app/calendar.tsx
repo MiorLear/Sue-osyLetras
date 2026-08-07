@@ -1,7 +1,7 @@
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { CalEvent as ApiCalEvent } from '@explorarte/shared';
@@ -10,6 +10,7 @@ import { Icon } from '@/components/icon';
 import { Select } from '@/components/ui';
 import { colors } from '@/constants/theme';
 import { api } from '@/lib/api';
+import { showNotice } from '@/lib/notice';
 import { enqueueEventCreate, enqueueEventRemove, enqueueEventUpdate, usePendingCount } from '@/lib/mutation-queue';
 import { useIsOnline } from '@/lib/useNetworkStatus';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
@@ -218,7 +219,7 @@ export default function CalendarScreen() {
         showToast('Se guardará al reconectar');
         closeModal();
       } catch {
-        Alert.alert('Error', 'No se pudo guardar el evento. Intenta de nuevo.');
+        showNotice('Error', 'No se pudo guardar el evento. Intenta de nuevo.');
       }
     } finally {
       setSubmitting(false);
@@ -244,7 +245,7 @@ export default function CalendarScreen() {
         closeModal();
         showToast('Se eliminará al reconectar');
       } catch {
-        Alert.alert('Error', 'No se pudo eliminar el evento. Intenta de nuevo.');
+        showNotice('Error', 'No se pudo eliminar el evento. Intenta de nuevo.');
       }
     } finally {
       setDeleting(false);
@@ -268,7 +269,7 @@ export default function CalendarScreen() {
         await enqueueEventUpdate(id, { completed: next });
         setEvents((es) => es.map((e) => (e.id === id ? { ...e, completed: next } : e)));
       } catch {
-        Alert.alert('Error', 'No se pudo actualizar la tarea. Intenta de nuevo.');
+        showNotice('Error', 'No se pudo actualizar la tarea. Intenta de nuevo.');
       }
     } finally {
       setTogglingId(null);

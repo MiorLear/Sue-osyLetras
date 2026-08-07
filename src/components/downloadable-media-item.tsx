@@ -1,11 +1,12 @@
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import type { MediaItem } from '@explorarte/shared';
 import { Icon } from '@/components/icon';
 import { colors } from '@/constants/theme';
 import { openLocalFile } from '@/lib/open-file';
+import { showNotice } from '@/lib/notice';
 import { download, getLocalUri } from '@/lib/offlineStorage';
 import { useIsOnline } from '@/lib/useNetworkStatus';
 
@@ -48,12 +49,12 @@ export function DownloadableMediaItem({ item }: { item: MediaItem }) {
         await WebBrowser.openBrowserAsync(item.url, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN });
         return;
       }
-      Alert.alert(
+      showNotice(
         'No disponible sin conexión',
         'Conéctate a internet una vez para descargar este archivo; luego podrás abrirlo sin conexión.',
       );
     } catch {
-      Alert.alert('No se pudo abrir el documento', 'Intenta de nuevo.');
+      showNotice('No se pudo abrir el documento', 'Intenta de nuevo.');
     } finally {
       setBusy(false);
     }
