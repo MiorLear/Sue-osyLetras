@@ -6,13 +6,14 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { SyncBanner } from '@/components/sync-banner';
 import { colors } from '@/constants/theme';
-import { syncAllContent } from '@/lib/media-sync';
+import { maybeSyncContent } from '@/lib/media-sync';
 import { NoticeHost } from '@/lib/notice';
 import { flushQueueNow, loadQueue, startOutboxRetries } from '@/lib/mutation-queue';
-import { useIsOnline } from '@/lib/useNetworkStatus';
+import { useIsMetered, useIsOnline } from '@/lib/useNetworkStatus';
 
 export default function RootLayout() {
   const online = useIsOnline();
+  const metered = useIsMetered();
 
   // Load any pending offline changes on launch so the banner can reflect them,
   // then start the retry ladder: it flushes once right away (a device that boots
@@ -32,14 +33,17 @@ export default function RootLayout() {
     return () => sub.remove();
   }, []);
 
-  // When there's a connection (launch + reconnect): pull content for offline use
-  // and replay any queued offline changes. The banner shows progress.
+  // When there's a connection (launch + reconnect): refresh the cached content
+  // JSON and replay any queued offline changes. The refresh is throttled and
+  // skips metered connections, because `online` flips constantly on a tablet
+  // moving between Wi-Fi and cellular; downloading the media files themselves is
+  // a separate, user-initiated action (see the profile screen).
   useEffect(() => {
     if (online) {
-      void syncAllContent();
+      void maybeSyncContent({ metered });
       flushQueueNow();
     }
-  }, [online]);
+  }, [online, metered]);
 
   return (
     <SafeAreaProvider>

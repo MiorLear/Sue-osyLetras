@@ -13,3 +13,15 @@ export function useIsOnline(): boolean {
   if (isInternetReachable === false) return false;
   return true;
 }
+
+/**
+ * True when the connection is likely to cost the teacher money per megabyte
+ * (cellular, or a Wi-Fi hotspot the OS reports as expensive). Used to hold back
+ * proactive syncing — see SCALE-03. Undetectable cases report false, so this
+ * only ever *reduces* traffic, never blocks a connection we can't classify.
+ */
+export function useIsMetered(): boolean {
+  const { type, details } = useNetInfo();
+  if (details && 'isConnectionExpensive' in details && details.isConnectionExpensive) return true;
+  return type === 'cellular';
+}
