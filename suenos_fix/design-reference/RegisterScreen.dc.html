@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="position:absolute; inset:0; display:flex; flex-direction:column; background:#F5FEFE; font-family:'Nunito',sans-serif; overflow:hidden;">
+
+  <!-- Top bar -->
+  <div style="display:flex; align-items:center; padding:40px 20px 16px;">
+    <button class="sl-press" onClick="{{ back }}" style="width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:none; cursor:pointer; border:1.5px solid #D0ECEB;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4A6E6B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+    </button>
+    <div style="flex:1;"></div>
+    <div style="display:flex; gap:6px; align-items:center;">
+      <sc-for list="{{ dots }}" as="d" hint-placeholder-count="3"><div style="{{ d.style }}"></div></sc-for>
+    </div>
+  </div>
+
+  <!-- Logo -->
+  <div style="display:flex; flex-direction:column; align-items:center; padding:0 24px; margin-bottom:24px;">
+    <div style="background:#fff; border-radius:16px; padding:8px; box-shadow:0 1px 3px rgba(0,0,0,.1); margin-bottom:12px; border:1px solid #E0F5F3;">
+      <img src="assets/logo.jpg" alt="logo" style="width:56px; height:56px; border-radius:12px; object-fit:cover; display:block;">
+    </div>
+    <h1 style="margin:0; font-size:1.3rem; font-weight:800; color:#1A3A38; text-align:center;">{{ title }}</h1>
+    <p style="margin:4px 0 0; font-size:0.78rem; color:#717182; text-align:center;">{{ subtitle }}</p>
+  </div>
+
+  <!-- Content -->
+  <div class="sl-scroll" style="flex:1; overflow-y:auto; padding:0 20px; display:flex; flex-direction:column; gap:12px;">
+
+    <!-- STEP 0: method -->
+    <sc-if value="{{ isStep0 }}" hint-placeholder-val="{{ true }}">
+      <button class="sl-press2" onClick="{{ chooseGoogle }}" style="width:100%; display:flex; align-items:center; gap:12px; padding:16px; border-radius:16px; background:#fff; text-align:left; cursor:pointer; border:1.5px solid #E0F0EF;">
+        <div style="width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:#FFF3E0;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg></div>
+        <div style="flex:1;"><p style="margin:0; font-size:0.85rem; font-weight:700; color:#1A3A38;">Continuar con Google</p><p style="margin:0; font-size:0.7rem; color:#717182;">Usa tu cuenta de Google</p></div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#717182" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+
+      <button class="sl-press2" onClick="{{ choosePhone }}" style="width:100%; display:flex; align-items:center; gap:12px; padding:16px; border-radius:16px; background:#fff; text-align:left; cursor:pointer; border:1.5px solid #E0F0EF;">
+        <div style="width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:#F5F0FF;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div>
+        <div style="flex:1;"><p style="margin:0; font-size:0.85rem; font-weight:700; color:#1A3A38;">Número de teléfono</p><p style="margin:0; font-size:0.7rem; color:#717182;">Recibirás un código de verificación</p></div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#717182" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+
+      <button class="sl-press2" onClick="{{ chooseEmail }}" style="width:100%; display:flex; align-items:center; gap:12px; padding:16px; border-radius:16px; background:#fff; text-align:left; cursor:pointer; border:1.5px solid #E0F0EF;">
+        <div style="width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:#E8F8F7;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3DBFB8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg></div>
+        <div style="flex:1;"><p style="margin:0; font-size:0.85rem; font-weight:700; color:#1A3A38;">Correo y contraseña</p><p style="margin:0; font-size:0.7rem; color:#717182;">Crea tu cuenta con email</p></div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#717182" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+    </sc-if>
+
+    <!-- STEP 1: email -->
+    <sc-if value="{{ isStep1Email }}" hint-placeholder-val="{{ false }}">
+      <div><p style="margin:0 0 6px; font-size:0.78rem; font-weight:700; color:#1A3A38;">Correo electrónico</p>
+        <input class="sl-input" type="email" placeholder="correo@ejemplo.com" value="{{ email }}" onChange="{{ onEmail }}" style="width:100%; padding:12px 16px; border-radius:12px; outline:none; font-size:0.82rem; color:#1A3A38;"></div>
+      <div><p style="margin:0 0 6px; font-size:0.78rem; font-weight:700; color:#1A3A38;">Contraseña</p>
+        <div style="position:relative; display:flex; align-items:center;">
+          <input class="sl-input" type="{{ passType }}" placeholder="Mínimo 8 caracteres" value="{{ password }}" onChange="{{ onPassword }}" style="width:100%; padding:12px 45px 12px 16px; border-radius:12px; outline:none; font-size:0.82rem; color:#1A3A38;">
+          <button type="button" onClick="{{ toggleShowPass }}" style="position:absolute; right:12px; background:none; border:none; cursor:pointer; color:#717182; display:flex;">
+            <sc-if value="{{ showPass }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></svg></sc-if>
+            <sc-if value="{{ showPassOff }}" hint-placeholder-val="{{ true }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></sc-if>
+          </button>
+        </div>
+      </div>
+      <div><p style="margin:0 0 6px; font-size:0.78rem; font-weight:700; color:#1A3A38;">Confirmar contraseña</p>
+        <div style="position:relative; display:flex; align-items:center;">
+          <input class="sl-input" type="{{ pass2Type }}" placeholder="Repite tu contraseña" value="{{ confirm }}" onChange="{{ onConfirm }}" style="width:100%; padding:12px 45px 12px 16px; border-radius:12px; outline:none; font-size:0.82rem; color:#1A3A38;">
+          <button type="button" onClick="{{ toggleShowPass2 }}" style="position:absolute; right:12px; background:none; border:none; cursor:pointer; color:#717182; display:flex;">
+            <sc-if value="{{ showPass2 }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></svg></sc-if>
+            <sc-if value="{{ showPass2Off }}" hint-placeholder-val="{{ true }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></sc-if>
+          </button>
+        </div>
+      </div>
+      <button class="sl-press2" onClick="{{ advanceToInfo }}" disabled="{{ emailNextDisabled }}" style="{{ emailNextStyle }}">Siguiente</button>
+    </sc-if>
+
+    <!-- STEP 1: phone number -->
+    <sc-if value="{{ isStep1PhoneNum }}" hint-placeholder-val="{{ false }}">
+      <div><p style="margin:0 0 6px; font-size:0.78rem; font-weight:700; color:#1A3A38;">Número de teléfono</p>
+        <div style="position:relative; display:flex; align-items:center;">
+          <span style="position:absolute; left:14px; pointer-events:none; display:flex;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#717182" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span>
+          <input class="sl-input" type="tel" placeholder="+502 1234 5678" value="{{ phone }}" onChange="{{ onPhone }}" style="width:100%; padding:12px 16px 12px 40px; border-radius:12px; outline:none; font-size:0.82rem; color:#1A3A38;">
+        </div>
+      </div>
+      <button class="sl-press2" onClick="{{ sendCode }}" disabled="{{ sendDisabled }}" style="{{ sendStyle }}">Enviar código</button>
+    </sc-if>
+
+    <!-- STEP 1: phone otp -->
+    <sc-if value="{{ isStep1PhoneOtp }}" hint-placeholder-val="{{ false }}">
+      <div style="border-radius:16px; padding:16px; text-align:center; background:#E8F8F7; border:1px solid #C0E8E5;">
+        <p style="margin:0; font-size:0.78rem; color:#4A6E6B;">Código enviado a</p>
+        <p style="margin:0; font-size:0.88rem; font-weight:700; color:#1A3A38;">{{ phone }}</p>
+      </div>
+      <div><p style="margin:0 0 8px; font-size:0.78rem; font-weight:700; color:#1A3A38;">Código de 6 dígitos</p>
+        <input type="tel" inputMode="numeric" maxLength="6" placeholder="• • • • • •" value="{{ otp }}" onChange="{{ onOtp }}" style="{{ otpStyle }}"></div>
+      <button class="sl-press2" onClick="{{ advanceToInfo }}" disabled="{{ verifyDisabled }}" style="{{ verifyStyle }}">Verificar código</button>
+      <button onClick="{{ backToNumber }}" style="width:100%; text-align:center; padding:8px; font-size:0.78rem; color:#717182; background:none; border:none; cursor:pointer;">¿No recibiste el código? <span style="color:#3DBFB8; font-weight:700;">Reenviar</span></button>
+    </sc-if>
+
+    <!-- STEP 2: info -->
+    <sc-if value="{{ isStep2 }}" hint-placeholder-val="{{ false }}">
+      <sc-if value="{{ methodGoogle }}" hint-placeholder-val="{{ false }}">
+        <div style="border-radius:16px; padding:12px; display:flex; align-items:center; gap:12px; background:#F0FFF4; border:1px solid #C6F6D5;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38A169" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.801 10A10 10 0 1 1 17 3.335"/><path d="m9 11 3 3L22 4"/></svg>
+          <p style="margin:0; font-size:0.78rem; color:#276749; font-weight:600;">Google conectado correctamente</p>
+        </div>
+      </sc-if>
+      <div><p style="margin:0 0 6px; font-size:0.78rem; font-weight:700; color:#1A3A38;">Nombre</p>
+        <div style="position:relative; display:flex; align-items:center;">
+          <span style="position:absolute; left:14px; pointer-events:none; display:flex;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#717182" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+          <input class="sl-input" placeholder="María" value="{{ name }}" onChange="{{ onName }}" style="width:100%; padding:12px 16px 12px 40px; border-radius:12px; outline:none; font-size:0.82rem; color:#1A3A38;">
+        </div>
+      </div>
+      <div><p style="margin:0 0 6px; font-size:0.78rem; font-weight:700; color:#1A3A38;">Apellido</p>
+        <div style="position:relative; display:flex; align-items:center;">
+          <span style="position:absolute; left:14px; pointer-events:none; display:flex;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#717182" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+          <input class="sl-input" placeholder="García" value="{{ lastname }}" onChange="{{ onLastname }}" style="width:100%; padding:12px 16px 12px 40px; border-radius:12px; outline:none; font-size:0.82rem; color:#1A3A38;">
+        </div>
+      </div>
+      <div><p style="margin:0 0 6px; font-size:0.78rem; font-weight:700; color:#1A3A38;">Colegio / Ubicación</p>
+        <div style="position:relative;">
+          <span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); pointer-events:none; display:flex;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#717182" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg></span>
+          <select class="sl-input" value="{{ school }}" onChange="{{ onSchool }}" style="{{ schoolStyle }}">
+            <option value="" disabled>Selecciona tu colegio</option>
+            <sc-for list="{{ schools }}" as="s" hint-placeholder-count="0"><option value="{{ s }}">{{ s }}</option></sc-for>
+          </select>
+        </div>
+      </div>
+      <button class="sl-press2" onClick="{{ handleRegister }}" disabled="{{ createDisabled }}" style="{{ createStyle }}">Crear cuenta</button>
+    </sc-if>
+
+    <div style="height:8px;"></div>
+  </div>
+
+  <!-- Footer -->
+  <div style="padding:24px 20px; text-align:center;">
+    <p style="margin:0; font-size:0.78rem; color:#717182;">¿Ya tienes cuenta? <button onClick="{{ goLogin }}" style="color:#3DBFB8; font-weight:700; background:none; border:none; cursor:pointer; font-size:0.78rem;">Iniciar sesión</button></p>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;navigate&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;(to: string | number) =&gt; void&quot;}}">
+class Component extends DCLogic {
+  state = { step: 0, method: null, phoneStep: "number", showPass: false, showPass2: false,
+    phone: "", otp: "", email: "", password: "", confirm: "", name: "", lastname: "", school: "" };
+
+  set(k) { return (e) => this.setState({ [k]: (e && e.target) ? e.target.value : e }); }
+  onOtp = (e) => this.setState({ otp: (e.target.value || "").replace(/\D/g, "").slice(0, 6) });
+
+  back = () => {
+    const s = this.state;
+    if (s.step === 0) { this.props.navigate("/login"); }
+    else if (s.step === 1) { this.setState({ step: 0, method: null }); }
+    else { this.setState({ step: 1 }); }
+  };
+  choose(m) { return () => { if (m === "google") this.setState({ method: m, step: 2 }); else this.setState({ method: m, step: 1, phoneStep: "number" }); }; }
+
+  renderVals() {
+    const nav = this.props.navigate || (() => {});
+    const s = this.state;
+    const BRAND = "#3DBFB8";
+    const schools = ["Colegio Americano", "Escuela Nacional Primaria", "Colegio La Salle", "Instituto Bilingüe", "Escuela Pública Central", "Colegio San Francisco", "Otro"];
+    const dots = [0, 1, 2].map(i => ({ style: { width: i === s.step ? 16 : 6, height: 6, borderRadius: 9, transition: "all .2s", background: i <= s.step ? BRAND : "#D0ECEB" } }));
+
+    const titles = ["Crear cuenta", "Verificar identidad", "Tu información"];
+    let subtitle = "";
+    if (s.step === 0) subtitle = "Elige cómo quieres registrarte";
+    else if (s.step === 1 && s.method === "email") subtitle = "Ingresa tu correo y contraseña";
+    else if (s.step === 1 && s.method === "phone") subtitle = s.phoneStep === "number" ? "Ingresa tu número de teléfono" : "Ingresa el código que recibiste";
+    else if (s.step === 2) subtitle = "Cuéntanos un poco sobre ti";
+
+    const grad = "linear-gradient(90deg,#3DBFB8,#2A9A95)";
+    const btn = (d) => ({ width: "100%", padding: "14px", borderRadius: 12, color: "#fff", border: "none", fontSize: "0.88rem", fontWeight: 700, cursor: d ? "not-allowed" : "pointer", background: d ? "#B0D8D6" : grad });
+    const emailNextDisabled = !s.email || !s.password || s.password !== s.confirm;
+    const sendDisabled = s.phone.length < 8;
+    const verifyDisabled = s.otp.length < 6;
+    const createDisabled = !s.name || !s.lastname || !s.school;
+
+    return {
+      isStep0: s.step === 0,
+      isStep1Email: s.step === 1 && s.method === "email",
+      isStep1PhoneNum: s.step === 1 && s.method === "phone" && s.phoneStep === "number",
+      isStep1PhoneOtp: s.step === 1 && s.method === "phone" && s.phoneStep === "otp",
+      isStep2: s.step === 2,
+      methodGoogle: s.method === "google",
+      title: titles[s.step], subtitle,
+      dots, schools,
+      email: s.email, password: s.password, confirm: s.confirm, phone: s.phone, otp: s.otp, name: s.name, lastname: s.lastname, school: s.school,
+      onEmail: this.set("email"), onPassword: this.set("password"), onConfirm: this.set("confirm"), onPhone: this.set("phone"), onOtp: this.onOtp, onName: this.set("name"), onLastname: this.set("lastname"), onSchool: this.set("school"),
+      showPass: s.showPass, showPassOff: !s.showPass, passType: s.showPass ? "text" : "password", toggleShowPass: () => this.setState(p => ({ showPass: !p.showPass })),
+      showPass2: s.showPass2, showPass2Off: !s.showPass2, pass2Type: s.showPass2 ? "text" : "password", toggleShowPass2: () => this.setState(p => ({ showPass2: !p.showPass2 })),
+      back: this.back,
+      chooseGoogle: this.choose("google"), choosePhone: this.choose("phone"), chooseEmail: this.choose("email"),
+      advanceToInfo: () => this.setState({ step: 2 }),
+      sendCode: () => this.setState({ phoneStep: "otp" }),
+      backToNumber: () => this.setState({ phoneStep: "number" }),
+      handleRegister: () => nav("/"), goLogin: () => nav("/login"),
+      emailNextDisabled, emailNextStyle: btn(emailNextDisabled),
+      sendDisabled, sendStyle: btn(sendDisabled),
+      verifyDisabled, verifyStyle: btn(verifyDisabled),
+      createDisabled, createStyle: btn(createDisabled),
+      schoolStyle: { width: "100%", padding: "12px 16px 12px 36px", borderRadius: 12, appearance: "none", WebkitAppearance: "none", outline: "none", fontSize: "0.82rem", color: s.school ? "#1A3A38" : "#717182", border: "1.5px solid " + (s.school ? BRAND : "#D0ECEB"), background: "#fff" },
+      otpStyle: { width: "100%", padding: "16px 0", borderRadius: 12, outline: "none", textAlign: "center", border: "1.5px solid " + (s.otp.length > 0 ? BRAND : "#D0ECEB"), background: "#fff", fontSize: "1.4rem", fontWeight: 800, color: "#1A3A38", letterSpacing: "0.8rem" },
+    };
+  }
+}
+</script>
+</body>
+</html>

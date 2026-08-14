@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.3.4</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.explorarte</groupId>
+  <artifactId>api</artifactId>
+  <version>1.0.0</version>
+  <name>api</name>
+  <description>ExplorArte REST API (implements shared/openapi.yaml)</description>
+
+  <properties>
+    <java.version>21</java.version>
+    <jjwt.version>0.12.6</jjwt.version>
+    <springdoc.version>2.6.0</springdoc.version>
+    <bucket4j.version>8.10.1</bucket4j.version>
+    <!-- GCP-01 / GCP-04: Google Cloud client libraries. Pinned through the
+         official BOM so the shared transitive graph (google-auth-library,
+         gax, guava, protobuf) resolves to one coherent set instead of
+         whatever Maven's nearest-wins picks between the Cloud SQL connector
+         and the Storage client. -->
+    <google-cloud-libraries.version>26.50.0</google-cloud-libraries.version>
+    <cloud-sql-socket-factory.version>1.20.1</cloud-sql-socket-factory.version>
+    <embedded-postgres.version>2.0.7</embedded-postgres.version>
+    <!-- La misma familia que Cloud SQL (POSTGRES_16, ver DESPLIEGUE.md) y que
+         el postgres:16-alpine de docker-compose. Validar contra otra mayor
+         probaria poco. -->
+    <embedded-postgres-binaries.version>16.2.0</embedded-postgres-binaries.version>
+    <!-- SEC-16 / CVE-2025-22228: Boot 3.3.4 pins Spring Security 6.3.3, where
+         BCryptPasswordEncoder.matches() returns true for ANY password over 72 bytes whose
+         first 72 bytes match. Fixed in 6.3.8 (and 6.4.4). Still on the 6.3.x line, so this
+         is a patch bump, not a minor upgrade. -->
+    <spring-security.version>6.3.8</spring-security.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.google.cloud</groupId>
+        <artifactId>libraries-bom</artifactId>
+        <version>${google-cloud-libraries.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!-- GCP-01: Cloud SQL connects over a Unix socket / TLS tunnel instead of a
+         host:port, so the JDBC URL names a socketFactory implementation that has
+         to be on the classpath. Runtime scope: no Java code references it: the
+         only thing that selects it is the value of SPRING_DATASOURCE_URL, which
+         is how the same jar runs unchanged against docker-compose, Render and
+         Cloud SQL. See DESPLIEGUE.md ("Un solo jar, tres bases de datos"). -->
+    <dependency>
+      <groupId>com.google.cloud.sql</groupId>
+      <artifactId>postgres-socket-factory</artifactId>
+      <version>${cloud-sql-socket-factory.version}</version>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!-- GCP-04 / SEC-11: Cloud Storage for Firebase (a Google Cloud Storage
+         bucket) replaces Supabase Storage. Used for uploads and for minting V4
+         signed URLs; credentials come from ADC, never from a checked-in key. -->
+    <dependency>
+      <groupId>com.google.cloud</groupId>
+      <artifactId>google-cloud-storage</artifactId>
+      <exclusions>
+        <!-- GCP-05: la librería trae un transporte JSON/HTTP y otro gRPC, y por
+             el segundo se arrastra toda la pila de gRPC. GcsMediaStorageClient
+             usa StorageOptions (JSON/HTTP), así que el transporte gRPC sobra y
+             sacarlo baja el jar ~19 MB — 19 MB que Cloud Run no descarga ni
+             descomprime en cada arranque en frío.
+
+             OJO con querer sacar más: excluir io.grpc entero rompe en tiempo de
+             ejecución con NoClassDefFoundError: io/grpc/Context, porque gax lo
+             usa para propagar contexto también en el camino HTTP. Lo detectó
+             ApplicationStartsTest, no una revisión: por eso lo que se excluye es
+             el transporte (netty, alts, xds...) y no la API de gRPC. Si alguien
+             cambia a GrpcStorageOptions, esto se revierte entero. -->
+        <exclusion>
+          <groupId>com.google.api</groupId>
+          <artifactId>gax-grpc</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>io.grpc</groupId>
+          <artifactId>grpc-netty-shaded</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>io.grpc</groupId>
+          <artifactId>grpc-alts</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>io.grpc</groupId>
+          <artifactId>grpc-xds</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>io.grpc</groupId>
+          <artifactId>grpc-googleapis</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>io.grpc</groupId>
+          <artifactId>grpc-services</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>io.grpc</groupId>
+          <artifactId>grpc-rls</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.google.cloud.opentelemetry</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-database-postgresql</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-api</artifactId>
+      <version>${jjwt.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-impl</artifactId>
+      <version>${jjwt.version}</version>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-jackson</artifactId>
+      <version>${jjwt.version}</version>
+      <scope>runtime</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springdoc</groupId>
+      <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+      <version>${springdoc.version}</version>
+    </dependency>
+
+    <!-- SEC-05: token-bucket rate limiting on /auth/**. Caffeine bounds the number of
+         tracked IPs/identifiers so the limiter cannot itself become the memory DoS. -->
+    <dependency>
+      <groupId>com.bucket4j</groupId>
+      <artifactId>bucket4j-core</artifactId>
+      <version>${bucket4j.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.github.ben-manes.caffeine</groupId>
+      <artifactId>caffeine</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-devtools</artifactId>
+      <scope>runtime</scope>
+      <optional>true</optional>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- GCP-07: un PostgreSQL de verdad, para poder afirmar que la cadena
+         V1..V7 aplica sobre una base limpia y que scripts/migrate-media-urls.sql
+         es SQL valido contra el esquema que esas migraciones producen. Se usa
+         embedded-postgres y no Testcontainers a proposito: no necesita un daemon
+         de Docker, asi que el mismo test corre en CI, en el build de la imagen y
+         en la maquina de cualquiera del equipo. La suite sigue sin depender de
+         ningun servicio externo. -->
+    <dependency>
+      <groupId>io.zonky.test</groupId>
+      <artifactId>embedded-postgres</artifactId>
+      <version>${embedded-postgres.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- El binario nativo por plataforma. linux-amd64 es CI y la imagen Docker;
+         windows-amd64 y darwin-arm64 son las maquinas del equipo. -->
+    <dependency>
+      <groupId>io.zonky.test.postgres</groupId>
+      <artifactId>embedded-postgres-binaries-linux-amd64</artifactId>
+      <version>${embedded-postgres-binaries.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.zonky.test.postgres</groupId>
+      <artifactId>embedded-postgres-binaries-windows-amd64</artifactId>
+      <version>${embedded-postgres-binaries.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.zonky.test.postgres</groupId>
+      <artifactId>embedded-postgres-binaries-darwin-arm64v8</artifactId>
+      <version>${embedded-postgres-binaries.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

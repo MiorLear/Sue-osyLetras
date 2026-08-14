@@ -1,0 +1,46 @@
+/* Design tokens as CSS variables.
+   "Editorial" redesign palette — warm cream paper, teal + clay accents, and a
+   serif/sans type pairing (Newsreader + Hanken Grotesk). The original token
+   names are kept and remapped so every screen inherits the new look. */
+:root {
+  /* brand */
+  --brand: #2fa7a0;
+  --brand-dark: #1e7e78;
+  --brand-gradient: linear-gradient(150deg, #2fa7a0, #1e7e78);
+
+  /* warm accents */
+  --clay: #d98763;
+  --clay-dark: #c5704e;
+  --gold: #c98a3e;
+
+  /* surfaces */
+  --bg: #faf6ef; /* page paper */
+  --card: #ffffff;
+  --card-warm: #fffcf6; /* sidebar / soft cards */
+
+  /* text */
+  --text-dark: #18302d;
+  --text-body: #566965;
+  --text-muted: #93a09c;
+  --text-faint: #a0aba7;
+
+  /* nav / lines */
+  --nav-bg: #e7f4f2;
+  --border: #ede3d3;
+  --border-soft: #efe6d6;
+  --border-input: #d6e9e6;
+  --border-warm: #eadfcb;
+  --gold-label: #bcab8e; /* uppercase eyebrow / section kickers */
+
+  /* state */
+  --disabled: #c2dbd9;
+  --danger: #d8654a;
+  --success: #5c8a4f;
+
+  /* type */
+  --font-serif: 'Newsreader', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --app-max-width: 460px;
+  --radius: 16px;
+}

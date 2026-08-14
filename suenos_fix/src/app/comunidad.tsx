@@ -1,0 +1,474 @@
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
+import * as Linking from 'expo-linking';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import type { Comment, MediaItem, Post } from '@explorarte/shared';
+import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
+import { Icon } from '@/components/icon';
+import { brandGradient, colors } from '@/constants/theme';
+import { api } from '@/lib/api';
+import { showNotice } from '@/lib/notice';
+import {
+  enqueuePostComment,
+  enqueuePostCreate,
+  enqueuePostLike,
+  isTempPostId,
+  newTempPostId,
+  usePendingCount,
+} from '@/lib/mutation-queue';
+import { useIsOnline } from '@/lib/useNetworkStatus';
+import { useOfflineAsync } from '@/lib/useOfflineAsync';
+
+const FILTERS = [
+  { id: 'todos', label: 'Todos' },
+  { id: 'alegria', label: '😊 Alegría' },
+  { id: 'tristeza', label: '😢 Tristeza' },
+  { id: 'enojo', label: '😠 Enojo' },
+  { id: 'miedo', label: '😨 Miedo' },
+];
+
+const MODTAG: Record<string, { label: string; color: string; bg: string }> = {
+  alegria: { label: 'Alegría', color: '#B7791F', bg: '#FEFCE8' },
+  tristeza: { label: 'Tristeza', color: '#2B6CB0', bg: '#EBF8FF' },
+  enojo: { label: 'Enojo', color: '#C53030', bg: '#FFF5F5' },
+  miedo: { label: 'Miedo', color: '#6B46C1', bg: '#F5F0FF' },
+};
+
+const SHARE_BULLETS = [
+  'Experiencias y buenas prácticas',
+  'Adaptaciones de actividades',
+  'Recomendaciones de libros',
+  'Evidencias de trabajo',
+  'Dudas y preguntas',
+  'Ideas para inspirar a otras comunidades educativas',
+];
+
+export default function ComunidadExplorArteScreen() {
+  const insets = useSafeAreaInsets();
+  const { module } = useLocalSearchParams<{ module?: string }>();
+
+  const [filter, setFilter] = useState(module || 'todos');
+  const {
+    data: loadedPosts,
+    loading,
+    error,
+    reload,
+  } = useOfflineAsync(`posts:${filter}`, () => api.posts.list(filter === 'todos' ? undefined : filter), [filter]);
+
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [openThread, setOpenThread] = useState<number | null>(null);
+  const [drafts, setDrafts] = useState<Record<number, string>>({});
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeText, setComposeText] = useState('');
+  const [attachment, setAttachment] = useState<MediaItem | null>(null);
+  const [attaching, setAttaching] = useState(false);
+  const [likingIds, setLikingIds] = useState<number[]>([]);
+  const [sendingIds, setSendingIds] = useState<number[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const online = useIsOnline();
+  const pending = usePendingCount();
+  const prevPending = useRef(pending);
+
+  // Mirror the loaded feed into local state so like/comment/publish mutations
+  // can update posts in place without refetching.
+  useEffect(() => {
+    if (loadedPosts) setPosts(loadedPosts);
+  }, [loadedPosts]);
+
+  // When the offline queue drains (its changes just synced), refetch so the
+  // optimistic temp posts/likes/comments are replaced by the real server ones.
+  useEffect(() => {
+    if (prevPending.current > 0 && pending === 0) reload();
+    prevPending.current = pending;
+  }, [pending, reload]);
+
+  const toggleLike = async (id: number) => {
+    if (likingIds.includes(id)) return;
+    setLikingIds((ids) => [...ids, id]);
+    const optimistic = () =>
+      setPosts((ps) =>
+        ps.map((p) => (p.id === id ? { ...p, liked: !p.liked, likes: p.likes + (p.liked ? -1 : 1) } : p)),
+      );
+    try {
+      // A post created offline has no server id yet, so it always goes through
+      // the queue: the placeholder id is rewritten once its create syncs.
+      if (online && !isTempPostId(id)) {
+        const updated = await api.posts.toggleLike(id);
+        setPosts((ps) => ps.map((p) => (p.id === id ? updated : p)));
+      } else {
+        await enqueuePostLike(id);
+        optimistic();
+      }
+    } catch {
+      try {
+        await enqueuePostLike(id);
+        optimistic();
+      } catch {
+        showNotice('Error', 'No se pudo actualizar el "me gusta". Intenta de nuevo.');
+      }
+    } finally {
+      setLikingIds((ids) => ids.filter((x) => x !== id));
+    }
+  };
+
+  const sendComment = async (id: number) => {
+    const text = (drafts[id] || '').trim();
+    if (!text || sendingIds.includes(id)) return;
+    setSendingIds((ids) => [...ids, id]);
+    const localComment: Comment = { user: 'Tú', initials: 'Tú', avatarBg: '#3DBFB8', time: 'ahora', text };
+    const append = (c: Comment) =>
+      setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, comments: [...p.comments, c] } : p)));
+    try {
+      if (online && !isTempPostId(id)) {
+        append(await api.posts.addComment(id, { text }));
+      } else {
+        await enqueuePostComment(id, { text });
+        append(localComment);
+      }
+      setDrafts((d) => ({ ...d, [id]: '' }));
+    } catch {
+      try {
+        await enqueuePostComment(id, { text });
+        append(localComment);
+        setDrafts((d) => ({ ...d, [id]: '' }));
+      } catch {
+        showNotice('Error', 'No se pudo enviar el comentario. Intenta de nuevo.');
+      }
+    } finally {
+      setSendingIds((ids) => ids.filter((x) => x !== id));
+    }
+  };
+
+  const submitPost = async () => {
+    const text = composeText.trim();
+    if (!text || submitting) return;
+    setSubmitting(true);
+    const input = { text, module: filter === 'todos' ? null : filter, attachments: attachment ? [attachment] : [] };
+    const queueLocally = async () => {
+      const tempId = newTempPostId();
+      await enqueuePostCreate(tempId, input);
+      const tempPost: Post = {
+        id: tempId,
+        user: 'Tú',
+        handle: '@tú',
+        verified: false,
+        time: 'ahora',
+        avatarBg: '#3DBFB8',
+        module: input.module,
+        text: input.text,
+        likes: 0,
+        liked: false,
+        reposts: 0,
+        comments: [],
+        attachments: input.attachments,
+      };
+      setPosts((ps) => [tempPost, ...ps]);
+    };
+    try {
+      if (online) {
+        const np = await api.posts.create(input);
+        setPosts((ps) => [np, ...ps]);
+      } else {
+        await queueLocally();
+      }
+      setComposeOpen(false);
+      setComposeText('');
+      setAttachment(null);
+    } catch {
+      try {
+        await queueLocally();
+        setComposeOpen(false);
+        setComposeText('');
+        setAttachment(null);
+      } catch {
+        showNotice('Error', 'No se pudo publicar. Intenta de nuevo.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const attachMedia = async (kind: 'image' | 'video') => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: kind === 'image' ? ['images'] : ['videos'],
+      quality: 0.7,
+    });
+    if (result.canceled) return;
+    const asset = result.assets[0];
+    setAttaching(true);
+    try {
+      const blob = await fetch(asset.uri).then((r) => r.blob());
+      const filename = asset.fileName ?? (kind === 'image' ? 'foto.jpg' : 'video.mp4');
+      setAttachment(await api.media.upload(blob, filename, 'posts'));
+    } catch {
+      showNotice('No se pudo adjuntar el archivo');
+    } finally {
+      setAttaching(false);
+    }
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <LinearGradient
+        colors={brandGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ paddingTop: insets.top + 12, paddingBottom: 12, paddingHorizontal: 16, overflow: 'hidden' }}>
+        <View style={{ position: 'absolute', top: -24, right: -24, width: 96, height: 96, borderRadius: 48, opacity: 0.2, backgroundColor: '#fff' }} />
+        <View style={{ marginBottom: 12 }}>
+          <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>Sueños y Letras</Text>
+          <Text style={{ color: '#fff', fontSize: 20, fontWeight: '800' }}>Comunidad ExplorArte</Text>
+          <Text style={{ marginTop: 6, color: 'rgba(255,255,255,0.9)', fontSize: 12, lineHeight: 17 }}>
+            Comparte experiencias, aprendizajes e ideas con otras docentes que están promoviendo el
+            bienestar emocional en sus comunidades educativas.
+          </Text>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+          {FILTERS.map((f) => {
+            const active = filter === f.id;
+            return (
+              <Pressable
+                key={f.id}
+                onPress={() => setFilter(f.id)}
+                style={{ paddingVertical: 7, paddingHorizontal: 14, borderRadius: 20, backgroundColor: active ? '#fff' : 'rgba(255,255,255,0.2)' }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: active ? '#2A9A95' : '#fff' }}>{f.label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </LinearGradient>
+
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 12, gap: 10 }} showsVerticalScrollIndicator={false}>
+        {loading ? (
+          <ActivityIndicator color={colors.brand} style={{ marginTop: 32 }} />
+        ) : error ? (
+          <View style={{ marginTop: 32, alignItems: 'center', gap: 12 }}>
+            <Text style={{ fontSize: 13, color: colors.textBody, textAlign: 'center' }}>
+              No pudimos cargar las publicaciones. Revisa tu conexión.
+            </Text>
+            <Pressable
+              onPress={reload}
+              style={{ paddingVertical: 9, paddingHorizontal: 18, borderRadius: 10, backgroundColor: colors.brand }}>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Reintentar</Text>
+            </Pressable>
+          </View>
+        ) : posts.length === 0 ? (
+          <Text style={{ marginTop: 32, fontSize: 13, color: colors.textMuted, textAlign: 'center' }}>
+            Aún no hay publicaciones.
+          </Text>
+        ) : (
+          posts.map((p) => {
+          const tag = p.module ? MODTAG[p.module] : null;
+          const initials = p.user.split(' ').map((w) => w.charAt(0)).slice(0, 2).join('').toUpperCase();
+          const threadOpen = openThread === p.id;
+          const sending = sendingIds.includes(p.id);
+          return (
+            <View key={p.id} style={{ borderRadius: 16, backgroundColor: '#fff', overflow: 'hidden', borderWidth: 1.5, borderColor: colors.border }}>
+              <View style={{ padding: 14 }}>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <View style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: p.avatarBg }}>
+                    <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>{initials}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', gap: 5 }}>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textDark }}>{p.user}</Text>
+                      {p.verified ? <Icon name="check-circle" size={13} color={colors.brand} /> : null}
+                      <Text style={{ fontSize: 11.5, color: colors.textMuted }}>{p.handle}</Text>
+                      <Text style={{ fontSize: 11.5, color: colors.textMuted }}>· {p.time}</Text>
+                    </View>
+                    {tag ? (
+                      <View style={{ alignSelf: 'flex-start', marginTop: 4, backgroundColor: tag.bg, borderRadius: 6, paddingVertical: 2, paddingHorizontal: 8 }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: tag.color }}>Emoción: {tag.label}</Text>
+                      </View>
+                    ) : null}
+                    <Text style={{ marginTop: 8, fontSize: 13, color: '#2D4A48', lineHeight: 19 }}>{p.text}</Text>
+                    {p.attachments.map((a) =>
+                      a.mimeType.startsWith('video') ? (
+                        <Pressable
+                          key={a.id}
+                          onPress={() => Linking.openURL(a.url)}
+                          style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 10, backgroundColor: '#F2FAFA' }}>
+                          <Icon name="video" size={16} color={colors.brand} />
+                          <Text style={{ fontSize: 12.5, fontWeight: '600', color: colors.textDark }}>{a.title}</Text>
+                        </Pressable>
+                      ) : (
+                        <Image
+                          key={a.id}
+                          source={{ uri: a.url }}
+                          style={{ marginTop: 8, width: '100%', height: 180, borderRadius: 12 }}
+                          contentFit="cover"
+                        />
+                      ),
+                    )}
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, paddingLeft: 48 }}>
+                  <ActionBtn icon="message-circle" value={p.comments.length} onPress={() => setOpenThread(threadOpen ? null : p.id)} />
+                  <ActionBtn icon="heart" value={p.likes} active={p.liked} activeColor={colors.danger} fill={p.liked} onPress={() => toggleLike(p.id)} disabled={likingIds.includes(p.id)} />
+                </View>
+              </View>
+
+              {threadOpen ? (
+                <View style={{ padding: 14, paddingTop: 12, backgroundColor: '#F7FCFC', borderTopWidth: 1, borderTopColor: colors.border }}>
+                  {p.comments.map((c, i) => (
+                    <View key={i} style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+                      <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: c.avatarBg }}>
+                        <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>{c.initials}</Text>
+                      </View>
+                      <View style={{ flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: '#EAF4F3' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 5 }}>
+                          <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textDark }}>{c.user}</Text>
+                          <Text style={{ fontSize: 10.5, color: colors.textMuted }}>· {c.time}</Text>
+                        </View>
+                        <Text style={{ marginTop: 2, fontSize: 12, color: colors.textBody, lineHeight: 17 }}>{c.text}</Text>
+                      </View>
+                    </View>
+                  ))}
+                  <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 6 }}>
+                    <TextInput
+                      value={drafts[p.id] || ''}
+                      onChangeText={(t) => setDrafts((d) => ({ ...d, [p.id]: t }))}
+                      placeholder="Escribe un comentario..."
+                      placeholderTextColor="#9DB8B5"
+                      style={{ flex: 1, paddingVertical: 9, paddingHorizontal: 14, borderRadius: 20, fontSize: 12.5, color: colors.textDark, borderWidth: 1.5, borderColor: colors.borderInput, backgroundColor: '#fff' }}
+                    />
+                    <Pressable
+                      onPress={() => sendComment(p.id)}
+                      disabled={!(drafts[p.id] || '').trim() || sending}
+                      style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: (drafts[p.id] || '').trim() && !sending ? colors.brand : colors.disabled }}>
+                      {sending ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="send" size={15} color="#fff" />}
+                    </Pressable>
+                  </View>
+                </View>
+              ) : null}
+            </View>
+          );
+          })
+        )}
+        <View style={{ height: 80 }} />
+      </ScrollView>
+
+      {/* FAB */}
+      <Pressable
+        onPress={() => setComposeOpen(true)}
+        style={{ position: 'absolute', bottom: insets.bottom + 90, right: 20, width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' }}>
+        <LinearGradient
+          colors={brandGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(61,191,184,0.45)' }}>
+          <Icon name="plus" size={26} color="#fff" strokeWidth={2.4} />
+        </LinearGradient>
+      </Pressable>
+
+      {/* Compose modal */}
+      <Modal visible={composeOpen} transparent animationType="slide" onRequestClose={() => setComposeOpen(false)}>
+        <Pressable onPress={() => setComposeOpen(false)} style={{ flex: 1, backgroundColor: 'rgba(20,40,38,0.45)', justifyContent: 'flex-end' }}>
+          <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: insets.bottom + 20 }}>
+            <View style={{ width: 40, height: 4, borderRadius: 9, backgroundColor: colors.borderInput, alignSelf: 'center', marginBottom: 16 }} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: colors.textDark }}>Crear publicación</Text>
+              <Pressable onPress={() => setComposeOpen(false)} style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F5F5' }}>
+                <Icon name="x" size={16} color={colors.textMuted} />
+              </Pressable>
+            </View>
+
+            <View style={{ marginBottom: 14, padding: 12, borderRadius: 12, backgroundColor: '#F2FAFA', borderWidth: 1, borderColor: colors.borderSoft }}>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textDark, marginBottom: 6 }}>Puedes compartir:</Text>
+              {SHARE_BULLETS.map((b) => (
+                <View key={b} style={{ flexDirection: 'row', gap: 6, marginBottom: 2 }}>
+                  <Text style={{ color: colors.brand, fontSize: 12 }}>•</Text>
+                  <Text style={{ flex: 1, fontSize: 11.5, color: colors.textBody, lineHeight: 17 }}>{b}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.brand }}>
+                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>MR</Text>
+              </View>
+              <TextInput
+                value={composeText}
+                onChangeText={setComposeText}
+                placeholder="¿Qué quieres compartir con la comunidad?"
+                placeholderTextColor="#9DB8B5"
+                multiline
+                style={{ flex: 1, minHeight: 90, fontSize: 14, color: colors.textDark, lineHeight: 20, textAlignVertical: 'top' }}
+              />
+            </View>
+            {attachment ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 12, backgroundColor: '#F2FAFA', borderWidth: 1, borderColor: colors.borderSoft, marginBottom: 4 }}>
+                <Icon name={attachment.mimeType.startsWith('video') ? 'video' : 'image'} size={16} color={colors.brand} />
+                <Text style={{ flex: 1, fontSize: 12.5, fontWeight: '600', color: colors.textDark }} numberOfLines={1}>
+                  {attachment.title}
+                </Text>
+                <Pressable onPress={() => setAttachment(null)} style={{ width: 26, height: 26, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
+                  <Icon name="x" size={13} color={colors.danger} />
+                </Pressable>
+              </View>
+            ) : null}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#F0F5F5', marginVertical: 12 }}>
+              <Pressable onPress={() => attachMedia('image')} disabled={attaching} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Icon name="image" size={18} color={colors.brand} />
+                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.brand }}>Imagen</Text>
+              </Pressable>
+              <Pressable onPress={() => attachMedia('video')} disabled={attaching} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Icon name="video" size={18} color="#7C3AED" />
+                <Text style={{ fontSize: 12, fontWeight: '600', color: '#7C3AED' }}>Video</Text>
+              </Pressable>
+              {attaching ? <Text style={{ fontSize: 11.5, color: colors.textMuted }}>Subiendo…</Text> : null}
+            </View>
+            {composeText.trim() ? (
+              <Pressable onPress={submitPost} disabled={submitting}>
+                <LinearGradient colors={brandGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 13, borderRadius: 12, alignItems: 'center', opacity: submitting ? 0.7 : 1 }}>
+                  {submitting ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Publicar</Text>
+                  )}
+                </LinearGradient>
+              </Pressable>
+            ) : (
+              <View style={{ paddingVertical: 13, borderRadius: 12, alignItems: 'center', backgroundColor: colors.disabled }}>
+                <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Publicar</Text>
+              </View>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <BottomNav items={MAIN_TABS} />
+    </View>
+  );
+}
+
+function ActionBtn({
+  icon,
+  value,
+  active,
+  activeColor,
+  fill,
+  onPress,
+  disabled,
+}: {
+  icon: 'message-circle' | 'heart';
+  value: number;
+  active?: boolean;
+  activeColor?: string;
+  fill?: boolean;
+  onPress?: () => void;
+  disabled?: boolean;
+}) {
+  const color = active ? activeColor! : colors.textMuted;
+  return (
+    <Pressable onPress={onPress} disabled={disabled} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 5, paddingHorizontal: 8, borderRadius: 9, opacity: disabled ? 0.5 : 1 }}>
+      <Icon name={icon} size={15} color={color} fill={fill ? color : 'none'} />
+      <Text style={{ fontSize: 12, fontWeight: '600', color }}>{value}</Text>
+    </Pressable>
+  );
+}

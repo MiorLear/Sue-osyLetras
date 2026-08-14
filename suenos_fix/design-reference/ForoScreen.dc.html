@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="position:absolute; inset:0; display:flex; flex-direction:column; background:#F5FEFE; font-family:'Nunito',sans-serif; overflow:hidden;">
+
+  <!-- Header -->
+  <header style="padding:40px 16px 12px; position:relative; overflow:hidden; flex-shrink:0; background:linear-gradient(135deg,#3DBFB8,#2A9A95);">
+    <div style="position:absolute; top:-24px; right:-24px; width:96px; height:96px; border-radius:50%; opacity:.2; background:#fff;"></div>
+    <div style="position:relative; display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+      <button onClick="{{ goBack }}" style="width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.2); border:none; cursor:pointer; flex-shrink:0;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+      </button>
+      <div>
+        <p style="margin:0; color:rgba(255,255,255,.7); font-size:0.7rem;">Comunidad</p>
+        <h1 style="margin:0; color:#fff; font-size:1.2rem; font-weight:800;">Foro</h1>
+      </div>
+    </div>
+    <!-- Filters -->
+    <div class="sl-scroll" style="position:relative; display:flex; gap:8px; overflow-x:auto; padding-bottom:2px;">
+      <sc-for list="{{ filters }}" as="f" hint-placeholder-count="5">
+        <button onClick="{{ f.onClick }}" style="{{ f.style }}">{{ f.label }}</button>
+      </sc-for>
+    </div>
+  </header>
+
+  <!-- Feed -->
+  <div class="sl-scroll" style="flex:1; overflow-y:auto; padding:12px 12px 80px;">
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <sc-for list="{{ posts }}" as="p" hint-placeholder-count="5">
+        <div style="border-radius:16px; background:#fff; overflow:hidden; border:1.5px solid #E4F4F3;">
+          <div style="padding:14px;">
+            <div style="display:flex; gap:10px;">
+              <div style="width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; flex-shrink:0; font-size:0.72rem; font-weight:800; background:{{ p.avatarBg }};">{{ p.initials }}</div>
+              <div style="flex:1; min-width:0;">
+                <div style="display:flex; flex-wrap:wrap; align-items:baseline; gap:0 5px;">
+                  <span style="font-size:0.82rem; font-weight:700; color:#1A3A38;">{{ p.user }}</span>
+                  <sc-if value="{{ p.verified }}" hint-placeholder-val="{{ false }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="#3DBFB8" stroke="none"><path d="m9 12 2 2 4-4"/><circle cx="12" cy="12" r="10" fill="none" stroke="#3DBFB8" stroke-width="2"/></svg></sc-if>
+                  <span style="font-size:0.7rem; color:#717182;">{{ p.handle }}</span>
+                  <span style="font-size:0.7rem; color:#717182;">· {{ p.time }}</span>
+                </div>
+                <sc-if value="{{ p.hasTag }}" hint-placeholder-val="{{ false }}">
+                  <span style="{{ p.tagStyle }}">{{ p.tagLabel }}</span>
+                </sc-if>
+                <p style="margin:8px 0 0; font-size:0.82rem; color:#2D4A48; line-height:1.5; white-space:pre-wrap;">{{ p.text }}</p>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:12px; padding-left:48px;">
+              <button onClick="{{ p.onToggleComments }}" style="display:flex; align-items:center; gap:5px; padding:5px 8px; border-radius:9px; background:none; border:none; cursor:pointer; color:#717182;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg><span style="font-size:0.72rem; font-weight:600;">{{ p.commentCount }}</span></button>
+              <button style="display:flex; align-items:center; gap:5px; padding:5px 8px; border-radius:9px; background:none; border:none; cursor:pointer; color:#717182;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 9 3-3 3 3"/><path d="M13 18H7a2 2 0 0 1-2-2V6"/><path d="m22 15-3 3-3-3"/><path d="M11 6h6a2 2 0 0 1 2 2v10"/></svg><span style="font-size:0.72rem; font-weight:600;">{{ p.reposts }}</span></button>
+              <button onClick="{{ p.onLike }}" style="{{ p.likeBtnStyle }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="{{ p.heartFill }}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg><span style="font-size:0.72rem; font-weight:600;">{{ p.likes }}</span></button>
+              <button style="margin-left:auto; padding:5px; border-radius:9px; background:none; border:none; cursor:pointer; color:#717182; display:flex;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button>
+            </div>
+          </div>
+          <!-- Comments thread -->
+          <sc-if value="{{ p.showComments }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:12px 14px 14px; background:#F7FCFC; border-top:1px solid #E4F4F3;">
+              <sc-for list="{{ p.comments }}" as="c" hint-placeholder-count="2">
+                <div style="display:flex; gap:8px; margin-bottom:10px;">
+                  <div style="width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; flex-shrink:0; font-size:0.6rem; font-weight:800; background:{{ c.avatarBg }};">{{ c.initials }}</div>
+                  <div style="flex:1; background:#fff; border-radius:12px; padding:8px 12px; border:1px solid #EAF4F3;">
+                    <div style="display:flex; align-items:baseline; gap:5px;"><span style="font-size:0.74rem; font-weight:700; color:#1A3A38;">{{ c.user }}</span><span style="font-size:0.65rem; color:#717182;">· {{ c.time }}</span></div>
+                    <p style="margin:2px 0 0; font-size:0.76rem; color:#4A6E6B; line-height:1.45;">{{ c.text }}</p>
+                  </div>
+                </div>
+              </sc-for>
+              <div style="display:flex; gap:8px; align-items:center; margin-top:6px;">
+                <input value="{{ p.draft }}" onChange="{{ p.onDraft }}" placeholder="Escribe un comentario..." style="flex:1; padding:9px 14px; border-radius:20px; outline:none; font-size:0.76rem; color:#1A3A38; border:1.5px solid #D0ECEB; background:#fff;">
+                <button onClick="{{ p.onSendComment }}" style="{{ p.sendStyle }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg></button>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- FAB -->
+  <button class="sl-press" onClick="{{ openCompose }}" style="position:absolute; bottom:24px; right:20px; width:56px; height:56px; border-radius:50%; display:flex; align-items:center; justify-content:center; z-index:20; cursor:pointer; border:none; box-shadow:0 8px 24px rgba(61,191,184,.45); background:linear-gradient(135deg,#3DBFB8,#2A9A95);">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+  </button>
+
+  <!-- Compose modal -->
+  <sc-if value="{{ composeOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeCompose }}" style="position:absolute; inset:0; z-index:40; background:rgba(20,40,38,.45); display:flex; align-items:flex-end;">
+      <div onClick="{{ stop }}" style="width:100%; background:#fff; border-radius:24px 24px 0 0; padding:20px; animation:sl-slide-up .28s cubic-bezier(.16,1,.3,1);">
+        <div style="width:40px; height:4px; border-radius:9px; background:#D0ECEB; margin:0 auto 16px;"></div>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+          <h2 style="margin:0; font-size:1rem; font-weight:800; color:#1A3A38;">Crear publicación</h2>
+          <button onClick="{{ closeCompose }}" style="width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:#F0F5F5; border:none; cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#717182" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <div style="width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; flex-shrink:0; font-size:0.72rem; font-weight:800; background:#3DBFB8;">MR</div>
+          <textarea value="{{ composeText }}" onChange="{{ onComposeText }}" placeholder="¿Qué quieres compartir con la comunidad?" style="flex:1; min-height:110px; resize:none; padding:10px 0; border:none; outline:none; font-size:0.88rem; color:#1A3A38; line-height:1.5;"></textarea>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px; padding:12px 0; border-top:1px solid #F0F5F5; border-bottom:1px solid #F0F5F5; margin:8px 0 16px;">
+          <button style="display:flex; align-items:center; gap:6px; background:none; border:none; cursor:pointer; color:#3DBFB8;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg><span style="font-size:0.74rem; font-weight:600;">Imagen</span></button>
+          <button style="display:flex; align-items:center; gap:6px; background:none; border:none; cursor:pointer; color:#7C3AED;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg><span style="font-size:0.74rem; font-weight:600;">Video</span></button>
+        </div>
+        <button onClick="{{ submitPost }}" disabled="{{ postDisabled }}" style="{{ postBtnStyle }}">Publicar</button>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;navigate&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;(to: string | number) =&gt; void&quot;},&quot;foroFilter&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const seed = [
+      { id: 1, user: "Maestra Ana", handle: "@ana_maestro", verified: true, time: "hace 2h", avatarBg: "#7C3AED", module: "felicidad",
+        text: "¡Terminamos el módulo de Felicidad! 🎉 Los niños aprendieron palabras nuevas: alegría, sonrisa, abrazo... ¿Cuál es su favorita? 📚",
+        likes: 12, liked: false, reposts: 2,
+        comments: [
+          { user: "Coordinadora Lucía", initials: "CL", avatarBg: "#D97706", time: "1h", text: "¡Qué maravilla! Mi grupo favoritó 'abrazo' 🤗" },
+          { user: "Prof. Roberto", initials: "PR", avatarBg: "#2B6CB0", time: "45min", text: "Excelente trabajo Ana, se nota el progreso." },
+        ] },
+      { id: 2, user: "Coordinadora Lucía", handle: "@lucia_coord", verified: true, time: "hace 5h", avatarBg: "#D97706", module: null,
+        text: "Recordatorio: sesión de lectura grupal mañana a las 10:00 AM. ¡No olviden traer sus libros favoritos! 📖✨",
+        likes: 8, liked: false, reposts: 3,
+        comments: [ { user: "Maestra Ana", initials: "MA", avatarBg: "#7C3AED", time: "3h", text: "¡Ahí estaremos! 🙌" } ] },
+      { id: 3, user: "Prof. Roberto", handle: "@roberto_lee", verified: false, time: "hace 8h", avatarBg: "#2B6CB0", module: "enojo",
+        text: "Iniciamos el módulo de Enojo hoy. Es importante que los niños aprendan a reconocer y expresar esta emoción de forma sana. 💙",
+        likes: 15, liked: true, reposts: 5, comments: [] },
+      { id: 4, user: "Mamá de Sofía", handle: "@familia_sofia", verified: false, time: "hace 1d", avatarBg: "#DD6B20", module: "felicidad",
+        text: "Mi hija no para de hablar de las historias que leyeron en clase. ¡Gracias por inspirar el amor por la lectura! ❤️",
+        likes: 24, liked: false, reposts: 7,
+        comments: [ { user: "Maestra Ana", initials: "MA", avatarBg: "#7C3AED", time: "20h", text: "¡Eso nos llena de alegría! 🥰" } ] },
+      { id: 5, user: "Director Carlos", handle: "@dir_carlos", verified: true, time: "hace 2d", avatarBg: "#319795", module: null,
+        text: "Orgulloso del equipo de Sueños y Letras. Cada día acercamos más letras a más niños. ¡Más letras, más libres! 🌟",
+        likes: 42, liked: false, reposts: 12, comments: [] },
+    ];
+    this.state = { posts: seed, filter: this.props.foroFilter || "todos", composeOpen: false, composeText: "", openThread: null, drafts: {} };
+  }
+
+  toggleLike(id) { this.setState(s => ({ posts: s.posts.map(p => p.id === id ? { ...p, liked: !p.liked, likes: p.liked ? p.likes - 1 : p.likes + 1 } : p) })); }
+  toggleThread(id) { this.setState(s => ({ openThread: s.openThread === id ? null : id })); }
+  setDraft(id) { return (e) => { const v = e.target.value; this.setState(s => ({ drafts: { ...s.drafts, [id]: v } })); }; }
+  sendComment(id) {
+    const text = (this.state.drafts[id] || "").trim();
+    if (!text) return;
+    this.setState(s => ({
+      posts: s.posts.map(p => p.id === id ? { ...p, comments: [...p.comments, { user: "María Reneé", initials: "MR", avatarBg: "#3DBFB8", time: "ahora", text }] } : p),
+      drafts: { ...s.drafts, [id]: "" },
+    }));
+  }
+  submitPost() {
+    const text = this.state.composeText.trim();
+    if (!text) return;
+    const np = { id: Date.now(), user: "María Reneé", handle: "@maria_r", verified: false, time: "ahora", avatarBg: "#3DBFB8", module: null, text, likes: 0, liked: false, reposts: 0, comments: [] };
+    this.setState(s => ({ posts: [np, ...s.posts], composeOpen: false, composeText: "" }));
+  }
+
+  renderVals() {
+    const nav = this.props.navigate || (() => {});
+    const s = this.state;
+    const BRAND = "#3DBFB8";
+    const FILTERS = [
+      { id: "todos", label: "Todos" },
+      { id: "felicidad", label: "😊 Felicidad" },
+      { id: "enojo", label: "😠 Enojo" },
+      { id: "desagrado", label: "🤢 Desagrado" },
+      { id: "tristeza", label: "😢 Tristeza" },
+    ];
+    const MODTAG = {
+      felicidad: { label: "Felicidad", color: "#B7791F", bg: "#FEFCE8" },
+      enojo: { label: "Enojo", color: "#C53030", bg: "#FFF5F5" },
+      desagrado: { label: "Desagrado", color: "#2F855A", bg: "#F0FFF4" },
+      tristeza: { label: "Tristeza", color: "#2B6CB0", bg: "#EBF8FF" },
+    };
+    const filters = FILTERS.map(f => ({
+      label: f.label, onClick: () => this.setState({ filter: f.id }),
+      style: { flexShrink: 0, padding: "7px 14px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: "0.74rem", fontWeight: 700, whiteSpace: "nowrap", background: s.filter === f.id ? "#fff" : "rgba(255,255,255,.2)", color: s.filter === f.id ? "#2A9A95" : "#fff" },
+    }));
+
+    const visible = s.filter === "todos" ? s.posts : s.posts.filter(p => p.module === s.filter);
+    const posts = visible.map(p => {
+      const tag = p.module ? MODTAG[p.module] : null;
+      return {
+        initials: p.user.split(" ").map(w => w.charAt(0)).slice(0, 2).join("").toUpperCase(),
+        user: p.user, handle: p.handle, verified: p.verified, time: p.time, avatarBg: p.avatarBg, text: p.text,
+        hasTag: !!tag, tagLabel: tag ? "Módulo: " + tag.label : "",
+        tagStyle: tag ? { display: "inline-block", marginTop: 4, fontSize: "0.62rem", fontWeight: 700, color: tag.color, background: tag.bg, borderRadius: 6, padding: "2px 8px" } : {},
+        likes: p.likes, reposts: p.reposts, commentCount: p.comments.length,
+        heartFill: p.liked ? "#E53E3E" : "none",
+        likeBtnStyle: { display: "flex", alignItems: "center", gap: 5, padding: "5px 8px", borderRadius: 9, background: "none", border: "none", cursor: "pointer", color: p.liked ? "#E53E3E" : "#717182" },
+        onLike: () => this.toggleLike(p.id),
+        showComments: s.openThread === p.id,
+        onToggleComments: () => this.toggleThread(p.id),
+        comments: p.comments,
+        draft: s.drafts[p.id] || "", onDraft: this.setDraft(p.id), onSendComment: () => this.sendComment(p.id),
+        sendStyle: { width: 34, height: 34, flexShrink: 0, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: (s.drafts[p.id] || "").trim() ? BRAND : "#B0D8D6", border: "none", cursor: "pointer" },
+      };
+    });
+
+    const postDisabled = !s.composeText.trim();
+    return {
+      filters, posts,
+      goBack: () => nav(-1),
+      composeOpen: s.composeOpen, openCompose: () => this.setState({ composeOpen: true }), closeCompose: () => this.setState({ composeOpen: false }),
+      stop: (e) => e.stopPropagation(),
+      composeText: s.composeText, onComposeText: (e) => this.setState({ composeText: e.target.value }),
+      submitPost: () => this.submitPost(),
+      postDisabled,
+      postBtnStyle: { width: "100%", padding: "13px", borderRadius: 12, color: "#fff", border: "none", fontSize: "0.88rem", fontWeight: 700, cursor: postDisabled ? "not-allowed" : "pointer", background: postDisabled ? "#B0D8D6" : "linear-gradient(90deg,#3DBFB8,#2A9A95)" },
+    };
+  }
+}
+</script>
+</body>
+</html>

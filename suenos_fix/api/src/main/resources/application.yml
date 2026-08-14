@@ -1,0 +1,135 @@
+spring:
+  application:
+    name: explorarte-api
+
+  datasource:
+    # GCP-01: one jar, three databases, no profile and no branch in the code —
+    # only the value of this URL changes.
+    #   docker-compose : jdbc:postgresql://db:5432/explorarte
+    #   Render         : DATABASE_URL is translated into these three properties
+    #                    by RenderDatabaseUrlEnvironmentPostProcessor
+    #   Cloud SQL      : jdbc:postgresql:///explorarte
+    #                      ?cloudSqlInstance=<PROJECT>:<REGION>:<INSTANCE>
+    #                      &socketFactory=com.google.cloud.sql.postgres.SocketFactory
+    # The Cloud SQL form has no host:port at all; the driver hands the connection
+    # to the socket factory from com.google.cloud.sql:postgres-socket-factory
+    # (api/pom.xml, runtime scope), which opens the TLS tunnel itself.
+    # DO NOT set DATABASE_URL on Cloud Run: it takes precedence over these.
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/explorarte}
+    username: ${SPRING_DATASOURCE_USERNAME:explorarte}
+    password: ${SPRING_DATASOURCE_PASSWORD:explorarte_dev_password}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  servlet:
+    multipart:
+      # Outer guard only. The real cap is per MediaCategory (see
+      # MediaCategory.maxSizeBytes: 5 MB profile photos ... 50 MB learning
+      # video), so this just has to clear the largest of those. 200 MB with no
+      # rate limiting let any authenticated user exhaust storage and egress.
+      max-file-size: 50MB
+      max-request-size: 55MB
+
+server:
+  # Cloud Run injects PORT and requires the container to listen on it; local
+  # dev / docker-compose don't set PORT, so this still defaults to 8000.
+  port: ${PORT:8000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+app:
+  jwt:
+    # NO default on purpose (SEC-03): an unset JWT_SECRET must abort startup, not
+    # fall back to a literal that is published in this repository. JwtService
+    # rejects an empty, well-known, or <32-byte key. Generate one with
+    # `openssl rand -base64 48`.
+    secret: ${JWT_SECRET:}
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:8081,http://localhost:19006}
+  seed:
+    # NO default (SEC-02). Without an injected password the seeder skips user creation
+    # entirely, so a deployed environment cannot end up with a known-password ADMIN.
+    default-password: ${SEED_USER_PASSWORD:}
+  gcs:
+    # GCP-04: Cloud Storage for Firebase bucket that holds every uploaded file,
+    # e.g. explorarte-prod.firebasestorage.app. PRIVATE — no allUsers binding.
+    # Empty (local dev, tests) => uploads answer 503 and everything else works.
+    # Credentials come from Application Default Credentials, never from a key in
+    # an env var. There is no successor to SUPABASE_KEY on purpose (SEC-11).
+    bucket: ${GCS_BUCKET:}
+    # Lifetime of the signed URL that GET /media/** redirects to. Short by
+    # design: it is never stored and never a cache key, so nothing breaks when
+    # it expires. Must be at least twice app.media.redirect-cache-seconds — the
+    # API refuses to start otherwise (MediaAccessController).
+    signed-url-ttl-seconds: ${GCS_SIGNED_URL_TTL_SECONDS:900}
+  media:
+    # Origin that media URLs are built on, and the host attachments are pinned
+    # to. In production this is the Firebase Hosting domain, NOT the Cloud Run
+    # URL: media must be same-origin with the PWA for the service worker to be
+    # able to route and cache it. Requires a /media/** rewrite in
+    # web/firebase.json alongside the existing /api/** one.
+    public-base-url: ${APP_MEDIA_PUBLIC_BASE_URL:http://localhost:8000}
+    # Extra hosts accepted on stored attachment URLs during the Supabase
+    # cutover, e.g. whwczhxwhowtqdfvcavv.supabase.co. Empty it once
+    # scripts/migrate-media-urls.sql has run.
+    legacy-hosts: ${APP_MEDIA_LEGACY_HOSTS:}
+    # How long a client may reuse the 302 from GET /media/**.
+    redirect-cache-seconds: ${APP_MEDIA_REDIRECT_CACHE_SECONDS:300}
+    # SEC-11, second half: require a session to read POSTS/PROFILE files. Off
+    # until the clients stop putting media URLs straight into <img src>, which
+    # cannot carry an Authorization header. Flip to true in the same release as
+    # that client change — nothing else needs to move.
+    require-auth-for-private: ${APP_MEDIA_REQUIRE_AUTH_FOR_PRIVATE:false}
+  resend:
+    # Resend API key (send-only). Empty -> email disabled (codes only logged).
+    api-key: ${RESEND_API_KEY:}
+    # Must be an address on a domain verified in Resend to reach arbitrary
+    # recipients. Without a verified domain, onboarding@resend.dev only delivers
+    # to your own Resend account email.
+    from: ${RESEND_FROM:Sueños y Letras <onboarding@resend.dev>}
+  auth:
+    # SEC-05: a verification code is destroyed after this many failed guesses, so the
+    # 6-digit space cannot be walked inside the 15-minute TTL. Must stay <= 5.
+    otp-max-attempts: ${AUTH_OTP_MAX_ATTEMPTS:5}
+    # SEC-09: the JWT filter re-reads role/status/token-version from the database on every
+    # authenticated request. This is how long a snapshot may be reused — i.e. the worst-case
+    # delay before a rejection, demotion or logout takes effect. Seconds, not hours.
+    user-cache-seconds: ${AUTH_USER_CACHE_SECONDS:5}
+    user-cache-max-entries: ${AUTH_USER_CACHE_MAX_ENTRIES:20000}
+  rate-limit:
+    # SEC-05: token-bucket throttling on /auth/**. Two budgets — per client IP (applied by
+    # AuthRateLimitFilter) and per account identifier (applied by AuthController).
+    enabled: ${AUTH_RATE_LIMIT_ENABLED:true}
+    ip-capacity: ${AUTH_RATE_LIMIT_IP_CAPACITY:30}
+    ip-window-seconds: ${AUTH_RATE_LIMIT_IP_WINDOW_SECONDS:300}
+    identifier-capacity: ${AUTH_RATE_LIMIT_IDENTIFIER_CAPACITY:10}
+    identifier-window-seconds: ${AUTH_RATE_LIMIT_IDENTIFIER_WINDOW_SECONDS:300}
+    # Upper bound on tracked IPs/identifiers, so the limiter itself can't be a memory DoS.
+    max-tracked-keys: ${AUTH_RATE_LIMIT_MAX_TRACKED_KEYS:50000}
+  # SEC-04: there is no AUTH_DEV_OTP_CODE any more. The fixed code was compared
+  # before any DB lookup and was never bound to the identifier, so it worked as a
+  # master key for /auth/otp/verify AND /auth/reset-password. No env var can
+  # re-enable it. For local testing, read the code from the verification_codes
+  # table (see VerificationCodeService's javadoc).

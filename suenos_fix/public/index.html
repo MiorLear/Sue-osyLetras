@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#3DBFB8" />
+    <meta name="description" content="Biblioteca de emociones, herramientas y comunidad docente de Sueños y Letras." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Sueños y Letras" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" href="/icons/favicon.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <title>Sueños y Letras</title>
+    <script>
+      // Avoid registering a service worker during localhost development so
+      // Metro/HMR never gets stuck with a stale cache. Production builds get
+      // the normal PWA shell/offline behavior.
+      if ('serviceWorker' in navigator && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+        window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+      }
+    </script>
+  </head>
+  <body>
+    <noscript>Necesitas activar JavaScript para usar Sueños y Letras.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

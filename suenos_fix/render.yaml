@@ -1,0 +1,170 @@
+# Render Blueprint — ExplorArte (Sueños y Letras)
+#
+# ESTE ES EL ENTORNO DE DESARROLLO/STAGING, NO EL DE PRODUCCIÓN (MAINT-15).
+# Producción es Google Cloud: Firebase Hosting + Cloud Run + Cloud SQL + Cloud
+# Storage for Firebase. El runbook único y autoritativo es DESPLIEGUE.md.
+# Render se mantiene al día a propósito — es el backend compartido del equipo,
+# para que mobile no dependa de túneles ni de que la laptop de alguien esté
+# prendida (ver COMO-EMPEZAR.md). No es aspiracional ni está abandonado; lo que
+# cambia es su rol.
+#
+# Despliega DOS sitios estáticos (web y la vista web de mobile), ambos
+# apuntando a la API real vía VITE_API_URL/EXPO_PUBLIC_API_URL, MÁS el backend
+# real: la API en Java (Spring Boot, mismo Dockerfile que usa docker-compose
+# localmente) contra una base de datos Postgres persistente en Supabase.
+#
+# Para publicar: en Render → New → Blueprint → conecta este repo.
+# Render detecta este archivo y crea todo automáticamente.
+#
+# Plan gratuito — limitaciones a tener en cuenta:
+#   - El servicio web (API) se "duerme" tras 15 min sin tráfico. El primer
+#     request después de eso tardó MÁS DE 90 SEGUNDOS medido de verdad
+#     (SCALE-06), no los "30-60s" que decía este comentario antes. Es una de
+#     las razones del cambio a Cloud Run — ver DESPLIEGUE.md, "Arranque en
+#     frío: los números".
+#
+# La base de datos de este entorno es un proyecto Supabase Postgres persistente
+# (ya no la Postgres gratuita de Render, que expiraba cada 30 días).
+# DATABASE_URL se configura manualmente en el dashboard de Render con la cadena
+# del "Session pooler" de Supabase (Project Settings → Database), no la del host
+# directo (IPv6-only, incompatible con la red de Render).
+#
+# ALMACENAMIENTO DE ARCHIVOS: desde GCP-04 el API sube a Cloud Storage for
+# Firebase, no a Supabase Storage. SUPABASE_URL/SUPABASE_KEY ya no existen como
+# variables del backend; en su lugar va GCS_BUCKET, y las credenciales son ADC.
+# Render no corre en Google Cloud, así que aquí hay que darle a ADC una service
+# account explícita: ver DESPLIEGUE.md, "Render después de la migración".
+services:
+  # --- API real en Java (Spring Boot) — mismo Dockerfile que docker-compose ---
+  - type: web
+    name: explorarte-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./api/Dockerfile
+    dockerContext: ./api
+    healthCheckPath: /actuator/health
+    envVars:
+      # Configurar manualmente en el dashboard de Render: cadena de conexión
+      # del Session pooler de Supabase (postgresql://postgres.<ref>:[PASSWORD]@aws-0-<region>.pooler.supabase.com:5432/postgres).
+      - key: DATABASE_URL
+        sync: false
+      # GCP-04: bucket de Cloud Storage for Firebase. Se puede compartir el de
+      # producción o crear uno aparte para staging; si se comparte, ojo con que
+      # un admin de staging sube al mismo bucket que ven las docentes reales.
+      - key: GCS_BUCKET
+        sync: false
+      # Render no tiene metadata server de Google, así que ADC necesita una key
+      # de service account. Pegar el JSON completo aquí (secreto, no se versiona)
+      # y montarlo con GOOGLE_APPLICATION_CREDENTIALS. Esta key SÍ es material
+      # sensible — es la única que sigue existiendo después de GCP-04, y existe
+      # solo porque este entorno está fuera de Google Cloud. En Cloud Run no hay
+      # ninguna. Darle únicamente roles/storage.objectAdmin sobre este bucket.
+      - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
+        sync: false
+      # URLs de medios de ESTE entorno. Apunta a la API de Render, que es quien
+      # firma y redirige.
+      - key: APP_MEDIA_PUBLIC_BASE_URL
+        value: https://explorarte-api.onrender.com
+      # Mientras queden filas apuntando a Supabase en la base de staging.
+      - key: APP_MEDIA_LEGACY_HOSTS
+        value: whwczhxwhowtqdfvcavv.supabase.co
+      # generateValue funciona en Render y NO tiene equivalente en Cloud Run:
+      # allí el secreto se crea antes en Secret Manager y se inyecta con
+      # --set-secrets. Ver DESPLIEGUE.md, "Secretos".
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRATION_MINUTES
+        value: "1440"
+      # SEC-02: aquí había una contraseña literal en un repo PÚBLICO, y el seeder
+      # la usaba para crear admin@explorarte.org con rol ADMIN — o sea, una
+      # credencial de administrador de este backend legible por cualquiera. Ya no
+      # se versiona ningún valor. Si se deja sin configurar en el dashboard, el
+      # seeder SALTA la creación de usuarios y no existe ninguna cuenta con
+      # contraseña conocida en el entorno desplegado.
+      - key: SEED_USER_PASSWORD
+        sync: false
+      - key: APP_CORS_ALLOWED_ORIGINS
+        value: https://explorarte-web.onrender.com,http://localhost:5173,http://localhost:8081,http://localhost:19006
+      # Envío de correo (recuperar contraseña) vía Resend. Configurar la key
+      # manualmente en el dashboard (secreto, no se versiona).
+      - key: RESEND_API_KEY
+        sync: false
+      # Cambiar a una dirección de un dominio VERIFICADO en Resend para poder
+      # enviar a cualquier docente. Con onboarding@resend.dev solo llega a tu
+      # propio correo de la cuenta de Resend.
+      - key: RESEND_FROM
+        value: Sueños y Letras <onboarding@resend.dev>
+      # AUTH_DEV_OTP_CODE fue eliminado del código (SEC-04): ya no existe ningún
+      # código fijo, ni siquiera activable por variable de entorno.
+
+
+  # --- Demo WEB (escritorio) — Vite + React, carpeta /web ---
+  - type: web
+    name: explorarte-web
+    runtime: static
+    rootDir: web
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    pullRequestPreviewsEnabled: true
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # Apunta la build de producción a la API real desplegada, para que deje
+      # de correr en modo mock (usingMock queda en true si esto no está seteado).
+      - key: VITE_API_URL
+        value: https://explorarte-api.onrender.com
+    routes:
+      # Fallback SPA: las rutas sin archivo estático van a index.html
+      # (React Router resuelve la navegación del lado del cliente).
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      # Espejo de las cabeceras de producción (web/firebase.json). La que cuenta
+      # es la de Firebase Hosting; esta mantiene dev/staging en las mismas
+      # reglas para que una violación de CSP salga aquí y no en producción.
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      # GCP-04 + SEC-12: una URL de medios redirige (302) a storage.googleapis.com,
+      # y la CSP se aplica a la URL FINAL de la redirección, no a la inicial. Sin
+      # storage.googleapis.com en img-src/media-src, las fotos y los videos se
+      # rompen en silencio y solo se ve en la consola del navegador.
+      # Los https://*.supabase.co se quitan cuando la migración haya terminado y
+      # ninguna fila apunte ya al host viejo (ver DESPLIEGUE.md §7).
+      - path: /*
+        name: Content-Security-Policy
+        value: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; worker-src 'self'; manifest-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://storage.googleapis.com https://explorarte-api.onrender.com https://*.supabase.co; media-src 'self' blob: https://storage.googleapis.com https://explorarte-api.onrender.com https://*.supabase.co; connect-src 'self' https://storage.googleapis.com https://explorarte-api.onrender.com https://*.supabase.co; upgrade-insecure-requests"
+      - path: /sw.js
+        name: Cache-Control
+        value: no-cache, no-store, must-revalidate
+      - path: /manifest.webmanifest
+        name: Cache-Control
+        value: no-cache, no-store, must-revalidate
+
+  # --- Demo MOBILE (vista de móvil en el navegador) — Expo web export ---
+  - type: web
+    name: explorarte-mobile
+    runtime: static
+    rootDir: .
+    buildCommand: npm install && npx expo export -p web
+    staticPublishPath: ./dist
+    pullRequestPreviewsEnabled: true
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # Mismo motivo que VITE_API_URL arriba — sin esto, esta demo web también
+      # corre en modo mock.
+      - key: EXPO_PUBLIC_API_URL
+        value: https://explorarte-api.onrender.com
+    routes:
+      # MAINT-11: aquí decía que Expo prerenderiza un .html por ruta y que este
+      # rewrite era solo un fallback. Es falso — app.json usa output: "single",
+      # o sea que el export produce UN índice y nada más. Este rewrite no es un
+      # fallback, es lo único que hace que funcione cualquier ruta distinta de /.
+      - type: rewrite
+        source: /*
+        destination: /index.html

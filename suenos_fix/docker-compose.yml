@@ -1,0 +1,108 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-explorarte}
+      POSTGRES_USER: ${POSTGRES_USER:-explorarte}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-explorarte_dev_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-explorarte}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./api
+      target: dev
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-explorarte}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-explorarte}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-explorarte_dev_password}
+      # Si DATABASE_URL está definido en .env, el backend lo traduce y tiene
+      # PRECEDENCIA sobre los SPRING_DATASOURCE_* de arriba — así el stack local
+      # apunta a Supabase. Si está vacío, se usa el Postgres de Docker (servicio db).
+      DATABASE_URL: ${DATABASE_URL:-}
+      # Sin valor por defecto a propósito (SEC-03): si JWT_SECRET no está en tu
+      # .env, `docker compose up` falla con este mensaje en vez de arrancar la
+      # API firmando con una clave que está publicada en el repo. Copia
+      # .env.example a .env — trae un valor local listo para usar.
+      JWT_SECRET: ${JWT_SECRET:?falta JWT_SECRET — copia .env.example a .env (o genera uno con `openssl rand -base64 48`)}
+      JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-1440}
+      # Sin valor por defecto (SEC-02): si no está en tu .env, el seeder NO crea las
+      # cuentas de ejemplo. .env.example trae una contraseña local lista para usar.
+      SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:8081,http://localhost:19006}
+      # Cloud Storage for Firebase — subida de archivos (fotos/videos/docs).
+      # Vacío (lo normal en local) => /media/upload responde 503 y el resto del
+      # stack funciona igual: desarrollar no requiere una cuenta de Google.
+      # No hay variable con una llave: las credenciales son ADC (GCP-04/SEC-11).
+      # Para probar contra un bucket real desde el contenedor hay que montar
+      # además las credenciales de aplicación del host:
+      #   volumes: - ${APPDATA}/gcloud:/root/.config/gcloud:ro
+      GCS_BUCKET: ${GCS_BUCKET:-}
+      GCS_SIGNED_URL_TTL_SECONDS: ${GCS_SIGNED_URL_TTL_SECONDS:-900}
+      # Origen sobre el que se construyen las URLs de medios. Apunta al puerto
+      # publicado de la API, no al nombre de servicio de Docker: esta URL la
+      # consume el navegador/teléfono, no otro contenedor.
+      APP_MEDIA_PUBLIC_BASE_URL: ${APP_MEDIA_PUBLIC_BASE_URL:-http://localhost:8000}
+      APP_MEDIA_LEGACY_HOSTS: ${APP_MEDIA_LEGACY_HOSTS:-}
+      APP_MEDIA_REDIRECT_CACHE_SECONDS: ${APP_MEDIA_REDIRECT_CACHE_SECONDS:-300}
+      APP_MEDIA_REQUIRE_AUTH_FOR_PRIVATE: ${APP_MEDIA_REQUIRE_AUTH_FOR_PRIVATE:-false}
+      # Envío real de correo (recuperar contraseña) vía Resend. Vacío => solo se
+      # loguea el código, no se envía. Ver .env.example.
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-Sueños y Letras <onboarding@resend.dev>}
+      # AUTH_DEV_OTP_CODE fue eliminado (SEC-04). Para leer un código en local:
+      #   docker compose exec db psql -U explorarte -d explorarte \
+      #     -c "select * from verification_codes;"
+      # Rate limiting de /auth/** (SEC-05) — ver .env.example para qué hace cada uno.
+      AUTH_RATE_LIMIT_ENABLED: ${AUTH_RATE_LIMIT_ENABLED:-true}
+      AUTH_RATE_LIMIT_IP_CAPACITY: ${AUTH_RATE_LIMIT_IP_CAPACITY:-30}
+      AUTH_RATE_LIMIT_IP_WINDOW_SECONDS: ${AUTH_RATE_LIMIT_IP_WINDOW_SECONDS:-300}
+      AUTH_RATE_LIMIT_IDENTIFIER_CAPACITY: ${AUTH_RATE_LIMIT_IDENTIFIER_CAPACITY:-10}
+      AUTH_RATE_LIMIT_IDENTIFIER_WINDOW_SECONDS: ${AUTH_RATE_LIMIT_IDENTIFIER_WINDOW_SECONDS:-300}
+      AUTH_OTP_MAX_ATTEMPTS: ${AUTH_OTP_MAX_ATTEMPTS:-5}
+    volumes:
+      - ./api/src:/app/src
+      - api_target:/app/target
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
+
+  web:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host"
+    ports:
+      - "${WEB_PORT:-5173}:5173"
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+      VITE_API_MOCK_MODULES: ${VITE_API_MOCK_MODULES:-}
+    volumes:
+      - ./web:/app
+      # web/vite.config.ts aliases @explorarte/shared to ../shared/src (relative
+      # to web/) for live dev without a separate build step — mount the sibling
+      # folder at the matching path inside the container so that resolves.
+      - ./shared:/shared
+      - web_node_modules:/app/node_modules
+    depends_on:
+      api:
+        condition: service_started
+
+volumes:
+  pgdata:
+  api_target:
+  web_node_modules:

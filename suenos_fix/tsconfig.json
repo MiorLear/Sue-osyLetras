@@ -1,0 +1,29 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@/assets/*": [
+        "./assets/*"
+      ]
+    }
+  },
+  "//": "Scope: the Expo (mobile) app only. web/ and shared/ carry their own tsconfig and are type-checked by their own builds. While this project included them, the '@/*' alias resolved web's imports against the mobile src/ (MAINT-03).",
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "web",
+    "shared",
+    "dist",
+    ".claude",
+    "design-reference"
+  ]
+}

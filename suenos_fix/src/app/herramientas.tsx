@@ -1,0 +1,220 @@
+import * as WebBrowser from 'expo-web-browser';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import type { MediaItem } from '@explorarte/shared';
+import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
+import { DownloadableMediaItem } from '@/components/downloadable-media-item';
+import { GradientHeader } from '@/components/gradient-header';
+import { Icon } from '@/components/icon';
+import { Logo } from '@/components/logo';
+import { VideoPlaceholder } from '@/components/video-placeholder';
+import { colors } from '@/constants/theme';
+import { api } from '@/lib/api';
+import { showNotice } from '@/lib/notice';
+import { openLocalFile } from '@/lib/open-file';
+import { download, getLocalUri } from '@/lib/offlineStorage';
+import { useIsOnline } from '@/lib/useNetworkStatus';
+import { useOfflineAsync } from '@/lib/useOfflineAsync';
+
+function ManualButton({ manual }: { manual: MediaItem | null }) {
+  const online = useIsOnline();
+  const [busy, setBusy] = useState(false);
+
+  if (!manual) {
+    return (
+      <Pressable
+        onPress={() => showNotice('Aún no disponible')}
+        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 11, borderRadius: 12, backgroundColor: colors.disabled ?? '#CBD5D5' }}>
+        <Icon name="download" size={14} color="#fff" strokeWidth={2.2} />
+        <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>No disponible</Text>
+      </Pressable>
+    );
+  }
+
+  const handlePress = async () => {
+    setBusy(true);
+    try {
+      // Local copy first (offline), download on demand if online, then open with
+      // the device's own PDF viewer — like opening a file saved on your phone.
+      let uri = await getLocalUri(manual.id);
+      if (!uri && online && manual.url) {
+        try {
+          uri = await download(manual.id, manual.url, { version: String(manual.sizeBytes ?? '') });
+        } catch {
+          uri = null;
+        }
+      }
+      if (uri && (await openLocalFile(uri, manual.mimeType))) {
+        return;
+      }
+      if (online && manual.url) {
+        await WebBrowser.openBrowserAsync(manual.url, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN });
+        return;
+      }
+      showNotice(
+        'No disponible sin conexión',
+        'Conéctate a internet una vez para descargar el manual; luego podrás abrirlo sin conexión.',
+      );
+    } catch {
+      showNotice('No se pudo abrir el manual', 'Intenta de nuevo.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      disabled={busy}
+      style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 11, borderRadius: 12, backgroundColor: colors.brand, opacity: busy ? 0.7 : 1 }}>
+      <Icon name="eye" size={14} color="#fff" strokeWidth={2.2} />
+      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>
+        {busy ? 'Abriendo…' : 'Ver manual'}
+      </Text>
+    </Pressable>
+  );
+}
+
+function SectionCard({
+  emoji,
+  title,
+  subtitle,
+  children,
+}: {
+  emoji: string;
+  title: string;
+  subtitle?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <View
+      style={{
+        borderRadius: 16,
+        padding: 16,
+        backgroundColor: '#fff',
+        borderWidth: 1.5,
+        borderColor: colors.border,
+        gap: 12,
+      }}>
+      <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+        <Text style={{ fontSize: 26 }}>{emoji}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 15, fontWeight: '800', color: colors.textDark }}>{title}</Text>
+          {subtitle ? (
+            <Text style={{ marginTop: 3, fontSize: 12.5, color: colors.textBody, lineHeight: 18 }}>
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+      {children}
+    </View>
+  );
+}
+
+export default function CajaDeHerramientasScreen() {
+  const insets = useSafeAreaInsets();
+  const { data: tools, loading, error, reload } = useOfflineAsync('tools', () => api.tools.get(), []);
+  const { data: intro } = useOfflineAsync('screen-intro:tools', () => api.screenIntros.get('tools'), []);
+  const introVideo = intro?.video ?? null;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <GradientHeader paddingTop={insets.top + 16} paddingBottom={24}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Logo size={40} />
+          <View>
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>Sueños y Letras</Text>
+            <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800' }}>Caja de herramientas docente</Text>
+          </View>
+        </View>
+      </GradientHeader>
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 16, gap: 16 }}
+        showsVerticalScrollIndicator={false}>
+        <Text style={{ fontSize: 13, color: colors.textBody, lineHeight: 20 }}>
+          Encuentra materiales prácticos para implementar la metodología ExplorArte y fortalecer el
+          bienestar emocional en tu comunidad educativa.
+        </Text>
+
+        <VideoPlaceholder
+          caption="Video de introducción – Cómo usar los recursos disponibles (~1 minuto)"
+          videoItem={introVideo}
+        />
+
+        {tools ? (
+          <>
+            <SectionCard emoji="📖" title="Manual ExplorArte" subtitle="Documento principal de la metodología.">
+              <ManualButton manual={tools.manualDocument} />
+            </SectionCard>
+
+            <SectionCard emoji="📋" title="Guías de actividades" subtitle="Materiales complementarios para docentes.">
+              {tools.activityGuides.length === 0 ? (
+                <Text style={{ fontSize: 12.5, color: colors.textBody }}>Aún no hay guías subidas.</Text>
+              ) : (
+                <View style={{ gap: 8 }}>
+                  {tools.activityGuides.map((item) => (
+                    <DownloadableMediaItem key={item.id} item={item} />
+                  ))}
+                </View>
+              )}
+            </SectionCard>
+
+            <SectionCard emoji="📥" title="Recursos descargables">
+              {tools.downloadables.length === 0 ? (
+                <Text style={{ fontSize: 12.5, color: colors.textBody }}>Aún no hay recursos subidos.</Text>
+              ) : (
+                <View style={{ gap: 8 }}>
+                  {tools.downloadables.map((item) => (
+                    <DownloadableMediaItem key={item.id} item={item} />
+                  ))}
+                </View>
+              )}
+            </SectionCard>
+
+            <SectionCard
+              emoji="📚"
+              title="Bibliografía recomendada"
+              subtitle="Selección de lecturas para profundizar en bienestar emocional, desarrollo socioemocional y educación.">
+              {tools.bibliography.length === 0 ? (
+                <Text style={{ fontSize: 12.5, color: colors.textBody }}>Aún no hay bibliografía sugerida.</Text>
+              ) : (
+                <View style={{ gap: 8 }}>
+                  {tools.bibliography.map((b) => (
+                    <View key={b} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <Icon name="book-open" size={15} color={colors.brand} />
+                      <Text style={{ flex: 1, fontSize: 12.5, color: colors.textBody, lineHeight: 18 }}>{b}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </SectionCard>
+          </>
+        ) : loading ? (
+          <ActivityIndicator color={colors.brand} style={{ marginTop: 32 }} />
+        ) : error ? (
+          <View style={{ marginTop: 32, alignItems: 'center', gap: 12 }}>
+            <Text style={{ fontSize: 13, color: colors.textBody, textAlign: 'center' }}>
+              No pudimos cargar las herramientas. Revisa tu conexión.
+            </Text>
+            <Pressable
+              onPress={reload}
+              style={{ paddingVertical: 9, paddingHorizontal: 18, borderRadius: 10, backgroundColor: colors.brand }}>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Reintentar</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Text style={{ marginTop: 8, fontSize: 12.5, color: colors.textMuted }}>
+            Aún no hay herramientas disponibles.
+          </Text>
+        )}
+      </ScrollView>
+
+      <BottomNav items={MAIN_TABS} />
+    </View>
+  );
+}

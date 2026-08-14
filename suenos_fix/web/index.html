@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#2FA7A0" />
+    <meta
+      name="description"
+      content="Biblioteca de emociones, caja de herramientas y comunidad docente de Sueños y Letras." />
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <!-- iOS has no manifest support for these; it reads the meta tags instead. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="ExplorArte" />
+
+    <!-- Fuentes propias: sin Google Fonts, la app arranca sin red y la
+         CSP no tiene que abrirle la puerta a un tercero (PWA-1.3 / PWA-1.7).
+         Se precargan las dos que pinta la primera pantalla; la cursiva llega
+         con el CSS. `crossorigin` es obligatorio en fuentes, incluso propias. -->
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href="/fonts/hanken-grotesk-latin.woff2"
+      crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/newsreader-latin.woff2" crossorigin />
+    <title>ExplorArte · Sueños y Letras</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

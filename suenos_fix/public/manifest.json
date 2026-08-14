@@ -1,0 +1,25 @@
+{
+  "name": "Sueños y Letras",
+  "short_name": "Sueños y Letras",
+  "description": "Biblioteca de emociones, herramientas y comunidad docente de Sueños y Letras.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7FBFA",
+  "theme_color": "#3DBFB8",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
