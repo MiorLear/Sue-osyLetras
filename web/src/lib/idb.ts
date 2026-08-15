@@ -92,13 +92,23 @@ export interface ApiCacheRecord {
 export interface MediaIndexRecord {
   id: string;
   url: string;
-  /** Opaque version/ETag/size used to decide whether to re-download. */
+  /** Opaque version the CALLER supplied (today the MediaItem's sizeBytes).
+   *  Kept apart from the HTTP validators below: mixing them would compare an
+   *  ETag against a byte count and re-download the file on every check. */
   version?: string;
   sizeBytes: number;
   mimeType?: string;
   downloadedAt: number;
   /** Where the bytes live: a Cache Storage key, or an IDB blob key. */
   blobRef?: string;
+  /** `ETag` served with the bytes. Only readable same-origin (it is not a
+   *  CORS-safelisted response header), so it is absent for media on Supabase. */
+  etag?: string;
+  /** `Last-Modified` served with the bytes. Safelisted, so readable anywhere. */
+  lastModified?: string;
+  /** Last time the file was read. Drives LRU eviction when the quota runs out;
+   *  a plain field, not an index, so it needs no schema migration. */
+  lastAccessAt?: number;
 }
 
 export type OutboxStatus = 'pending' | 'inflight' | 'failed';
@@ -288,6 +298,12 @@ export async function putRecord<T>(store: StoreName, value: T): Promise<void> {
 
 export async function deleteRecord(store: StoreName, key: IDBValidKey): Promise<void> {
   await withTx(store, 'readwrite', (tx) => promisify(tx.objectStore(store).delete(key)));
+}
+
+/** Every record of `store`. For the stores that are not user-scoped —
+ *  today only `mediaIndex`, where a shared download is the point. */
+export async function getAllRecords<T>(store: StoreName): Promise<T[]> {
+  return withTx(store, 'readonly', (tx) => promisify<T[]>(tx.objectStore(store).getAll()));
 }
 
 /** Every record of `store` belonging to `userId`, via the `by-user` index. */

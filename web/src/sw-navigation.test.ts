@@ -23,6 +23,14 @@ describe('navegación del service worker', () => {
     expect(isDeniedNavigation('/.well-known/assetlinks.json')).toBe(true);
   });
 
+  // Un objeto guardado sin extensión no lo cubre la regla de "parece un
+  // archivo", y devolverle el HTML del shell a una descarga se ve como un
+  // archivo corrupto, no como un error.
+  it('no responde /media/** con el shell, ni siquiera sin extensión', () => {
+    expect(isDeniedNavigation('/media/tools/manual.pdf')).toBe(true);
+    expect(isDeniedNavigation('/media/posts/9f1c8e2a')).toBe(true);
+  });
+
   it('deja pasar los archivos reales', () => {
     expect(isDeniedNavigation('/manifest.webmanifest')).toBe(true);
     expect(isDeniedNavigation('/icons/icon-192.png')).toBe(true);
@@ -35,16 +43,28 @@ describe('navegación del service worker', () => {
 // de Workbox keyeada por URL le serviría el perfil de una docente a otra en la
 // tablet compartida del aula. Las lecturas offline viven en la página.
 describe('el service worker nunca cachea la API', () => {
-  it('no registra estrategias de caché de runtime', () => {
-    for (const strategy of [
-      'NetworkFirst',
-      'CacheFirst',
-      'StaleWhileRevalidate',
-      'NetworkOnly',
-      'workbox-strategies',
-    ]) {
+  // Hasta PWA-2.8 esto se garantizaba con "no hay ninguna estrategia de
+  // runtime", que era cierto porque no había ninguna ruta. Ahora hay una, la de
+  // medios, así que la garantía se afina: solo esa, y decidida por un predicado
+  // que no puede casar con /api/ (lo fija media-origins.test.ts).
+  it('la única estrategia de runtime es la caché de medios', () => {
+    expect(swSource).toContain('new CacheFirst(');
+    expect(swSource.match(/new CacheFirst\(/g)).toHaveLength(1);
+    expect(swSource).toContain('isMediaUrl(url.href)');
+  });
+
+  it('no usa estrategias que revalidan contra la red por su cuenta', () => {
+    for (const strategy of ['NetworkFirst', 'StaleWhileRevalidate', 'NetworkOnly']) {
       expect(swSource).not.toContain(strategy);
     }
+  });
+
+  // Safari manda Range siempre para <video>. Sin este plugin la respuesta
+  // cacheada se devuelve entera, Safari la rechaza, y el video no reproduce sin
+  // conexión aunque los bytes estén guardados.
+  it('sirve rangos, y solo cachea respuestas completas', () => {
+    expect(swSource).toContain('new RangeRequestsPlugin()');
+    expect(swSource).toContain('statuses: [200]');
   });
 
   it('no menciona /api/ salvo para excluirla', () => {

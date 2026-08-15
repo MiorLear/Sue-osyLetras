@@ -22,9 +22,14 @@
  * a later ticket. See MEDIA ROUTE below — add `registerRoute(...)` there without
  * touching anything else in this file.
  */
+import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 import { clientsClaim } from 'workbox-core';
+import { ExpirationPlugin } from 'workbox-expiration';
 import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching';
+import { RangeRequestsPlugin } from 'workbox-range-requests';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
+import { CacheFirst } from 'workbox-strategies';
+import { MEDIA_CACHE, isMediaUrl } from './lib/media-origins';
 import { NAVIGATION_DENYLIST } from './sw-navigation';
 
 declare const self: ServiceWorkerGlobalScope;
@@ -42,11 +47,43 @@ const navigationRoute = new NavigationRoute(createHandlerBoundToURL('index.html'
 });
 registerRoute(navigationRoute);
 
-// ── MEDIA ROUTE (reserved) ──────────────────────────────────────────────────
-// A later ticket registers the media handler here: public Supabase Storage URLs
-// only, with RangeRequestsPlugin (without it, cached <video> playback fails in
-// Safari). Anything added here must be unauthenticated and public — if a route
-// can match `/api/`, it is wrong.
+// ── Media (PWA-2.8) ─────────────────────────────────────────────────────────
+// Serves cached files transparently to <img>, <video>, <audio> and any link, so
+// what `media-cache.ts` downloaded from the page keeps working with no network.
+// The page and this worker agree on what counts as media through one module,
+// `lib/media-origins.ts`, which can never match `/api/`.
+//
+// Cache-first, not stale-while-revalidate: these bytes are immutable per URL
+// (a new upload is a new object), so revalidating on every play would spend a
+// teacher's data plan to learn nothing. Freshness is decided by the page, which
+// knows the record's version — see needsUpdate() there.
+registerRoute(
+  ({ url }) => isMediaUrl(url.href),
+  new CacheFirst({
+    // The very same cache media-cache.ts writes into: a file the teacher
+    // downloaded on purpose is served straight from here, and one that merely
+    // played online is kept by this route for next time.
+    cacheName: MEDIA_CACHE,
+    plugins: [
+      // Only complete responses. A 206 in the cache would break the slicing
+      // RangeRequestsPlugin does below, and opaque cross-origin responses can't
+      // be inspected, so caching them would hide a 404 as a playable file.
+      new CacheableResponsePlugin({ statuses: [200] }),
+      // MANDATORY for video. Safari always sends `Range` for media elements,
+      // and without this the cached response is returned whole, which Safari
+      // rejects — offline playback fails even though the bytes are right there.
+      new RangeRequestsPlugin(),
+      // A tablet is not a hard drive. purgeOnQuotaError lets the browser
+      // reclaim this cache under storage pressure instead of failing writes
+      // everywhere else in the app.
+      new ExpirationPlugin({
+        maxEntries: 200,
+        maxAgeSeconds: 90 * 24 * 60 * 60,
+        purgeOnQuotaError: true,
+      }),
+    ],
+  }),
+);
 
 // ── Update flow ─────────────────────────────────────────────────────────────
 // skipWaiting is NOT automatic. A new worker installs and then waits; the page
