@@ -4,8 +4,10 @@ import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
 import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
+import { CacheAgeNote, ContentState } from '@/components/ContentState';
 import { api } from '@/lib/api';
-import { useAsync } from '@/lib/useAsync';
+import { cacheKeys } from '@/lib/cache-keys';
+import { useOfflineAsync } from '@/lib/useOfflineAsync';
 import { useSchools } from '@/lib/useSchools';
 
 export default function Profile() {
@@ -13,7 +15,12 @@ export default function Profile() {
   const { setUser, signOut } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const { data: profile, loading, error, reload } = useAsync(() => api.profile.get(), []);
+  const {
+    data: profile,
+    status,
+    ageMs,
+    reload,
+  } = useOfflineAsync(cacheKeys.profile(), () => api.profile.get(), []);
   const schools = useSchools();
 
   const [photo, setPhoto] = useState<string | null>(null);
@@ -91,21 +98,11 @@ export default function Profile() {
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {loading ? (
-          <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 14, padding: '40px 0' }}>Cargando…</p>
-        ) : error ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '40px 0' }}>
-            <p style={{ color: 'var(--text-body)', fontSize: 14, textAlign: 'center', margin: 0 }}>
-              No pudimos cargar tu perfil. Revisa tu conexión.
-            </p>
-            <button
-              onClick={reload}
-              style={{ padding: '9px 18px', borderRadius: 10, background: 'var(--brand)', color: '#fff', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer' }}>
-              Reintentar
-            </button>
-          </div>
-        ) : profile ? (
+        {!profile ? (
+          <ContentState status={status} onRetry={reload} what="tu perfil" />
+        ) : (
           <>
+            <CacheAgeNote status={status} ageMs={ageMs} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: 20, borderRadius: 20, background: '#fff', border: '1px solid var(--border)' }}>
               <div style={{ position: 'relative' }}>
                 {photo ? (
@@ -153,7 +150,7 @@ export default function Profile() {
 
             <PrimaryButton label={saving ? 'Guardando…' : 'Guardar cambios'} onClick={handleSave} disabled={saving} />
           </>
-        ) : null}
+        )}
 
         <button onClick={() => navigate('/sobre')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, background: '#fff', border: '1.5px solid var(--border)' }}>
           <Icon name="help-circle" size={18} color="var(--brand)" />
