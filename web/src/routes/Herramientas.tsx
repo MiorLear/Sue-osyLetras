@@ -1,15 +1,24 @@
 import { useState } from 'react';
+import { CacheAgeNote, ContentState } from '@/components/ContentState';
 import { Masthead } from '@/components/Masthead';
 import { VideoModal } from '@/components/VideoModal';
 import { api } from '@/lib/api';
-import { useAsync } from '@/lib/useAsync';
+import { cacheKeys } from '@/lib/cache-keys';
+import { useOfflineAsync } from '@/lib/useOfflineAsync';
 
 export default function Herramientas() {
-  const { data: tools, loading, error, reload } = useAsync(() => api.tools.get(), []);
-  const { data: videoUrl } = useAsync(
-    () => api.screenIntros.get('tools').then((v) => v?.video.url ?? null),
+  const {
+    data: tools,
+    status,
+    ageMs,
+    reload,
+  } = useOfflineAsync(cacheKeys.tools(), () => api.tools.get(), []);
+  const { data: intro } = useOfflineAsync(
+    cacheKeys.screenIntro('tools'),
+    () => api.screenIntros.get('tools'),
     [],
   );
+  const videoUrl = intro?.video.url ?? null;
   const [videoOpen, setVideoOpen] = useState(false);
 
   return (
@@ -20,6 +29,8 @@ export default function Herramientas() {
         accent="la práctica"
         lede="Manuales, guías descargables y bibliografía para implementar la metodología ExplorArte."
       />
+
+      <CacheAgeNote status={status} ageMs={ageMs} />
 
       {videoUrl ? (
         <button
@@ -117,18 +128,9 @@ export default function Herramientas() {
             </div>
           </div>
         </>
-      ) : loading ? (
-        <p style={{ textAlign: 'center', color: 'var(--text-body)', padding: '48px 0' }}>Cargando…</p>
-      ) : error ? (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '48px 0', textAlign: 'center' }}>
-          <p style={{ fontSize: 14, color: 'var(--text-body)' }}>No pudimos cargar las herramientas. Revisa tu conexión.</p>
-          <button
-            onClick={reload}
-            style={{ padding: '10px 18px', borderRadius: 12, background: 'var(--brand-dark)', color: '#fff', fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
-            Reintentar
-          </button>
-        </div>
-      ) : null}
+      ) : (
+        <ContentState status={status} onRetry={reload} what="las herramientas" />
+      )}
     </div>
   );
 }

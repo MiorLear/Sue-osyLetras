@@ -1,17 +1,28 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { CacheAgeNote, ContentState } from '@/components/ContentState';
 import { Masthead } from '@/components/Masthead';
 import { VideoModal } from '@/components/VideoModal';
 import { api } from '@/lib/api';
-import { useAsync } from '@/lib/useAsync';
+import { cacheKeys } from '@/lib/cache-keys';
+import { useOfflineAsync } from '@/lib/useOfflineAsync';
 
 export default function Emociones() {
   const navigate = useNavigate();
-  const { data: emotions, loading, error, reload } = useAsync(() => api.emotions.list(), []);
-  const { data: videoUrl } = useAsync(
-    () => api.screenIntros.get('emotions').then((v) => v?.video.url ?? null),
+  const {
+    data: emotions,
+    status,
+    ageMs,
+    reload,
+  } = useOfflineAsync(cacheKeys.emotionsList(), () => api.emotions.list(), []);
+  // Se guarda el ScreenIntroVideo entero, no solo la URL: la sincronización de
+  // medios necesita el MediaItem para saber qué descargar.
+  const { data: intro } = useOfflineAsync(
+    cacheKeys.screenIntro('emotions'),
+    () => api.screenIntros.get('emotions'),
     [],
   );
+  const videoUrl = intro?.video.url ?? null;
   const [videoOpen, setVideoOpen] = useState(false);
 
   return (
@@ -56,20 +67,9 @@ export default function Emociones() {
         <span className="section-rule" />
       </div>
 
-      {loading ? (
-        <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 14, padding: '40px 0' }}>Cargando…</p>
-      ) : error ? (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '40px 0' }}>
-          <p style={{ color: 'var(--text-body)', fontSize: 14, textAlign: 'center', margin: 0 }}>
-            No pudimos cargar las emociones. Revisa tu conexión.
-          </p>
-          <button
-            onClick={reload}
-            style={{ padding: '9px 18px', borderRadius: 10, background: 'var(--brand)', color: '#fff', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer' }}>
-            Reintentar
-          </button>
-        </div>
-      ) : emotions && emotions.length > 0 ? (
+      <CacheAgeNote status={status} ageMs={ageMs} />
+
+      {emotions && emotions.length > 0 ? (
         <div className="emotion-grid">
           {emotions.map((e) => (
             <button
@@ -84,9 +84,13 @@ export default function Emociones() {
           ))}
         </div>
       ) : (
-        <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 14, padding: '40px 0' }}>
-          Aún no hay emociones disponibles.
-        </p>
+        <ContentState
+          status={status}
+          onRetry={reload}
+          what="las emociones"
+          isEmpty={emotions?.length === 0}
+          emptyLabel="Aún no hay emociones disponibles."
+        />
       )}
     </div>
   );
