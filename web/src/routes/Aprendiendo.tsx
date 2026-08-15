@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { CacheAgeNote, ContentState } from '@/components/ContentState';
+import { MediaList } from '@/components/DownloadableMediaItem';
 import { Masthead } from '@/components/Masthead';
-import { VideoModal } from '@/components/VideoModal';
+import { MediaViewer } from '@/components/MediaViewer';
 
 import { api } from '@/lib/api';
 import { cacheKeys } from '@/lib/cache-keys';
@@ -56,7 +57,9 @@ export default function Aprendiendo() {
         </button>
       ) : null}
 
-      {videoOpen && videoUrl ? <VideoModal videoUrl={videoUrl} onClose={() => setVideoOpen(false)} /> : null}
+      {videoOpen && intro?.video ? (
+        <MediaViewer item={intro.video} onClose={() => setVideoOpen(false)} />
+      ) : null}
 
       <CacheAgeNote status={status} ageMs={ageMs} />
 
@@ -89,19 +92,9 @@ export default function Aprendiendo() {
                     {isOpen ? (
                       <div style={{ padding: '0 18px 16px 58px' }}>
                         <p style={{ fontSize: 13.5, lineHeight: 1.65, color: 'var(--text-body)' }}>{sub.body}</p>
-                        {[...sub.pdfs, ...sub.videos, ...sub.audios].length > 0 ? (
-                          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            {sub.pdfs.map((m) => (
-                              <a key={m.id} href={m.url} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--brand-dark)' }}>📄 {m.title}</a>
-                            ))}
-                            {sub.videos.map((m) => (
-                              <a key={m.id} href={m.url} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--brand-dark)' }}>🎬 {m.title}</a>
-                            ))}
-                            {sub.audios.map((m) => (
-                              <a key={m.id} href={m.url} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--brand-dark)' }}>🎧 {m.title}</a>
-                            ))}
-                          </div>
-                        ) : null}
+                        <div style={{ marginTop: 12 }}>
+                          <MediaList items={[...sub.pdfs, ...sub.videos, ...sub.audios]} />
+                        </div>
                       </div>
                     ) : null}
                   </div>
