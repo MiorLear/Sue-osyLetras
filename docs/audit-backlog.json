@@ -1,0 +1,1529 @@
+{
+  "meta": {
+    "project": "ExplorArte / Sueños y Letras",
+    "auditedCommit": "61ac48c",
+    "auditedAt": "2026-08-02",
+    "report": "AUDIT.md",
+    "severities": {
+      "P0": "Exploitable or breaking now. Fix before other work.",
+      "P1": "High impact. Schedule immediately after P0.",
+      "P2": "Real but not urgent. Fold into related work.",
+      "P3": "Cleanup, hardening, or nice-to-have."
+    },
+    "areas": ["security", "scalability", "maintainability", "bug", "pwa"],
+    "sizes": { "S": "< half a day", "M": "half a day to two days", "L": "multi-day" },
+    "notes": [
+      "The on-device QA sweep did not run: no Android device connected, no emulator installed, Docker not running. No QA-* tickets exist yet.",
+      "Every ticket cites files that were read. Findings verified by command output are marked verified: true."
+    ]
+  },
+  "tickets": [
+    {
+      "id": "SEC-01",
+      "title": "Reject PENDING and REJECTED users at login server-side",
+      "severity": "P0",
+      "area": "security",
+      "size": "S",
+      "files": ["api/src/main/java/com/explorarte/api/auth/AuthController.java:56-64", "api/src/main/java/com/explorarte/api/security/JwtAuthenticationFilter.java:40-45", "web/src/routes/Login.tsx:38-41"],
+      "problem": "login() compares the password and issues a token without reading user.getStatus(). The admin approve/reject workflow has no server-side effect — a REJECTED user still gets a valid 24h token. The block exists only client-side and is bypassed with curl or by editing localStorage.",
+      "acceptance": [
+        "POST /auth/login returns 403 with a distinguishable body for PENDING and for REJECTED users.",
+        "The status is re-checked when a request is authenticated, so an already-issued token stops working after rejection.",
+        "The client renders the existing PendingApproval screen from the server response rather than from a local check."
+      ],
+      "dependsOn": []
+    },
+    {
+      "id": "SEC-02",
+      "title": "Rotate the committed admin seed password and gate the seeder",
+      "severity": "P0",
+      "area": "security",
+      "size": "S",
+      "files": ["render.yaml:47-48", "api/src/main/java/com/explorarte/api/seed/DataSeeder.java:97-103", "COMO-EMPEZAR.md:131", "README.md:51-54"],
+      "problem": "render.yaml commits SEED_USER_PASSWORD: explorarte-team-2026 in a PUBLIC repo, and DataSeeder seeds admin@explorarte.org as ADMIN with it. This is a working admin credential for explorarte-api.onrender.com readable by anyone on the internet.",
+      "acceptance": [
+        "The credential is rotated in the Render dashboard BEFORE this ticket is discussed publicly.",
+        "SEED_USER_PASSWORD becomes sync: false in render.yaml — no value in version control.",
+        "DataSeeder runs only under a non-production Spring profile, so no known-password ADMIN can exist in a deployed environment.",
+        "Docs reference the demo credentials as local-only."
+      ],
+      "dependsOn": []
+    },
+    {
+      "id": "SEC-03",
+      "title": "Fail closed when JWT_SECRET is unset",
+      "severity": "P0",
+      "area": "security",
+      "size": "S",
+      "files": ["api/src/main/resources/application.yml:47", "docker-compose.yml:32"],
+      "problem": "The signing key defaults to the public literal 'dev-only-not-for-production-change-me'. Any deployment missing JWT_SECRET lets anyone forge an admin token. Render sets it, but the docker-compose and Cloud Run paths in DESPLIEGUE.md do not fail closed.",
+      "acceptance": [
+        "The application refuses to start when JWT_SECRET is absent or equal to the old default.",
+        "A minimum key length is enforced (HS256 needs >= 32 bytes).",
+        "docker-compose still works for local dev via a documented .env value, not a baked-in fallback."
+      ],
+      "dependsOn": []
+    },
+    {
+      "id": "SEC-04",
+      "title": "Remove the unbound dev OTP backdoor",
+      "severity": "P0",
+      "area": "security",
+      "size": "S",
+      "files": ["api/src/main/java/com/explorarte/api/auth/VerificationCodeService.java:63-65", "docker-compose.yml:45", ".env.example:45"],
+      "problem": "The dev code is compared before any DB lookup and is not bound to the identifier. verify() backs both /auth/otp/verify (returns a full token) and /auth/reset-password, so knowing the fixed code means logging in as, or resetting the password of, ANY account. docker-compose defaults it to 123456.",
+      "acceptance": [
+        "The devCode branch is deleted, or restricted to a non-production Spring profile AND bound to a single allowlisted test identifier.",
+        "The 123456 default is removed from docker-compose.yml and .env.example.",
+        "A deployed environment cannot enable it via env var alone."
+      ],
+      "dependsOn": []
+    },
+    {
+      "id": "SEC-05",
+      "title": "Add rate limiting and OTP attempt lockout",
+      "severity": "P0",
+      "area": "security",
+      "size": "M",
+      "files": ["api/pom.xml", "api/src/main/java/com/explorarte/api/config/SecurityConfig.java", "api/src/main/java/com/explorarte/api/auth/VerificationCodeService.java:59-70", "api/src/main/java/com/explorarte/api/auth/AuthController.java:99-119"],
+      "problem": "No rate limiting exists anywhere. OTP codes are 6 digits with a 15-minute TTL, no attempt counter, and no invalidation on failure — brute-forceable to full account takeover. /auth/login is equally unthrottled.",
+      "acceptance": [
+        "Per-IP and per-identifier throttling on /auth/**, returning 429 with Retry-After.",
+        "A verification code is invalidated after N failed attempts (N <= 5) and the attempt count is persisted.",
+        "Limits are configurable by env var and documented in .env.example."
+      ],
+      "dependsOn": []
+    },
+    {
+      "id": "SEC-06",
+      "title": "Never silently fall back to the passwordless mock client",
+      "severity": "P1",
+      "area": "security",
+      "size": "S",
+      "files": ["web/src/lib/api.ts:9,29", "src/lib/api.ts:43,69", "shared/src/api/mock/index.ts:64-69", "shared/src/api/configurable.ts"],
+      "problem": "usingMock = !baseUrl. If VITE_API_URL / EXPO_PUBLIC_API_URL is missing at build time the app uses the in-memory client, whose login() ignores the password entirely and resolves the user by email — so admin@explorarte.org plus any string yields an admin session with the full CMS.",
+      "acceptance": [
+        "A production build fails, or the app refuses to start, when no API base URL is configured.",
+        "Mock mode requires an explicit opt-in flag rather than being the default on missing config.",
+        "When mock mode is active it is visibly indicated in the UI."
+      ],
+      "dependsOn": []
+    },
+    {
+      "id": "SEC-07",
+      "title": "Add request validation to every endpoint",
+      "severity": "P1",
+      "area": "security",
+      "size": "L",
+      "files": ["api/pom.xml:35-38", "api/src/main/java/com/explorarte/api/**/*Input.java", "api/src/main/java/com/explorarte/api/**/*Controller.java"],
+      "problem": "spring-boot-starter-validation is a declared dependency but @Valid, @NotNull, @Size, @Email and @Pattern appear zero times in the codebase. No request body is validated: no required fields, no length caps, no format checks. Oversize strings reach the DB and surface as 500s.",
+      "acceptance": [
+        "Every controller method taking a body annotates it @Valid, and every Input record has constraints on required fields, lengths, and email/URL formats.",
+        "Validation failures return 400 with a field-level error body, not 500.",
+        "Length caps match the column definitions in V1__init_schema.sql."
+      ],
+      "dependsOn": ["SEC-20"]
+    },
+    {
+      "id": "SEC-08",
+      "title": "Allowlist upload MIME types and cap size per category",
+      "severity": "P1",
+      "area": "security",
+      "size": "M",
+      "files": ["api/src/main/java/com/explorarte/api/media/MediaUploadController.java:38-53", "api/src/main/java/com/explorarte/api/media/MediaCategory.java:11-12", "api/src/main/resources/application.yml:23-25"],
+      "problem": "No MIME or extension allowlist and no per-category size check. file.getContentType() comes from the client and is forwarded to Supabase as the stored Content-Type, so any authenticated teacher can upload .html/.svg/.js under POSTS or PROFILE and get a public URL on the Supabase origin — stored XSS and arbitrary content hosting.",
+      "acceptance": [
+        "Each MediaCategory declares an allowed MIME set and a max size; uploads outside them return 415 or 413.",
+        "The stored Content-Type is derived from server-side sniffing, not the client header.",
+        "SVG is either rejected or stored with a Content-Disposition that prevents inline rendering."
+      ],
+      "dependsOn": []
+    },
+    {
+      "id": "SEC-09",
+      "title": "Re-validate the user on each authenticated request and add session revocation",
+      "severity": "P1",
+      "area": "security",
+      "size": "M",
+      "files": ["api/src/main/java/com/explorarte/api/security/JwtAuthenticationFilter.java:40-45", "api/src/main/java/com/explorarte/api/security/JwtService.java:25-38"],
+      "problem": "The filter trusts the token's role claim and never loads the user. A demoted, rejected or deleted user keeps full privileges for up to 24 hours, and there is no revocation path at all — no logout endpoint, no jti, no token version.",
+      "acceptance": [
+        "Role and status are read from the database (with a short-lived cache) rather than from the claim alone.",
+        "A logout or token-version mechanism invalidates existing tokens.",
+        "A signature-valid token missing the role claim returns 401, not a 500 (fixes BUG-15)."
+      ],
+      "dependsOn": ["SEC-01"]
+    },
+    {
+      "id": "SEC-10",
+      "title": "Stop logging OTP codes, reset codes and the seed password",
+      "severity": "P1",
+      "area": "security",
+      "size": "S",
+      "files": ["api/src/main/java/com/explorarte/api/auth/AuthController.java:104,134,138", "api/src/main/java/com/explorarte/api/auth/EmailService.java:58", "api/src/main/java/com/explorarte/api/seed/DataSeeder.java:99"],
+      "problem": "OTP codes are logged at INFO, password-reset codes are logged on any Resend failure, and the seed password is logged verbatim on every cold boot. On Render these logs are retained and readable from the dashboard.",
+      "acceptance": [
+        "No credential, code, or token value appears in any log statement at any level.",
+        "Delivery failures log the identifier and error class only.",
+        "A grep for the removed patterns returns nothing."
+      ],
+      "dependsOn": []
+    },
+    {
+      "id": "SEC-11",
+      "title": "Move media to signed URLs and drop the service_role key from the request path",
+      "severity": "P2",
+      "area": "security",
+      "size": "L",
+      "files": ["api/src/main/java/com/explorarte/api/media/SupabaseStorageClient.java:9-16,37-45", "api/src/main/resources/application.yml:55-57"],
+      "problem": "The bucket is public-read with unsigned URLs, x-upsert: true allows overwriting an object at the same path, and the API holds the RLS-bypassing service_role key. Anything uploaded — profile photos, forum attachments — is world-readable to anyone who learns the URL, permanently.",
+      "acceptance": [
+        "Private content is served via time-limited signed URLs; only genuinely public assets stay public.",
+        "x-upsert is disabled, or overwrites require an explicit intent.",
+        "The offline media cache still works with signed URLs (coordinate with PWA-2.7 — a rotating query string must not fragment the cache)."
+      ],
+      "dependsOn": []
+    },
+    {
+      "id": "SEC-12",
+      "title": "Add Content-Security-Policy and Referrer-Policy to both static sites",
+      "severity": "P2",
+      "area": "security",
+      "size": "S",
+      "verified": true,
+      "files": ["render.yaml:84-87", "web/firebase.json:18-23", "web/index.html"],
+      "problem": "Verified by response headers: HSTS and x-content-type-options ARE present (added by Cloudflare/Render), but there is no CSP and no Referrer-Policy on either site, and the mobile export additionally lacks X-Frame-Options. Combined with the JWT in localStorage, any XSS exfiltrates a 24-hour token.",
+      "acceptance": [
+        "A CSP is served that restricts script-src to 'self' and connect-src/img-src/media-src to the API and Supabase origins.",
+        "Referrer-Policy is set, and X-Frame-Options or frame-ancestors covers both sites.",
+        "The app functions with the CSP enforced — no console violations (requires PWA-1.3 to remove Google Fonts)."
+      ],
+      "dependsOn": ["PWA-1.3"]
+    },
+    {
+      "id": "SEC-13",
+      "title": "Enforce a password policy and verify email at registration",
+      "severity": "P2",
+      "area": "security",
+      "size": "M",
+      "files": ["api/src/main/java/com/explorarte/api/auth/AuthController.java:66-97"],
+      "problem": "No password policy — a 1-character password is accepted, while resetPassword enforces >= 6. A blank password silently becomes a random UUID, leaving an unusable account. Email is never verified, and there is no duplicate pre-check, so a collision surfaces as a 500.",
+      "acceptance": [
+        "A single minimum-length rule (and a maximum, see SEC-16) applies to registration, reset, and change.",
+        "A blank password returns 400 instead of creating an unusable account.",
+        "A duplicate email returns 409 with a clear message.",
+        "Email ownership is verified before the account becomes usable."
+      ],
+      "dependsOn": ["SEC-07"]
+    },
+    {
+      "id": "SEC-14",
+      "title": "Restrict Swagger UI and /v3/api-docs in production",
+      "severity": "P2",
+      "area": "security",
+      "size": "S",
+      "verified": true,
+      "files": ["api/src/main/java/com/explorarte/api/config/SecurityConfig.java:55"],
+      "problem": "Verified live: GET /v3/api-docs returns 200 and Swagger UI is reachable on the production host. Both are permitAll in every environment, publishing the complete API surface with no flag to disable it.",
+      "acceptance": [
+        "Both paths are disabled or require authentication when a production profile is active.",
+        "Local development still serves Swagger UI.",
+        "Verified by an unauthenticated request against the deployed host returning 401/404."
+      ],
+      "dependsOn": []
+    },
+    {
+      "id": "SEC-15",
+      "title": "Validate user-supplied media URLs against the storage origin",
+      "severity": "P2",
+      "area": "security",
+      "size": "M",
+      "files": ["api/src/main/java/com/explorarte/api/community/PostController.java:59", "api/src/main/java/com/explorarte/api/community/CreatePostInput.java:32", "src/app/comunidad.tsx:291", "web/src/routes/Comunidad.tsx:183,185"],
+      "problem": "Client-supplied MediaItem URLs are stored verbatim as JSONB with no check that they point at the app's own bucket. A crafted post can point at an arbitrary scheme or host (phishing page, deep link, intent://) which other teachers open by tapping the attachment.",
+      "acceptance": [
+        "The server rejects any attachment URL whose origin is not the configured storage origin.",
+        "Clients treat attachment URLs as untrusted: no arbitrary-scheme navigation.",
+        "Existing rows are audited for off-origin URLs."
+      ],
+      "dependsOn": ["SEC-07"]
+    },
+    {
+      "id": "SEC-16",
+      "title": "Upgrade Spring Boot to patch CVE-2025-22228 and cap password length",
+      "severity": "P2",
+      "area": "security",
+      "size": "M",
+      "verified": true,
+      "files": ["api/pom.xml:10", "api/src/main/java/com/explorarte/api/config/SecurityConfig.java:32-34"],
+      "problem": "Verified by ./mvnw dependency:tree: spring-security-crypto:6.3.3. CVE-2025-22228 makes BCryptPasswordEncoder.matches() return true for any password over 72 bytes whose first 72 bytes match; fixed in 6.3.8 / 6.4.4. This project uses BCryptPasswordEncoder for all authentication and enforces no maximum password length. Spring Boot 3.3.4 is also past OSS support.",
+      "acceptance": [
+        "spring-security-crypto resolves to >= 6.3.8 (via a Spring Boot parent upgrade).",
+        "A maximum password length (<= 72 bytes) is enforced at every entry point.",
+        "The app boots and authentication works after the upgrade."
+      ],
+      "dependsOn": []
+    },
+    {
+      "id": "SEC-17",
+      "title": "Hash verification codes at rest",
+      "severity": "P3",
+      "area": "security",
+      "size": "S",
+      "files": ["api/src/main/resources/db/migration/V3__verification_codes.sql:6-10", "api/src/main/java/com/explorarte/api/auth/VerificationCodeService.java"],
+      "problem": "OTP and password-reset codes are stored in plaintext, one row per identifier. Database read access means a password reset for every user with a pending code.",
+      "acceptance": ["Codes are stored as a hash and compared by hashing the input.", "A migration clears existing plaintext rows."],
+      "dependsOn": []
+    },
+    {
+      "id": "SEC-18",
+      "title": "Index phone lookups and make phone unique",
+      "severity": "P3",
+      "area": "security",
+      "size": "S",
+      "files": ["api/src/main/java/com/explorarte/api/auth/AuthController.java:113-116,176-178", "api/src/main/resources/db/migration/V1__init_schema.sql:8"],
+      "problem": "Phone lookup uses findAll().stream().filter(), loading every user row on public unthrottled endpoints. phone has no unique constraint, so if two accounts share a number OTP login authenticates whichever row comes first.",
+      "acceptance": ["A repository method with an index replaces the in-memory scan.", "phone is unique (after de-duplicating existing data), or the ambiguity is handled explicitly."],
+      "dependsOn": []
+    },
+    {
+      "id": "SEC-19",
+      "title": "Tighten CORS configuration",
+      "severity": "P3",
+      "area": "security",
+      "size": "S",
+      "files": ["api/src/main/java/com/explorarte/api/config/SecurityConfig.java:43,74-82"],
+      "problem": "setAllowedHeaders(List.of(\"*\")) is broader than needed, and the origin env var is split without trim() so a stray space yields a silently non-matching origin. csrf.disable() is defensible for a stateless header API but is undocumented.",
+      "acceptance": ["Allowed headers are enumerated.", "Origins are trimmed and an unparseable value fails loudly at startup.", "An inline comment records why CSRF is disabled and what must change if cookies are adopted."],
+      "dependsOn": []
+    },
+    {
+      "id": "SEC-20",
+      "title": "Add a catch-all exception handler that does not leak identifiers",
+      "severity": "P3",
+      "area": "security",
+      "size": "S",
+      "files": ["api/src/main/java/com/explorarte/api/common/ApiExceptionHandler.java:14-22", "api/src/main/java/com/explorarte/api/user/AdminUserController.java:44"],
+      "problem": "No catch-all Exception handler, so DB constraint violations return bare 500s. NoSuchElementException echoes ex.getMessage(), which embeds caller-supplied ids — a minor enumeration aid on /admin/users/{id}/*.",
+      "acceptance": ["Unhandled exceptions return a generic 500 with a correlation id, logged server-side.", "Constraint violations map to 409.", "Error bodies never echo caller-supplied identifiers."],
+      "dependsOn": []
+    },
+    {
+      "id": "SEC-21",
+      "title": "Scope the dev firewall script to private networks",
+      "severity": "P3",
+      "area": "security",
+      "size": "S",
+      "files": ["scripts/setup-windows-firewall.ps1:12-13,33"],
+      "problem": "Opens inbound TCP 8000 and 5173 with -Profile Any, including Public, exposing the dev API — which has a default JWT secret and a seeded admin — on untrusted Wi-Fi.",
+      "acceptance": ["-Profile Private only.", "The script warns that it must not be run on a public network."],
+      "dependsOn": []
+    },
+    {
+      "id": "SEC-22",
+      "title": "Reduce unencrypted PII in local storage",
+      "severity": "P3",
+      "area": "security",
+      "size": "S",
+      "files": ["src/lib/offline-cache.ts:20", "src/app/profile.tsx:41", "src/lib/mutation-queue.ts:39"],
+      "problem": "GET /me (name, email, phone, institution) and the pending-write queue are cached unencrypted in AsyncStorage, readable via Android auto-backup or adb on a rooted or debuggable device. Only the token uses SecureStore.",
+      "acceptance": ["Cached profile data is limited to what a screen actually renders.", "Android auto-backup excludes the cache, or the cached payload is encrypted.", "Logout clears every cache (see PWA-4.1)."],
+      "dependsOn": []
+    },
+    {
+      "id": "SEC-23",
+      "title": "Stop committing personal agent settings",
+      "severity": "P3",
+      "area": "security",
+      "size": "S",
+      "files": [".claude/settings.local.json:12", ".gitignore"],
+      "problem": "A committed auto-approve list including Bash(npm run *) and Bash(mv uploads *) is shipped to every contributor. Personal tooling config should not be shared.",
+      "acceptance": [".claude/settings.local.json is gitignored and removed from tracking.", "Any genuinely shared config moves to .claude/settings.json with a review."],
+      "dependsOn": []
+    },
+    {
+      "id": "SCALE-01",
+      "title": "Paginate the list endpoints",
+      "severity": "P1",
+      "area": "scalability",
+      "size": "M",
+      "files": ["api/src/main/java/com/explorarte/api/community/PostController.java", "api/src/main/java/com/explorarte/api/calendar/EventController.java:33", "api/src/main/java/com/explorarte/api/user/AdminUserController.java:21-25", "shared/openapi.yaml", "shared/src/api/client.ts"],
+      "problem": "/posts, /events and /admin/users return whole tables with no limit, offset or cursor. Verified: GET /emotions returns a bare array. The community feed grows without bound, and the offline cache stores whatever it is given.",
+      "acceptance": [
+        "Cursor or page parameters on /posts, /events and /admin/users, with a server-side default and maximum page size.",
+        "The contract is updated in openapi.yaml and the shared ApiClient.",
+        "The offline cache stores bounded pages, and the feed loads more on scroll."
+      ],
+      "dependsOn": []
+    },
+    {
+      "id": "SCALE-02",
+      "title": "Replace the full-table scan in phone lookup",
+      "severity": "P1",
+      "area": "scalability",
+      "size": "S",
+      "files": ["api/src/main/java/com/explorarte/api/auth/AuthController.java:113-116,176-178"],
+      "problem": "findAll().stream().filter() loads every user row into memory per OTP or forgot-password request, on public unthrottled endpoints. This degrades linearly with user growth and is a trivial DoS vector.",
+      "acceptance": ["An indexed repository query replaces the scan.", "No endpoint calls findAll() on users."],
+      "dependsOn": ["SEC-18"]
+    },
+    {
+      "id": "SCALE-03",
+      "title": "Throttle content sync and make media download user-initiated",
+      "severity": "P1",
+      "area": "scalability",
+      "size": "M",
+      "files": ["src/lib/media-sync.ts", "src/app/_layout.tsx:22-27"],
+      "problem": "syncAllContent() runs on every online flip and walks ~12 endpoints plus every referenced media file. A tablet flapping between Wi-Fi and cellular hammers the API and burns a teacher's data plan.",
+      "acceptance": [
+        "A lastFullSyncAt guard skips a pass within a configurable window (default 15 min).",
+        "JSON prefetch stays automatic; media download becomes an explicit user action.",
+        "Sync is skipped or reduced on a metered connection where detectable."
+      ],
+      "dependsOn": []
+    },
+    {
+      "id": "SCALE-04",
+      "title": "Reduce the 200MB upload limit and throttle uploads",
+      "severity": "P2",
+      "area": "scalability",
+      "size": "S",
+      "files": ["api/src/main/resources/application.yml:23-25"],
+      "problem": "The only limit is Spring's 200MB max-file-size and max-request-size. Any authenticated user can push 200MB per request, unthrottled, into the shared Supabase bucket — storage and cost exhaustion.",
+      "acceptance": ["Per-category limits sized to real content (see SEC-08).", "Per-user upload rate and total quota are enforced.", "Exceeding a limit returns 413."],
+      "dependsOn": ["SEC-08", "SEC-05"]
+    },
+    {
+      "id": "SCALE-05",
+      "title": "Review and add indexes on the growth tables",
+      "severity": "P2",
+      "area": "scalability",
+      "size": "S",
+      "files": ["api/src/main/resources/db/migration/V1__init_schema.sql"],
+      "problem": "No index review has been done on the tables that grow: posts by created_at, comments by post id, post_likes by post and user, calendar_events by owner. Feed and calendar queries will degrade with real usage.",
+      "acceptance": ["Indexes exist for every column used in a WHERE, ORDER BY or JOIN on the growth tables.", "Added via a new Flyway migration.", "EXPLAIN confirms index usage for the feed and calendar queries."],
+      "dependsOn": []
+    },
+    {
+      "id": "SCALE-06",
+      "title": "Mitigate Render free-tier cold start",
+      "severity": "P2",
+      "area": "scalability",
+      "size": "M",
+      "verified": true,
+      "files": ["render.yaml:10-12", "DESPLIEGUE.md"],
+      "problem": "Verified: the first request after idle exceeded 90 seconds, worse than the 30-60s documented. A teacher opening the app after a quiet period sees a very long wait, and login cannot be served from cache.",
+      "acceptance": [
+        "The client shows an explicit 'waking the server' state instead of a generic spinner beyond a few seconds.",
+        "A keep-warm ping or a paid tier is evaluated and the decision recorded.",
+        "The PWA shell loads offline so only genuinely online actions pay the cost."
+      ],
+      "dependsOn": ["PWA-1.2"]
+    },
+    {
+      "id": "SCALE-07",
+      "title": "Code-split the admin console out of the teacher bundle",
+      "severity": "P2",
+      "area": "scalability",
+      "size": "S",
+      "verified": true,
+      "files": ["web/src/App.tsx:21-26,69-74", "web/vite.config.ts"],
+      "problem": "Verified: the Vite build emits a single 400,130-byte chunk from 1624 modules, including the 6 admin CMS screens that teachers never open. React.lazy on the admin routes is nearly free and directly reduces what a phone on 3G downloads.",
+      "acceptance": ["Admin routes load via React.lazy with a Suspense fallback.", "The teacher entry chunk shrinks measurably.", "Admin routes still work, and lazy chunks are precached only if intended (see PWA-1.2)."],
+      "dependsOn": []
+    },
+    {
+      "id": "SCALE-08",
+      "title": "Add ETag and Cache-Control to API responses",
+      "severity": "P3",
+      "area": "scalability",
+      "size": "M",
+      "files": ["api/src/main/java/com/explorarte/api/**/*Controller.java", "api/src/main/java/com/explorarte/api/config/"],
+      "problem": "No ETag or Cache-Control on API responses, so the offline layer cannot do cheap conditional GETs and every revalidation transfers the full body.",
+      "acceptance": ["Read endpoints emit an ETag and honour If-None-Match with 304.", "The offline revalidation path uses it and skips writes on 304."],
+      "dependsOn": []
+    },
+    {
+      "id": "SCALE-09",
+      "title": "Audit the posts feed for N+1 queries",
+      "severity": "P3",
+      "area": "scalability",
+      "size": "S",
+      "files": ["api/src/main/java/com/explorarte/api/community/PostController.java", "api/src/main/java/com/explorarte/api/community/"],
+      "problem": "The likes and comments fetch strategy for the feed has not been reviewed. JPA default lazy loading plus per-post access is the classic N+1 shape and was not verified either way.",
+      "acceptance": ["SQL logging confirms a bounded query count per feed request.", "Any N+1 is fixed with a fetch join or projection."],
+      "dependsOn": ["SCALE-01"]
+    },
+    {
+      "id": "MAINT-01",
+      "title": "Establish a test harness and cover the offline logic",
+      "severity": "P1",
+      "area": "maintainability",
+      "size": "L",
+      "files": ["web/vitest.config.ts", "web/src/test/setup.ts", "api/src/test/", "api/Dockerfile:21"],
+      "problem": "Zero tests exist. spring-boot-starter-test and spring-security-test are declared but unused, and the Docker build runs mvn package -DskipTests. A prior attempt on branch claude/app-testing-setup-9577ad was reverted. About 700 lines of offline logic are about to be moved between codebases with no safety net.",
+      "acceptance": [
+        "Vitest + jsdom + fake-indexeddb runs in web/ via npm test.",
+        "Backend tests run in the build rather than being skipped.",
+        "Coverage exists for the outbox (coalescing, retry classification, id remapping), the cache-first hook, and auth status rejection."
+      ],
+      "dependsOn": []
+    },
+    {
+      "id": "MAINT-02",
+      "title": "Add GitHub Actions CI",
+      "severity": "P1",
+      "area": "maintainability",
+      "size": "S",
+      "files": [".github/workflows/ci.yml"],
+      "problem": "No CI exists — .github/ holds only agent scratch files. Nothing gates typecheck, lint, or build on a PR; the only automated check is the Render build, which skips API tests. Actions is free and unlimited on a public repo.",
+      "acceptance": [
+        "A workflow runs on push and PR: install, typecheck, lint, build web/, build api.",
+        "It runs tests once MAINT-01 lands.",
+        "A failing check blocks merge on main."
+      ],
+      "dependsOn": ["MAINT-03", "MAINT-04"]
+    },
+    {
+      "id": "MAINT-03",
+      "title": "Scope the root tsconfig so it stops type-checking web/",
+      "severity": "P1",
+      "area": "maintainability",
+      "size": "S",
+      "verified": true,
+      "files": ["tsconfig.json", "package.json"],
+      "problem": "Verified: the root tsconfig has no include, so **/*.tsx sweeps in web/ and resolves web's '@/components/Icon' against the MOBILE src/ via the @/* alias. npx tsc --noEmit produces 76 errors — all in web/, none in src/ — including 19 TS1149 casing collisions between src/components/icon.tsx and web/src/components/Icon.tsx. This is why no mobile typecheck script exists.",
+      "acceptance": [
+        "The root tsconfig includes only the mobile app (src/, plus its type shims) and excludes web/, shared/, dist/.",
+        "A typecheck script exists at root and passes with zero errors.",
+        "web/ continues to typecheck independently via its own tsconfig."
+      ],
+      "dependsOn": []
+    },
+    {
+      "id": "MAINT-04",
+      "title": "Add a real ESLint config for all three projects",
+      "severity": "P1",
+      "area": "maintainability",
+      "size": "M",
+      "files": ["eslint.config.mjs", "web/eslint.config.mjs", "package.json", "web/package.json", "shared/package.json"],
+      "problem": "package.json declares 'lint': 'expo lint' but no eslint.config.* or .eslintrc* exists anywhere and eslint is not a dependency. web/ and shared/ have no lint script at all.",
+      "acceptance": [
+        "A flat ESLint config with the TypeScript and React plugins, plus react-hooks rules.",
+        "npm run lint passes (or its findings are triaged into follow-up tickets) in all three projects.",
+        "Wired into CI."
+      ],
+      "dependsOn": ["MAINT-03"]
+    },
+    {
+      "id": "MAINT-05",
+      "title": "Eliminate the duplicated 13-screen implementation",
+      "severity": "P1",
+      "area": "maintainability",
+      "size": "L",
+      "files": ["src/app/", "web/src/routes/"],
+      "problem": "The 13 teacher screens exist twice — React Native in src/app/ and Vite in web/src/routes/ — so every fix must land in both, and they have already diverged (the RN calendar is 856 lines vs 381; web has PendingApproval and the admin CMS that RN lacks).",
+      "acceptance": ["One maintained implementation of each teacher screen.", "The other codebase is frozen, not silently rotting.", "Divergences are reconciled rather than dropped (see PWA-1.8)."],
+      "dependsOn": ["PWA-5.0"]
+    },
+    {
+      "id": "MAINT-06",
+      "title": "Resolve dependency advisories",
+      "severity": "P2",
+      "area": "maintainability",
+      "size": "M",
+      "verified": true,
+      "files": ["package.json", "web/package.json"],
+      "problem": "Verified by npm audit: 17 advisories at root — high severity in brace-expansion (DoS), postcss (XSS and path traversal via sourceMappingURL), and shell-quote (DoS) — and 3 high in web/ from react-router GHSA-qwww-vcr4-c8h2 (RSC-mode CSRF bypass). The postcss fix requires Expo 57, a breaking upgrade; the react-router fix is in-place.",
+      "acceptance": [
+        "react-router is patched in web/ (non-breaking).",
+        "Root advisories fixable without a major bump are fixed; the Expo 57 upgrade is assessed and either scheduled or documented as accepted risk with reasoning.",
+        "npm audit runs in CI at a defined threshold."
+      ],
+      "dependsOn": ["MAINT-02"]
+    },
+    {
+      "id": "MAINT-07",
+      "title": "Extract a service layer in the API",
+      "severity": "P2",
+      "area": "maintainability",
+      "size": "L",
+      "files": ["api/src/main/java/com/explorarte/api/**/*Controller.java"],
+      "problem": "86 Java files with business logic in controllers and only 4 service classes. Logic is not reusable or unit-testable, and cross-cutting rules (status checks, ownership, validation) are re-implemented per endpoint.",
+      "acceptance": ["Each feature has a service holding its business rules; controllers only map HTTP.", "Services are unit-testable without a web context.", "Duplicated rules are consolidated."],
+      "dependsOn": ["MAINT-01"]
+    },
+    {
+      "id": "MAINT-08",
+      "title": "Centralize the offline cache keys in shared/",
+      "severity": "P2",
+      "area": "maintainability",
+      "size": "S",
+      "files": ["shared/src/offline/keys.ts", "src/lib/media-sync.ts:12", "src/app/*.tsx"],
+      "problem": "The 12 cache keys are duplicated as string literals across media-sync.ts and 8 screens, with a comment at media-sync.ts:12 asking readers not to let them drift. A typo silently produces a permanent cache miss.",
+      "acceptance": ["Key builders live in one shared module and are imported everywhere.", "No cache-key string literal remains in a screen.", "A drifted key becomes a type error."],
+      "dependsOn": []
+    },
+    {
+      "id": "MAINT-09",
+      "title": "Adopt npm workspaces for shared/ and web/",
+      "severity": "P2",
+      "area": "maintainability",
+      "size": "M",
+      "files": ["package.json:47", "web/package.json", "shared/package.json"],
+      "problem": "shared/ is consumed via file: deps plus a postinstall that builds it, so a change requires a rebuild and reinstall dance, and the three lockfiles drift. web/ aliases the TS source directly while mobile consumes dist/ — two different resolution paths for one package.",
+      "acceptance": ["A workspace root hoists dependencies and links shared/ without file: or postinstall.", "Both apps resolve shared/ the same way.", "One install from the root sets up everything."],
+      "dependsOn": []
+    },
+    {
+      "id": "MAINT-10",
+      "title": "Add Prettier and an editorconfig",
+      "severity": "P2",
+      "area": "maintainability",
+      "size": "S",
+      "files": [".prettierrc", ".editorconfig", ".vscode/settings.json"],
+      "problem": "No Prettier config and no .editorconfig. Formatting is enforced only by a local .vscode/settings.json, so it is editor-dependent and produces noisy diffs between contributors.",
+      "acceptance": ["A shared Prettier config covers TS/TSX/JSON/MD.", "A format check runs in CI.", "The initial reformat lands as one isolated commit."],
+      "dependsOn": ["MAINT-02"]
+    },
+    {
+      "id": "MAINT-11",
+      "title": "Correct the stale documentation",
+      "severity": "P2",
+      "area": "maintainability",
+      "size": "S",
+      "files": ["OFFLINE.md", "render.yaml:105-106", "README.md:138", "instrucciones-correcciones-explorarte.md"],
+      "problem": "OFFLINE.md describes a DownloadableResource type that never landed, says the download button shows 'Próximamente', and points at Firebase Storage instead of Supabase. render.yaml:105-106 claims Expo prerenders one HTML per route, which is false with output: 'single'. README.md:138 references a deleted demo.mp4. instrucciones-correcciones-explorarte.md describes an obsolete screens/* layout.",
+      "acceptance": ["Each document matches the code as it exists, or is deleted.", "OFFLINE.md documents the real architecture (rewritten fully in PWA-5.5).", "No doc references a file that does not exist."],
+      "dependsOn": []
+    },
+    {
+      "id": "MAINT-12",
+      "title": "Remove unused dependencies",
+      "severity": "P3",
+      "area": "maintainability",
+      "size": "S",
+      "files": ["package.json:5-45"],
+      "problem": "Ten declared-but-never-imported packages: @expo/ui, expo-glass-effect, expo-symbols, expo-device, expo-constants, expo-font, expo-system-ui, react-native-gesture-handler, react-native-reanimated, react-native-worklets. They inflate install time, the bundle, and the advisory surface.",
+      "acceptance": ["Every removed package is confirmed unimported first.", "The app builds and runs after removal.", "Install size and audit count both drop."],
+      "dependsOn": []
+    },
+    {
+      "id": "MAINT-13",
+      "title": "Pin one Node version across local and CI",
+      "severity": "P3",
+      "area": "maintainability",
+      "size": "S",
+      "verified": true,
+      "files": [".nvmrc", "render.yaml:72-73,98-99", "package.json"],
+      "problem": "Verified: local Node is v24.14.0 while render.yaml pins NODE_VERSION: 20. Builds and local dev run on different majors, so a version-specific failure appears only in one place.",
+      "acceptance": ["An .nvmrc and a package.json engines field declare one version.", "CI and Render use it.", "The chosen version is supported by Expo SDK 54 and Vite 6."],
+      "dependsOn": []
+    },
+    {
+      "id": "MAINT-14",
+      "title": "Add static analysis to the Java build",
+      "severity": "P3",
+      "area": "maintainability",
+      "size": "S",
+      "files": ["api/pom.xml"],
+      "problem": "No Checkstyle, Spotless, or SpotBugs. Java formatting and common bug patterns are unenforced in a codebase maintained by developers who are new to Java.",
+      "acceptance": ["Spotless (formatting) and SpotBugs or Error Prone (correctness) are wired into the build.", "The build fails on violations.", "The initial reformat lands as one isolated commit."],
+      "dependsOn": ["MAINT-02"]
+    },
+    {
+      "id": "MAINT-15",
+      "title": "Settle on one deployment target",
+      "severity": "P3",
+      "area": "maintainability",
+      "size": "S",
+      "files": ["render.yaml", "DESPLIEGUE.md", "web/firebase.json"],
+      "problem": "Two deployment stories coexist: render.yaml (live: API on Render + two static sites + Supabase) and DESPLIEGUE.md with web/firebase.json (planned: Firebase Hosting + Cloud Run + Cloud SQL). It is unclear which is authoritative, and the unused config will rot.",
+      "acceptance": ["One target is chosen and documented as authoritative.", "Config for the other is removed or clearly labelled aspirational.", "The PWA cutover (PWA-5.1) targets the chosen platform."],
+      "dependsOn": []
+    },
+    {
+      "id": "MAINT-16",
+      "title": "Keep agent worktrees out of the repo tree",
+      "severity": "P3",
+      "area": "maintainability",
+      "size": "S",
+      "files": [".claude/worktrees/", ".gitignore"],
+      "problem": ".claude/worktrees/ holds 4 full repo copies inside the working tree, which inflates every repo-wide search and grep and makes tooling report duplicate matches.",
+      "acceptance": ["Worktrees live outside the repo, or are ignored and excluded from search tooling.", "A repo-wide grep returns each real match once."],
+      "dependsOn": []
+    },
+    {
+      "id": "BUG-01",
+      "title": "Fix the non-functional date and time pickers on web",
+      "severity": "P1",
+      "area": "bug",
+      "size": "M",
+      "files": ["src/app/calendar.tsx:673-704", "web/src/routes/Calendar.tsx:321-328"],
+      "problem": "@react-native-community/datetimepicker has no web implementation — its platform-agnostic src/datetimepicker.js returns null with a console.warn. DateField and TimeField render a trigger button that opens nothing, so event create and edit are broken today in the deployed explorarte-mobile web export.",
+      "acceptance": [
+        "Picking a date and a time works on web, using native <input type=\"date\"/\"time\"> as web/src/routes/Calendar.tsx already does.",
+        "Native Android behaviour is unchanged if the RN app is still shipped.",
+        "Creating and editing an event works end to end on both."
+      ],
+      "dependsOn": []
+    },
+    {
+      "id": "BUG-02",
+      "title": "Replace Alert.alert, which is a silent no-op on web",
+      "severity": "P1",
+      "area": "bug",
+      "size": "M",
+      "files": ["src/app/comunidad.tsx", "src/app/calendar.tsx", "src/app/herramientas.tsx", "src/app/profile.tsx", "src/app/login.tsx", "src/app/register.tsx", "src/components/downloadable-media-item.tsx"],
+      "problem": "react-native-web ships Alert as `class Alert { static alert() {} }` — a no-op. Nothing throws and nothing logs, so all 25 call sites across 7 files produce complete silence on web. Every offline confirmation and failure message, including 'Guardado sin conexión' and 'No disponible sin conexión', is invisible.",
+      "acceptance": [
+        "A cross-platform notification layer replaces every Alert.alert call site.",
+        "Messages are visible on web, verified on the 3 offline paths that use them.",
+        "No Alert import from react-native remains."
+      ],
+      "dependsOn": ["PWA-1.6"]
+    },
+    {
+      "id": "BUG-03",
+      "title": "Stop one bad mutation from blocking the outbox forever",
+      "severity": "P1",
+      "area": "bug",
+      "size": "M",
+      "files": ["src/lib/mutation-queue.ts:181-201", "src/components/sync-banner.tsx"],
+      "problem": "flushQueue is `while (queue.length) { try { dispatch(queue[0]) } catch { break } }`. A permanently-invalid mutation (a comment on a deleted post, a 403 from a revoked account) blocks the entire queue indefinitely while the banner reports 'N cambios se sincronizarán al reconectar'. There is no attempt counter, no cap, and no dead-letter; a 401 is indistinguishable from a network blip, so it retries into a redirect loop.",
+      "acceptance": [
+        "Errors are classified: 401 stops the flush without counting an attempt; 408/429/5xx/network retry with backoff; 400/403/404/409/422 are dead-lettered and the flush continues.",
+        "An attempt cap moves an exhausted mutation to a dead-letter store.",
+        "The user can see and act on failed mutations (see PWA-3.7)."
+      ],
+      "dependsOn": ["PWA-3.2"]
+    },
+    {
+      "id": "BUG-04",
+      "title": "Fix the array-reference race in flushQueue",
+      "severity": "P1",
+      "area": "bug",
+      "size": "S",
+      "files": ["src/lib/mutation-queue.ts:109-115,181-201"],
+      "problem": "enqueueEventRemove does `queue = queue.filter(...)`, replacing the array reference while flushQueue is iterating it. The in-flight loop then mutates an orphaned array and the just-dispatched mutation is re-dispatched on the next pass — a duplicate write.",
+      "acceptance": [
+        "Flush iterates a snapshot of stable ids and re-reads each entry immediately before dispatch.",
+        "Completion removes the entry by id in a single transaction.",
+        "A test enqueues a cancelling mutation mid-flush and asserts no duplicate dispatch."
+      ],
+      "dependsOn": ["PWA-3.1"]
+    },
+    {
+      "id": "BUG-05",
+      "title": "Stop keying media freshness on file size",
+      "severity": "P2",
+      "area": "bug",
+      "size": "M",
+      "files": ["src/lib/media-sync.ts:18", "src/components/downloadable-media-item.tsx:37", "src/lib/offlineStorage.ts:67-73", "shared/src/types/index.ts:11-19"],
+      "problem": "Both call sites use String(item.sizeBytes) as the cache version, so a corrected PDF with the same byte length is never re-downloaded. MediaItem has no updatedAt or etag; OFFLINE.md:113-123 proposed adding one and it never landed.",
+      "acceptance": [
+        "Freshness uses an HTTP validator (ETag or Last-Modified) via a conditional request, not size.",
+        "A same-size replacement is detected and re-downloaded.",
+        "MediaItem gains updatedAt/etag so a list response reveals staleness without per-file requests (see PWA-4.2)."
+      ],
+      "dependsOn": ["PWA-2.7"]
+    },
+    {
+      "id": "BUG-06",
+      "title": "Allow liking and commenting on posts created offline",
+      "severity": "P2",
+      "area": "bug",
+      "size": "M",
+      "files": ["src/lib/mutation-queue.ts", "src/app/comunidad.tsx:69,89,100-132"],
+      "problem": "enqueuePostLike/Comment take a real numeric id, so a post created offline (tempId = Date.now()) cannot be liked or commented on until it syncs. Screens special-case this with a pendingPostIds guard, which is both a worse experience and extra code.",
+      "acceptance": [
+        "A temp-id to real-id map rewrites queued mutations after a successful create.",
+        "Likes and comments on an offline-created post replay correctly after sync.",
+        "The pendingPostIds special-casing is removed."
+      ],
+      "dependsOn": ["PWA-3.3"]
+    },
+    {
+      "id": "BUG-07",
+      "title": "Retry the outbox periodically, not only on reconnect",
+      "severity": "P2",
+      "area": "bug",
+      "size": "M",
+      "files": ["src/app/_layout.tsx:22-27", "src/lib/mutation-queue.ts"],
+      "problem": "The only flush trigger is the online flag flipping. A device that boots already-online with a pending queue never retries, and a transient server error strands the queue until the next connectivity change.",
+      "acceptance": ["Flush is attempted on app start, on reconnect, on returning to the foreground, and on a backoff timer while work is pending.", "The timer stops when the queue drains.", "Backoff is capped and jittered."],
+      "dependsOn": ["PWA-3.4"]
+    },
+    {
+      "id": "BUG-08",
+      "title": "Ensure declared dependencies are actually installed",
+      "severity": "P2",
+      "area": "bug",
+      "size": "S",
+      "verified": true,
+      "files": ["package.json", "package-lock.json", "src/lib/open-file.ts"],
+      "problem": "Verified: expo-sharing and expo-intent-launcher were listed in package.json but absent from node_modules — npm install added exactly 2 packages. Until then src/lib/open-file.ts could not resolve its imports, so a fresh clone or a teammate's checkout would fail to bundle.",
+      "acceptance": ["A clean install produces a bundle-able tree.", "CI runs a clean install so this cannot regress.", "The lockfile is consistent with package.json."],
+      "dependsOn": ["MAINT-02"]
+    },
+    {
+      "id": "BUG-09",
+      "title": "Expose cache age and distinguish empty-offline from failure",
+      "severity": "P2",
+      "area": "bug",
+      "size": "S",
+      "files": ["src/lib/useOfflineAsync.ts:32-56"],
+      "problem": "The cache never expires, so stale data is presented as current with no indication of age. 'Offline with nothing cached' and a genuine request failure both surface as the same error, so screens cannot choose the right message.",
+      "acceptance": ["Cached entries record fetchedAt and the hook exposes the age.", "The two failure modes are distinguishable by the caller.", "At least one screen shows the data's age when it is stale."],
+      "dependsOn": ["PWA-2.5"]
+    },
+    {
+      "id": "BUG-10",
+      "title": "Handle malformed media URLs with a diagnostic",
+      "severity": "P3",
+      "area": "bug",
+      "size": "S",
+      "files": ["src/lib/offlineStorage.ts:43-47", "src/lib/media-sync.ts:20"],
+      "problem": "fileNameFor calls new URL(url), which throws on a relative URL. media-sync.ts swallows per-file errors, so a malformed URL makes a resource permanently un-cacheable with no diagnostic anywhere.",
+      "acceptance": ["A relative or malformed URL is handled without throwing.", "The failure is logged with the resource id.", "One bad URL never aborts the sync pass."],
+      "dependsOn": []
+    },
+    {
+      "id": "BUG-11",
+      "title": "Evict orphaned media when content is replaced",
+      "severity": "P3",
+      "area": "bug",
+      "size": "S",
+      "files": ["src/lib/offlineStorage.ts", "src/lib/media-sync.ts"],
+      "problem": "When an admin re-uploads a file the new MediaItem gets a new id and URL, so the previous cached copy is never referenced again and leaks forever — unbounded growth on a device with limited storage.",
+      "acceptance": ["After each content sync, cached entries not present in the fresh content set are removed.", "Removal is safe for a file the user is currently viewing.", "Storage usage drops after a replacement."],
+      "dependsOn": ["PWA-2.11"]
+    },
+    {
+      "id": "BUG-12",
+      "title": "Measure stored bytes instead of trusting the server",
+      "severity": "P3",
+      "area": "bug",
+      "size": "S",
+      "files": ["src/lib/offlineStorage.ts:115-122"],
+      "problem": "totalDownloadedBytes() sums the server-reported sizeBytes from the index rather than what is actually stored, so quota math and any storage UI are wrong whenever sizeBytes is stale or absent.",
+      "acceptance": ["The index records the measured size at download time.", "Totals reflect real usage and reconcile with the platform storage estimate."],
+      "dependsOn": ["PWA-2.7"]
+    },
+    {
+      "id": "BUG-13",
+      "title": "Validate and verify email changes on PUT /me",
+      "severity": "P3",
+      "area": "bug",
+      "size": "M",
+      "files": ["api/src/main/java/com/explorarte/api/user/ProfileController.java:30-43"],
+      "problem": "PUT /me writes input.email() with no format check, no uniqueness pre-check, and no verification, so a user can silently move their login identity to an address they do not own, and a collision with an existing account surfaces as a 500.",
+      "acceptance": ["Email format is validated and uniqueness is checked, returning 409 on collision.", "Changing email requires verifying the new address before it becomes the login identity.", "The old address is notified."],
+      "dependsOn": ["SEC-07"]
+    },
+    {
+      "id": "BUG-14",
+      "title": "Add delete and moderation for posts and comments",
+      "severity": "P3",
+      "area": "bug",
+      "size": "M",
+      "files": ["api/src/main/java/com/explorarte/api/community/PostController.java", "shared/openapi.yaml", "web/src/routes/Comunidad.tsx"],
+      "problem": "There are no post or comment update or delete endpoints, so users cannot remove their own content and admins have no moderation path for a teacher-authored feed. This is also a data-protection gap: a user cannot retract what they published.",
+      "acceptance": [
+        "An author can delete their own post and comment; an admin can delete any.",
+        "Ownership is enforced server-side, matching the pattern at EventController.java:74-81.",
+        "Deletion reconciles with the offline cache and the outbox."
+      ],
+      "dependsOn": ["SCALE-01"]
+    },
+    {
+      "id": "BUG-15",
+      "title": "Return 401 instead of 500 for a token missing the role claim",
+      "severity": "P3",
+      "area": "bug",
+      "size": "S",
+      "files": ["api/src/main/java/com/explorarte/api/security/JwtAuthenticationFilter.java:43"],
+      "problem": "A signature-valid token lacking the role claim causes an NPE, surfacing as a 500. Any token issued before the claim existed, or crafted to omit it, produces a server error rather than a clean rejection.",
+      "acceptance": ["A token missing or holding an unknown role is rejected with 401.", "No unhandled exception is thrown from the filter chain.", "A test covers the malformed-claim case."],
+      "dependsOn": ["SEC-09"]
+    },
+
+    {
+      "id": "PWA-0.1",
+      "title": "Phase 0 gate: guardrails in place before porting offline logic",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 0,
+      "size": "S",
+      "files": [],
+      "problem": "About 700 lines of offline logic are about to move from src/lib/ to web/src/lib/ with no tests, no CI, no lint, and a tsconfig that type-checks the wrong project. This gate exists so the porting work does not start blind. It adds no new work — it depends on the maintainability tickets that already cover it.",
+      "acceptance": [
+        "MAINT-03 (scoped tsconfig), MAINT-04 (ESLint), MAINT-02 (CI) and MAINT-01 (test harness) are done.",
+        "npm test, npm run lint and typecheck all pass from a clean install in CI."
+      ],
+      "dependsOn": ["MAINT-01", "MAINT-02", "MAINT-03", "MAINT-04"]
+    },
+
+    {
+      "id": "PWA-1.1",
+      "title": "Add the web app manifest, icon set and install prompt",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 1,
+      "size": "S",
+      "files": ["web/public/manifest.webmanifest", "web/public/icons/", "web/index.html:3-14", "web/src/components/InstallPrompt.tsx"],
+      "problem": "No manifest, no icon set and no install affordance exist anywhere in the repo, so the app cannot be installed to a Home Screen — which is the entire point of the migration, and on iOS is also what exempts storage from 7-day eviction.",
+      "acceptance": [
+        "A manifest declares name, short_name, start_url, display: standalone, theme/background colour and 192/512 plus maskable icons.",
+        "Chrome fires beforeinstallprompt and the app offers installation; iOS gets the Add-to-Home-Screen instructions since it has no prompt API.",
+        "Lighthouse reports the app as installable."
+      ],
+      "dependsOn": ["PWA-0.1"]
+    },
+    {
+      "id": "PWA-1.2",
+      "title": "Wire vite-plugin-pwa in injectManifest mode with a controlled update flow",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 1,
+      "size": "M",
+      "files": ["web/vite.config.ts", "web/src/sw.ts", "web/src/lib/registerSW.ts", "web/src/main.tsx", "web/src/components/UpdateToast.tsx"],
+      "problem": "There is no service worker, so nothing works offline. injectManifest (not generateSW) is required because later phases add custom media routing and Background Sync logic that a generated worker cannot express.",
+      "acceptance": [
+        "The app shell precaches from the real build manifest and loads with the network disabled.",
+        "Navigation falls back to index.html, with /api/** and /.well-known/** denylisted.",
+        "skipWaiting is NOT automatic: a new version surfaces an 'Actualizar' toast so a half-completed form is never destroyed by a swap.",
+        "Admin lazy chunks (SCALE-07) are excluded from precache or intentionally included."
+      ],
+      "dependsOn": ["PWA-1.1"]
+    },
+    {
+      "id": "PWA-1.3",
+      "title": "Self-host the fonts and drop the Google Fonts dependency",
+      "severity": "P2",
+      "area": "pwa",
+      "phase": 1,
+      "size": "S",
+      "files": ["web/index.html:8-12", "web/public/fonts/", "web/src/styles/global.css"],
+      "problem": "Newsreader and Hanken Grotesk load from fonts.googleapis.com, so an offline cold start renders in fallback fonts, every launch depends on a third-party origin, and a strict CSP would have to whitelist Google.",
+      "acceptance": [
+        "Both families are served from the app's own origin as woff2 and land in the precache manifest.",
+        "Text renders in the correct fonts with the network disabled.",
+        "No request to any Google domain remains, unblocking SEC-12."
+      ],
+      "dependsOn": ["PWA-1.2"]
+    },
+    {
+      "id": "PWA-1.4",
+      "title": "Build the mobile shell: bottom tab bar, safe areas, touch targets",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 1,
+      "size": "M",
+      "files": ["web/src/components/BottomNav.tsx", "web/src/components/TabsLayout.tsx", "web/src/components/Sidebar.tsx", "web/src/styles/global.css:699-762", "src/components/bottom-nav.tsx:15-20"],
+      "problem": "web/ is desktop-first: below 760px the sidebar becomes a horizontal icon scroller, which is a desktop compromise rather than a phone pattern. Safe-area insets are unhandled (the RN app got them from useSafeAreaInsets, which returns 0 on web), and .sidebar-nav button padding of 8px is below the 44px minimum touch target.",
+      "acceptance": [
+        "A bottom tab bar on small viewports, reusing the MAIN_TABS definition from the RN app.",
+        "env(safe-area-inset-*) padding so nothing sits under the iPhone home indicator or notch in standalone mode.",
+        "All interactive targets are at least 44x44px.",
+        "The desktop sidebar layout is unchanged."
+      ],
+      "dependsOn": ["PWA-0.1"]
+    },
+    {
+      "id": "PWA-1.5a",
+      "title": "Responsive audit: Main, Emociones, EmotionDetail, Sobre",
+      "severity": "P2",
+      "area": "pwa",
+      "phase": 1,
+      "size": "M",
+      "files": ["web/src/routes/Main.tsx", "web/src/routes/Emociones.tsx", "web/src/routes/EmotionDetail.tsx", "web/src/routes/Sobre.tsx", "web/src/styles/global.css:407-438"],
+      "problem": "These screens were laid out for a desktop sidebar shell and have not been checked at phone widths, where the emotion grid, hub cards and split layouts can overflow or crowd.",
+      "acceptance": ["No horizontal overflow at 360, 390 and 414px.", "Text stays legible and tap targets stay 44px.", "Desktop layout is unaffected."],
+      "dependsOn": ["PWA-1.4"]
+    },
+    {
+      "id": "PWA-1.5b",
+      "title": "Responsive audit: Herramientas, Aprendiendo, Onboarding, auth screens",
+      "severity": "P2",
+      "area": "pwa",
+      "phase": 1,
+      "size": "M",
+      "files": ["web/src/routes/Herramientas.tsx", "web/src/routes/Aprendiendo.tsx", "web/src/routes/Onboarding.tsx", "web/src/routes/Login.tsx", "web/src/routes/Register.tsx", "web/src/routes/ForgotPassword.tsx", "web/src/routes/PendingApproval.tsx"],
+      "problem": "Same as PWA-1.5a for the content and authentication screens. The auth screens matter most because they are the first thing a teacher sees on a phone.",
+      "acceptance": ["No horizontal overflow at 360, 390 and 414px.", "Forms are usable with an on-screen keyboard open — inputs are not obscured.", "The onboarding carousel works with touch."],
+      "dependsOn": ["PWA-1.4"]
+    },
+    {
+      "id": "PWA-1.5c",
+      "title": "Responsive audit: Comunidad, Calendar, Profile",
+      "severity": "P2",
+      "area": "pwa",
+      "phase": 1,
+      "size": "L",
+      "files": ["web/src/routes/Comunidad.tsx", "web/src/routes/Calendar.tsx", "web/src/routes/Profile.tsx"],
+      "problem": "The hard three. The calendar month grid and the community composer with attachments are the densest layouts in the app and the most likely to break at 360px.",
+      "acceptance": ["The month grid is legible and tappable at 360px.", "The composer, attachment picker and comment thread work on a phone.", "No horizontal overflow on any of the three."],
+      "dependsOn": ["PWA-1.4"]
+    },
+    {
+      "id": "PWA-1.6",
+      "title": "Add toast and confirm-dialog primitives and remove blocking browser dialogs",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 1,
+      "size": "M",
+      "files": ["web/src/lib/toast.ts", "web/src/components/Toast.tsx", "web/src/components/ConfirmDialog.tsx", "web/src/routes/Comunidad.tsx:65", "web/src/routes/Login.tsx:72,78", "web/src/routes/Register.tsx:51,129", "web/src/routes/admin/AdminAprendiendo.tsx:77", "web/src/routes/admin/AdminEmociones.tsx:96"],
+      "problem": "web/ uses native window.alert and confirm, which block the main thread, cannot be styled, and behave inconsistently in an installed PWA. This is also the destination for the 25 RN Alert.alert messages that BUG-02 must relocate. Without it, offline feedback has nowhere to go — exactly the trap the current Expo web export fell into.",
+      "acceptance": [
+        "A toast store plus a <dialog>-based confirm replace every window.alert and confirm call site.",
+        "Toasts announce politely to screen readers (role=status, aria-live=polite) and the dialog traps focus and closes on Escape.",
+        "No blocking browser dialog remains in web/src."
+      ],
+      "dependsOn": ["PWA-0.1"]
+    },
+    {
+      "id": "PWA-1.7",
+      "title": "Serve a Content-Security-Policy and the remaining security headers",
+      "severity": "P2",
+      "area": "pwa",
+      "phase": 1,
+      "size": "S",
+      "files": ["render.yaml:84-87", "web/firebase.json"],
+      "problem": "Same finding as SEC-12, tracked here because it can only land once fonts are self-hosted. HSTS and nosniff are already supplied by the platform; CSP and Referrer-Policy are not.",
+      "acceptance": ["A CSP restricting script-src to 'self' with the API and Supabase origins allowed for connect/img/media.", "Referrer-Policy and frame protection set.", "No CSP violations in the console during a full walkthrough, including media playback and the service worker."],
+      "dependsOn": ["PWA-1.3"]
+    },
+    {
+      "id": "PWA-1.8",
+      "title": "Bring the web calendar to parity with the richer RN implementation",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 1,
+      "size": "L",
+      "files": ["web/src/routes/Calendar.tsx", "src/app/calendar.tsx"],
+      "problem": "The RN calendar is 856 lines; the web one is 381. This is the largest functional divergence between the two codebases and the main porting cost of consolidating. If it is not closed before the RN app is retired, features are silently lost.",
+      "acceptance": [
+        "A feature-by-feature diff of both implementations is recorded, and every RN-only behaviour is either ported or explicitly dropped with a reason.",
+        "Create, edit and delete work, including all-day and recurring cases if the RN version supports them.",
+        "Native date and time inputs are used (closes BUG-01 for web)."
+      ],
+      "dependsOn": ["PWA-1.5c", "PWA-1.6"]
+    },
+
+    {
+      "id": "PWA-2.1",
+      "title": "Create the IndexedDB schema for all offline state",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 2,
+      "size": "M",
+      "files": ["web/src/lib/idb.ts", "web/package.json"],
+      "problem": "The RN app keeps its JSON cache, media index and outbox in AsyncStorage, which on web is localStorage — about 5MB, synchronous, string-only, and shared with the auth token, so one quota error can break unrelated writes. A service worker also cannot read localStorage at all, which makes Background Sync replay impossible.",
+      "acceptance": [
+        "Stores exist for apiCache, mediaIndex, outbox, deadLetter, idMap and meta, with a versioned upgrade path.",
+        "clearAllUserData() empties every user-scoped store in one call.",
+        "Covered by tests using fake-indexeddb."
+      ],
+      "dependsOn": ["PWA-0.1"]
+    },
+    {
+      "id": "PWA-2.2",
+      "title": "Port network status detection to browser APIs",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 2,
+      "size": "S",
+      "files": ["web/src/lib/useNetworkStatus.ts", "src/lib/useNetworkStatus.ts"],
+      "problem": "The RN hook wraps netinfo. On web, navigator.onLine plus the online/offline events cover it and remove a dependency — but navigator.onLine reports true behind a captive portal, so a reachability probe is needed for correctness.",
+      "acceptance": ["Reports offline/online from navigator.onLine and the window events.", "A captive portal is treated as offline via a cheap reachability check.", "The same hook shape as the RN version so consumers port unchanged."],
+      "dependsOn": ["PWA-0.1"]
+    },
+    {
+      "id": "PWA-2.3",
+      "title": "Port the sync-status store and the offline banner",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 2,
+      "size": "S",
+      "files": ["web/src/lib/sync-status.ts", "web/src/components/SyncBanner.tsx", "src/lib/sync-status.tsx", "src/components/sync-banner.tsx"],
+      "problem": "Users need to know whether they are offline, whether a sync is running, and how many changes are pending. The RN implementation is a plain module store with useSyncExternalStore and is platform-agnostic — it ports essentially verbatim.",
+      "acceptance": [
+        "The banner is hidden when online and idle, and shows syncing, offline-with-cached-content, and pending-changes states.",
+        "Non-React modules can update sync state without a React context.",
+        "It does not obscure the bottom tab bar or sit under the safe area."
+      ],
+      "dependsOn": ["PWA-2.2", "PWA-1.4"]
+    },
+    {
+      "id": "PWA-2.4",
+      "title": "Port the JSON response cache onto IndexedDB, namespaced per user",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 2,
+      "size": "M",
+      "files": ["web/src/lib/offline-cache.ts", "src/lib/offline-cache.ts"],
+      "problem": "The RN cache is a flat AsyncStorage keyspace with no user scoping. On a shared classroom tablet that would let one teacher's cached data be served to the next, so keys must be namespaced by user id, and entries must record when they were fetched.",
+      "acceptance": [
+        "read/write/readAll operate on IndexedDB with keys scoped by user id.",
+        "Each entry stores fetchedAt.",
+        "Writes are best-effort and a quota failure never breaks the calling screen.",
+        "Logout removes every entry for that user."
+      ],
+      "dependsOn": ["PWA-2.1"]
+    },
+    {
+      "id": "PWA-2.5",
+      "title": "Port the cache-first data hook and expose cache age",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 2,
+      "size": "S",
+      "files": ["web/src/lib/useOfflineAsync.ts", "web/src/lib/useAsync.ts", "src/lib/useOfflineAsync.ts"],
+      "problem": "This hook is the core read pattern — serve cache immediately, revalidate when online, write back, re-run on reconnect. It is pure React and ports verbatim, but it needs the two fixes from BUG-09: expose age, and distinguish 'offline with nothing cached' from a real failure. web/ also has a duplicate useAsync to dedupe.",
+      "acceptance": [
+        "Cached data renders immediately and revalidates when online.",
+        "Callers can tell empty-offline apart from a failure, and can read the data's age.",
+        "The duplicate useAsync is removed.",
+        "Covered by tests."
+      ],
+      "dependsOn": ["PWA-2.4"]
+    },
+    {
+      "id": "PWA-2.6",
+      "title": "Switch the teacher screens to cache-first reads",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 2,
+      "size": "M",
+      "files": ["web/src/routes/Main.tsx", "web/src/routes/Emociones.tsx", "web/src/routes/EmotionDetail.tsx", "web/src/routes/Herramientas.tsx", "web/src/routes/Aprendiendo.tsx", "web/src/routes/Comunidad.tsx", "web/src/routes/Calendar.tsx", "web/src/routes/Profile.tsx", "web/src/routes/Onboarding.tsx"],
+      "problem": "The web screens fetch with no caching, so they show nothing offline. Each must move to the cache-first hook using the same 12 cache keys as the RN app, so behaviour matches and the shared key module (MAINT-08) is the single source.",
+      "acceptance": [
+        "All 12 cache keys are served from the shared key builders — no string literals in screens.",
+        "Every teacher screen renders its content with the network disabled after one online visit.",
+        "A screen with no cached data shows a clear empty-offline state rather than a generic error."
+      ],
+      "dependsOn": ["PWA-2.5", "MAINT-08"]
+    },
+    {
+      "id": "PWA-2.7",
+      "title": "Rebuild the media cache on Cache Storage",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 2,
+      "size": "L",
+      "files": ["web/src/lib/media-cache.ts", "src/lib/offlineStorage.ts"],
+      "problem": "This is the only genuinely platform-bound offline module: it uses the expo-file-system class API, whose web implementation is a console.warn stub that returns undefined. Cache Storage is the right replacement — it stores Response objects without base64 inflation, is readable from both page and worker, and supports Range requests so video seeking works offline.",
+      "acceptance": [
+        "The same public API as the RN module (isDownloaded, getLocalUrl, needsUpdate, download, remove, listDownloaded, totalDownloadedBytes) so callers port mechanically.",
+        "download() reports determinate progress from content-length and records the measured byte size (closes BUG-12).",
+        "Freshness uses an HTTP validator rather than file size (closes BUG-05).",
+        "QuotaExceededError triggers least-recently-used eviction instead of failing.",
+        "getLocalUrl returns the original URL so the service worker serves it and Range seeking keeps working."
+      ],
+      "dependsOn": ["PWA-2.1"]
+    },
+    {
+      "id": "PWA-2.8",
+      "title": "Add the service-worker media route",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 2,
+      "size": "M",
+      "files": ["web/src/sw.ts"],
+      "problem": "Cached media must be served transparently to <img>, <video> and <audio> when offline. Media requests carry no Authorization header (the bucket is public-read), so unlike API responses they are safe to route in the worker. Range support is mandatory: Safari always sends a Range header for video, and without handling it cached playback fails.",
+      "acceptance": [
+        "A cache-first route matches the storage origin's public object paths.",
+        "Range requests are served correctly from cache — verified by seeking a video offline in Safari.",
+        "Only successful responses are cached, with a bounded entry count and quota-error purging.",
+        "API endpoints are NOT matched by this route."
+      ],
+      "dependsOn": ["PWA-1.2", "PWA-2.7"]
+    },
+    {
+      "id": "PWA-2.9",
+      "title": "Rebuild file opening for the browser",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 2,
+      "size": "M",
+      "files": ["web/src/lib/open-file.ts", "web/src/components/MediaViewer.tsx", "src/lib/open-file.ts"],
+      "problem": "The RN implementation uses Android ACTION_VIEW via expo-intent-launcher with an expo-sharing fallback — neither exists on web. A browser equivalent needs an in-app viewer plus download and share paths, and must handle two iOS quirks: the download attribute is ignored cross-origin (so saving must go through a blob URL, and media is on the Supabase origin), and PDFs do not render in an iframe.",
+      "acceptance": [
+        "A cached file opens offline: video, audio and images play or display in-app.",
+        "Saving works via a blob URL with the object URL revoked afterwards.",
+        "Sharing uses the Web Share API where files are supported, and is hidden where not.",
+        "When nothing is cached and the device is offline, the user sees an explanatory message (not silence — contrast BUG-02).",
+        "The iOS PDF decision is recorded: either accept opening in a new tab or bundle a lazy-loaded PDF renderer."
+      ],
+      "dependsOn": ["PWA-2.7", "PWA-1.6"]
+    },
+    {
+      "id": "PWA-2.10",
+      "title": "Add the downloadable-media component to the web app",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 2,
+      "size": "M",
+      "files": ["web/src/components/DownloadableMediaItem.tsx", "web/src/routes/Herramientas.tsx", "web/src/routes/Aprendiendo.tsx", "web/src/routes/EmotionDetail.tsx", "src/components/downloadable-media-item.tsx"],
+      "problem": "web/ renders media as plain anchor links, so there is no download-for-offline affordance, no progress, and no indication of what is already available offline. The RN component already implements the full ladder.",
+      "acceptance": [
+        "Each item shows its state: not downloaded, downloading with progress, or available offline.",
+        "A downloaded item opens without network access.",
+        "Every raw media link in the three routes is replaced."
+      ],
+      "dependsOn": ["PWA-2.9"]
+    },
+    {
+      "id": "PWA-2.11",
+      "title": "Port content sync, splitting automatic JSON from user-initiated media",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 2,
+      "size": "M",
+      "files": ["web/src/lib/content-sync.ts", "src/lib/media-sync.ts"],
+      "problem": "The RN pass walks every read endpoint and pre-downloads every referenced media file on each reconnect. Prefetching JSON is cheap and worth doing automatically; pulling every PDF and video is not, on a teacher's data plan (SCALE-03). The pass also needs to clean up media that content no longer references (BUG-11) and log malformed URLs instead of swallowing them (BUG-10).",
+      "acceptance": [
+        "JSON prefetch runs automatically, guarded by a last-sync timestamp so reconnect flapping cannot hammer the API.",
+        "Media download is an explicit user action, not a side effect of reconnecting.",
+        "Cached media no longer referenced by any content is removed.",
+        "A single failing resource never aborts the pass, and the failure is logged with its id."
+      ],
+      "dependsOn": ["PWA-2.4", "PWA-2.7"]
+    },
+    {
+      "id": "PWA-2.12",
+      "title": "Build the downloads management screen",
+      "severity": "P2",
+      "area": "pwa",
+      "phase": 2,
+      "size": "M",
+      "files": ["web/src/routes/Descargas.tsx", "web/src/App.tsx", "web/src/components/BottomNav.tsx", "web/src/components/Sidebar.tsx"],
+      "problem": "Teachers need to control what is stored on a phone with limited space, and browser storage is finite and evictable. listDownloaded() and totalDownloadedBytes() already exist in the RN module for exactly this screen, which was never built.",
+      "acceptance": [
+        "Shows total usage against the browser's storage estimate, with per-item size and a delete action.",
+        "Offers a bulk 'download everything for offline use' action with progress.",
+        "Refuses to start a bulk download that would exceed a safe fraction of the quota, and explains why.",
+        "Reachable from the navigation."
+      ],
+      "dependsOn": ["PWA-2.7", "PWA-2.11"]
+    },
+    {
+      "id": "PWA-2.13",
+      "title": "Request persistent storage and nudge iOS users to install",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 2,
+      "size": "S",
+      "files": ["web/src/lib/storage-persist.ts", "web/src/components/InstallPrompt.tsx"],
+      "problem": "iOS Safari evicts all origin storage after 7 days without interaction for sites that are not installed to the Home Screen; installed PWAs are exempt. A teacher who uses the site in Safari and returns after a school holiday finds an empty cache. Safari also ignores navigator.storage.persist() entirely, so installation is the only real mitigation.",
+      "acceptance": [
+        "Persistent storage is requested after login where the API is supported, and the outcome is recorded.",
+        "On iOS, when not running standalone, a dismissible card explains that installing preserves offline content.",
+        "The nudge appears once and does not nag."
+      ],
+      "dependsOn": ["PWA-1.1", "PWA-2.12"]
+    },
+
+    {
+      "id": "PWA-3.1",
+      "title": "Port the mutation outbox to IndexedDB",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 3,
+      "size": "L",
+      "files": ["web/src/lib/outbox.ts", "src/lib/mutation-queue.ts"],
+      "problem": "The outbox is what makes offline writes possible: it persists the 7 mutation kinds and coalesces them. It must move to IndexedDB because a service worker cannot read localStorage. Keeping the public API identical means the write screens port without touching call sites. The array-reference race (BUG-04) must be fixed as part of the move.",
+      "acceptance": [
+        "Same public API as the RN module, backed by IndexedDB.",
+        "Entries carry attempts, nextAttemptAt, chainKey, lastError and createdAt.",
+        "Flush iterates stable ids and re-reads each entry before dispatch, so a concurrent enqueue cannot cause a duplicate dispatch.",
+        "The coalescing rules worth keeping are preserved and covered by tests: profile last-write-wins, and a like toggled twice cancels out."
+      ],
+      "dependsOn": ["PWA-2.1", "PWA-2.3"]
+    },
+    {
+      "id": "PWA-3.2",
+      "title": "Classify replay errors and add per-chain independence with a dead-letter store",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 3,
+      "size": "M",
+      "files": ["web/src/lib/outbox.ts", "web/src/lib/outbox-errors.ts"],
+      "problem": "Fixes BUG-03. Today any failure breaks the loop, so one permanently-invalid mutation blocks everything forever and a 401 is treated like a network blip. Chains also need to be independent: a stuck event edit must not block a profile update.",
+      "acceptance": [
+        "401 stops the flush without counting an attempt and resumes after re-authentication.",
+        "Transient failures (timeout, 429, 5xx, network) retry with capped, jittered backoff.",
+        "Permanent failures (400, 403, 404, 409, 422) are dead-lettered and the flush continues with the next chain.",
+        "An attempt cap dead-letters an exhausted mutation.",
+        "Ordering is strict within a chain and independent across chains, with tests for a poison message."
+      ],
+      "dependsOn": ["PWA-3.1"]
+    },
+    {
+      "id": "PWA-3.3",
+      "title": "Remap temporary ids after a successful create",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 3,
+      "size": "M",
+      "files": ["web/src/lib/outbox.ts", "web/src/lib/offline-cache.ts"],
+      "problem": "Fixes BUG-06. Records created offline hold a temporary id, so follow-up actions cannot target them and the RN app special-cases this per screen. A general id map removes the special-casing and lets the fold-edits-into-create workaround be deleted — less code and more capability.",
+      "acceptance": [
+        "After a create succeeds, queued mutations targeting the temporary id are rewritten to the real id.",
+        "Cached lists keep the record's identity across the sync boundary, with no duplicate row.",
+        "Liking and commenting on an offline-created post replays correctly, and the screen-level guards are removed.",
+        "Tests cover create-then-like-then-sync and create-then-edit-then-delete."
+      ],
+      "dependsOn": ["PWA-3.2"]
+    },
+    {
+      "id": "PWA-3.4",
+      "title": "Add the foreground replay ladder",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 3,
+      "size": "M",
+      "files": ["web/src/lib/outbox-scheduler.ts", "web/src/components/OfflineProvider.tsx", "web/src/main.tsx"],
+      "problem": "Fixes BUG-07. The RN app flushes only when the online flag flips, so a device that boots already-online with pending work never retries. On web this must be the guarantee rather than Background Sync, because Safari does not implement Background Sync and is not going to.",
+      "acceptance": [
+        "Replay is attempted on app start, on the online event, on returning to the foreground, and on a capped backoff timer while work is pending.",
+        "The timer stops when the queue drains and does not run while offline.",
+        "Pending writes survive a full page reload and replay on the next opportunity, verified on iOS Safari."
+      ],
+      "dependsOn": ["PWA-3.1"]
+    },
+    {
+      "id": "PWA-3.5",
+      "title": "Add Background Sync as an optimization where supported",
+      "severity": "P2",
+      "area": "pwa",
+      "phase": 3,
+      "size": "M",
+      "files": ["web/src/sw.ts", "web/src/lib/outbox.ts", "web/src/lib/auth-token.ts"],
+      "problem": "On Chromium, queued writes can replay even with no tab open, which is a real improvement for classroom tablets. It must be strictly additive — feature-detected, never the only path — and it needs a credential available to the worker, which is why the token moves to IndexedDB in PWA-4.1 (or becomes unnecessary under PWA-4.3).",
+      "acceptance": [
+        "A sync registration is made after each enqueue where the API exists, and its absence changes nothing.",
+        "The worker delegates to an open client when one exists and replays independently when none does.",
+        "Replay from the worker cannot duplicate a mutation the page is already sending.",
+        "Verified on Chromium; verified as a no-op on Safari with the ladder still working."
+      ],
+      "dependsOn": ["PWA-3.4", "PWA-4.1"]
+    },
+    {
+      "id": "PWA-3.6",
+      "title": "Wire optimistic writes into the community, calendar and profile screens",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 3,
+      "size": "L",
+      "files": ["web/src/routes/Comunidad.tsx", "web/src/routes/Calendar.tsx", "web/src/routes/Profile.tsx", "src/app/comunidad.tsx", "src/app/calendar.tsx", "src/app/profile.tsx"],
+      "problem": "The web screens write straight to the network and fail when offline. Each needs the RN pattern: apply the change locally, enqueue it, and reconcile when the queue drains. This is where offline writes become visible to a teacher.",
+      "acceptance": [
+        "All 7 mutation kinds work offline: publishing a post, liking, commenting, creating/editing/deleting an event, and updating the profile.",
+        "Optimistic rows are visually marked as pending and reconcile after sync without duplicating.",
+        "Every offline action produces visible feedback via the toast layer.",
+        "Screens refetch when the queue drains."
+      ],
+      "dependsOn": ["PWA-3.3", "PWA-1.6", "PWA-1.8"]
+    },
+    {
+      "id": "PWA-3.7",
+      "title": "Surface failed mutations to the user",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 3,
+      "size": "M",
+      "files": ["web/src/components/SyncBanner.tsx", "web/src/routes/SyncProblemas.tsx", "web/src/App.tsx"],
+      "problem": "Today a permanently-failed change is invisible by construction — the banner keeps promising it will sync. A teacher can lose work and never know. Dead-lettering (PWA-3.2) is only useful if it is visible and actionable.",
+      "acceptance": [
+        "The banner gains a state for changes that could not be synced, linking to a detail view.",
+        "The detail view describes each failed change in plain Spanish with a retry and a discard action.",
+        "Retry re-queues, and discard requires confirmation.",
+        "The banner returns to normal once the dead-letter store is empty."
+      ],
+      "dependsOn": ["PWA-3.2"]
+    },
+    {
+      "id": "PWA-3.8",
+      "title": "Test the offline subsystem",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 3,
+      "size": "M",
+      "files": ["web/src/lib/*.test.ts"],
+      "problem": "The outbox is the highest-risk code in the app: it holds a teacher's unsaved work, and its failure modes are silent. It cannot be verified by clicking through the UI.",
+      "acceptance": [
+        "Tests cover coalescing, chain independence, poison-message dead-lettering, attempt caps, id remapping, quota eviction, cache-first reads, and conditional media revalidation.",
+        "They run in CI on every PR.",
+        "Each of BUG-03 through BUG-07 has a regression test that fails against the old behaviour."
+      ],
+      "dependsOn": ["PWA-3.3", "PWA-2.7", "MAINT-01"]
+    },
+
+    {
+      "id": "PWA-4.1",
+      "title": "Move the token out of localStorage and purge everything on logout",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 4,
+      "size": "M",
+      "files": ["web/src/lib/api.ts:18-27", "web/src/context/AuthContext.tsx:17-55", "web/src/lib/auth-token.ts", "web/src/lib/idb.ts"],
+      "problem": "The JWT and a full user profile blob sit in localStorage, and logout does not clear the offline caches. On a shared classroom tablet the next teacher inherits the previous one's cached posts and downloaded documents — a real privacy defect. The token also needs to be reachable by the service worker for PWA-3.5. Note honestly: IndexedDB is not meaningfully safer than localStorage against XSS — the real fixes are PWA-4.3, the CSP, and a shorter token lifetime.",
+      "acceptance": [
+        "The token is held in memory and mirrored to IndexedDB, not localStorage.",
+        "The duplicated user blob is dropped in favour of the cached profile entry.",
+        "Logout clears every user-scoped store and deletes the media cache.",
+        "The service worker is not unregistered on logout — only data is purged."
+      ],
+      "dependsOn": ["PWA-2.1"]
+    },
+    {
+      "id": "PWA-4.2",
+      "title": "Add updatedAt and etag to MediaItem end to end",
+      "severity": "P2",
+      "area": "pwa",
+      "phase": 4,
+      "size": "M",
+      "files": ["shared/src/types/index.ts:11-19", "shared/openapi.yaml", "shared/src/api/mock/seed.ts", "api/src/main/java/com/explorarte/api/media/MediaItem.java:6", "api/src/main/java/com/explorarte/api/media/MediaUploadController.java", "api/src/main/resources/db/migration/V4__media_updated_at.sql", "web/src/lib/media-cache.ts"],
+      "problem": "Completes BUG-05. Conditional requests make freshness correct, but they cost one request per file per sync pass. Carrying a modification timestamp in the list response makes staleness detectable in a single call. This is cheap because MediaItem is stored as JSONB, so no table schema change is needed.",
+      "acceptance": [
+        "MediaItem carries updatedAt (and etag where known) as optional fields, so nothing breaks.",
+        "The API stamps it on upload, and a migration backfills existing rows.",
+        "The media cache uses it to decide staleness without a per-file request, falling back to a conditional request when absent.",
+        "The contract, mock seed and openapi.yaml all agree."
+      ],
+      "dependsOn": ["PWA-2.7"]
+    },
+    {
+      "id": "PWA-4.3",
+      "title": "Move the session to an HttpOnly cookie",
+      "severity": "P2",
+      "area": "pwa",
+      "phase": 4,
+      "size": "L",
+      "files": ["api/src/main/java/com/explorarte/api/security/", "api/src/main/java/com/explorarte/api/auth/", "shared/src/api/http/index.ts:45-75", "render.yaml:49-50", "web/src/lib/auth-token.ts"],
+      "problem": "Recommended rather than required. An HttpOnly, Secure, SameSite cookie makes the token unreadable to JavaScript, so XSS can make requests but cannot steal a durable credential — and it removes the token handshake from Background Sync entirely, because the browser attaches the cookie to worker-originated requests automatically. Cost: CORS credentials, a CSRF defence for mutations, and one option in the shared client.",
+      "acceptance": [
+        "Login sets an HttpOnly, Secure, SameSite cookie and the client sends credentials.",
+        "A CSRF defence covers all state-changing requests.",
+        "Background Sync replay works with no token stored client-side.",
+        "The mobile client (if still shipped) continues to work, via bearer tokens if necessary."
+      ],
+      "dependsOn": ["PWA-4.1", "PWA-4.4"]
+    },
+    {
+      "id": "PWA-4.4",
+      "title": "Add credentials and abort-signal options to the shared HTTP client",
+      "severity": "P3",
+      "area": "pwa",
+      "phase": 4,
+      "size": "S",
+      "files": ["shared/src/api/http/index.ts:45-75", "shared/src/api/configurable.ts:28-44"],
+      "problem": "The shared adapter hardcodes its fetch options, so a cookie-auth mode and request cancellation are impossible without forking it. Both matter: cancellation prevents a slow revalidation from overwriting fresher data after a screen unmounts.",
+      "acceptance": ["Optional credentials and signal pass through to fetch without changing existing behaviour.", "Both apps continue to work unchanged when the options are omitted."],
+      "dependsOn": []
+    },
+
+    {
+      "id": "PWA-5.0",
+      "title": "Offline parity gate before anything is retired",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 5,
+      "size": "M",
+      "files": ["docs/offline-acceptance.md"],
+      "problem": "This gate is the whole reason the migration is safe. The offline features are the product's value for teachers with poor connectivity, and the RN app must not be retired until the PWA demonstrably matches it on real devices — not in theory.",
+      "acceptance": [
+        "A written acceptance script is executed on Android Chrome AND on an installed iOS Safari, with results recorded.",
+        "All 12 cached screens render with the network disabled.",
+        "A PDF, an mp4 and an audio file each open offline, and the video seeks.",
+        "All 7 mutation kinds enqueue offline and replay on reconnect, including after a full app restart.",
+        "Cold start works offline with a stored session.",
+        "Behaviour after a service-worker update is verified: no data loss, no stale shell.",
+        "The iOS 7-day eviction case is tested for an installed app.",
+        "Any gap versus the RN app is either fixed or explicitly accepted in writing."
+      ],
+      "dependsOn": ["PWA-3.6", "PWA-3.7", "PWA-3.8", "PWA-2.13", "PWA-4.1"]
+    },
+    {
+      "id": "PWA-5.1",
+      "title": "Promote the PWA to the primary origin with service-worker-safe caching",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 5,
+      "size": "M",
+      "files": ["render.yaml:63-87", "web/firebase.json:18-23"],
+      "problem": "The cutover. It carries one landmine: web/firebase.json applies a one-year immutable cache to all js and css, and that glob would catch the service worker itself — permanently stranding every user on an old worker with no recovery path.",
+      "acceptance": [
+        "The service worker, manifest and index.html are served no-cache, with the rule ordered BEFORE the immutable asset rule.",
+        "Hashed assets keep long-lived immutable caching.",
+        "SPA rewrites and CORS origins are correct for the new primary origin.",
+        "A deploy is verified to update a previously-installed client rather than stranding it."
+      ],
+      "dependsOn": ["PWA-5.0"]
+    },
+    {
+      "id": "PWA-5.2",
+      "title": "Retire the Expo web export deployment",
+      "severity": "P2",
+      "area": "pwa",
+      "phase": 5,
+      "size": "S",
+      "files": ["render.yaml:89-109"],
+      "problem": "The explorarte-mobile static site serves the 1.42MB single-chunk Expo web export, in which the calendar pickers do not work (BUG-01) and all offline messages are silent (BUG-02). Once the PWA is primary it is a strictly worse duplicate that can only confuse users.",
+      "acceptance": ["The static site is removed from the blueprint.", "Any link or documentation pointing at it is updated to the PWA.", "The build no longer runs expo export."],
+      "dependsOn": ["PWA-5.1"]
+    },
+    {
+      "id": "PWA-5.3",
+      "title": "Freeze the React Native app under legacy-mobile/",
+      "severity": "P2",
+      "area": "pwa",
+      "phase": 5,
+      "size": "M",
+      "files": ["src/", "app.json", "eas.json", "metro.config.js", "package.json:5-45"],
+      "problem": "Closes MAINT-05. Freezing rather than deleting costs nothing, preserves the EAS project, and keeps src/lib/* on disk as the reference implementation the port came from. What must not happen is leaving it in place as an apparently-live app that nobody maintains.",
+      "acceptance": [
+        "The RN app moves to legacy-mobile/ with a README stating it is frozen, why, and what replaced it.",
+        "The root package.json becomes a thin workspace root; the 10 unused Expo dependencies (MAINT-12) are dropped.",
+        "CI does not build the frozen app.",
+        "The web app still builds and its tests pass after the move."
+      ],
+      "dependsOn": ["PWA-5.0", "PWA-5.2"]
+    },
+    {
+      "id": "PWA-5.4",
+      "title": "Wrap the PWA in Capacitor to produce the Android build",
+      "severity": "P1",
+      "area": "pwa",
+      "phase": 5,
+      "size": "M",
+      "files": ["capacitor.config.ts", "android/", "web/package.json"],
+      "problem": "Android distribution must survive the migration without a second codebase. Capacitor wraps the built PWA into an installable APK/AAB and leaves a native escape hatch if a browser API turns out to be insufficient — while iOS is served by Add to Home Screen, avoiding the Apple developer licence entirely.",
+      "acceptance": [
+        "A debug APK builds from the Vite output and runs the app.",
+        "Offline features work inside the wrapper — verified against the PWA-5.0 script, since a WebView is not identical to Chrome (service worker and storage behaviour must be confirmed, not assumed).",
+        "A signed release AAB can be produced, and the signing process is documented.",
+        "The build step is documented so a teammate can repeat it."
+      ],
+      "dependsOn": ["PWA-5.1"]
+    },
+    {
+      "id": "PWA-5.5",
+      "title": "Rewrite the documentation for the new architecture",
+      "severity": "P2",
+      "area": "pwa",
+      "phase": 5,
+      "size": "M",
+      "files": ["OFFLINE.md", "DESPLIEGUE.md", "README.md", "COMO-EMPEZAR.md", "COMO-TRABAJAMOS.md"],
+      "problem": "Completes MAINT-11. Every one of these documents describes the pre-migration world, and OFFLINE.md was already substantially wrong before the migration. For a beginner team this documentation is the main onboarding path, so leaving it stale is a real cost.",
+      "acceptance": [
+        "OFFLINE.md documents the browser architecture: storage tiers, why API responses are not cached in the worker, the replay ladder, and the iOS constraints.",
+        "COMO-EMPEZAR.md describes the new dev flow (Vite dev server reachable from a phone, install to Home Screen) instead of Expo Go.",
+        "DESPLIEGUE.md matches the chosen deployment target (MAINT-15).",
+        "No document references a file, script or behaviour that no longer exists."
+      ],
+      "dependsOn": ["PWA-5.3", "PWA-5.4"]
+    }
+  ]
+}
