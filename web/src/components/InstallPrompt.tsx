@@ -41,13 +41,18 @@ function snooze() {
 
 /**
  * Install affordance. Chromium gets the real `beforeinstallprompt` flow; iOS has
- * no prompt API, so it gets the Add-to-Home-Screen steps instead.
+ * no prompt API, so it gets the Add-to-Home-Screen steps instead, and desktop
+ * browsers that never fire the event get the manual route from the address bar.
+ *
+ * It offers itself once and then stays quiet: "Ahora no" snoozes for
+ * SNOOZE_DAYS, so the ask survives a reload without turning into nagging.
  *
  * Rendered once from `main.tsx`, above everything else.
  */
 export function InstallPrompt() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [iosHelpOpen, setIosHelpOpen] = useState(false);
+  const [fallbackOpen, setFallbackOpen] = useState(false);
   const [hidden, setHidden] = useState(() => isStandalone() || isSnoozed());
   const ios = isIosLike();
 
@@ -69,9 +74,6 @@ export function InstallPrompt() {
   }, []);
 
   if (hidden) return null;
-  // Chromium: only offer once the browser says the app qualifies.
-  // iOS: there is no such signal, so the manual instructions are always offered.
-  if (!deferred && !ios) return null;
 
   const dismiss = () => {
     snooze();
@@ -79,7 +81,13 @@ export function InstallPrompt() {
   };
 
   const install = async () => {
-    if (!deferred) return;
+    // Firefox no expone `beforeinstallprompt`, y Chrome/Edge lo retienen hasta
+    // que la usuaria interactúa con el sitio. Sin este camino, "Instalar" no
+    // haría nada y eso se lee como que la app está rota.
+    if (!deferred) {
+      setFallbackOpen(true);
+      return;
+    }
     await deferred.prompt();
     const { outcome } = await deferred.userChoice;
     setDeferred(null);
@@ -95,7 +103,7 @@ export function InstallPrompt() {
         <p className="install-banner__body">
           {ios
             ? 'En iPhone y iPad, la app solo guarda tus datos sin conexión si la agregas a la pantalla de inicio.'
-            : 'Ábrela desde tu pantalla de inicio y úsala sin conexión.'}
+            : 'Instálala para abrirla como una app, desde el escritorio o la pantalla de inicio, y úsala sin conexión.'}
         </p>
         {ios && iosHelpOpen && (
           <ol className="install-banner__steps">
@@ -110,6 +118,12 @@ export function InstallPrompt() {
               Confirma con <strong>Agregar</strong>.
             </li>
           </ol>
+        )}
+        {!ios && fallbackOpen && (
+          <p className="install-banner__fallback">
+            Usa el icono de instalación de la barra de direcciones de Chrome o Edge. Si no aparece,
+            abre el menú del navegador y busca <strong>Instalar ExplorArte</strong>.
+          </p>
         )}
       </div>
       <div className="install-banner__actions">

@@ -55,9 +55,21 @@ describe('cabeceras de seguridad (PWA-1.7 / SEC-12)', () => {
   it('permite la API y Supabase donde hace falta, y nada más', () => {
     expect(csp).toMatch(/connect-src [^;]*'self'/);
     expect(csp).toContain('https://*.supabase.co');
-    // Las fuentes son propias desde PWA-1.3: ningún origen de Google.
-    expect(csp).not.toContain('googleapis.com');
+    // Las fuentes son propias desde PWA-1.3: ningún origen de Google Fonts.
+    expect(csp).not.toContain('fonts.googleapis.com');
+    expect(csp).not.toContain('fonts.gstatic.com');
     expect(csp).toContain("font-src 'self'");
+  });
+
+  // GCP-04: una URL canónica de medios responde 302 hacia Cloud Storage, y la
+  // CSP se aplica a la URL FINAL de la redirección. Sin esta entrada las fotos
+  // y los videos se rompen en silencio: no hay error de red, solo una violación
+  // en la consola. render.yaml ya lo tiene; este es el que cuenta en producción.
+  it('deja pasar los medios que llegan por redirección a Cloud Storage', () => {
+    const directive = (name: string) =>
+      csp.split(';').find((d) => d.trim().startsWith(`${name} `)) ?? '';
+    expect(directive('img-src')).toContain('https://storage.googleapis.com');
+    expect(directive('media-src')).toContain('https://storage.googleapis.com');
   });
 
   it('bloquea el enmarcado y fija la política de referrer', () => {

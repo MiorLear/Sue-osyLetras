@@ -99,59 +99,32 @@ export default function Main() {
         lede="Tu espacio para acompañar el bienestar emocional en el aula, todo en un solo lugar."
       />
 
-      {/* hero */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1.05fr .95fr',
-          borderRadius: 28,
-          overflow: 'hidden',
-          border: '1px solid #EAE0D0',
-          background: '#fff',
-          boxShadow: '0 18px 50px -28px rgba(24,48,45,.28)',
-          marginBottom: 40,
-        }}>
-        <div
-          style={{
-            position: 'relative',
-            padding: '44px 42px',
-            background: 'radial-gradient(120% 120% at 0% 0%,#EAF5F3 0%,#FFFCF6 60%)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            overflow: 'hidden',
-          }}>
-          <span style={{ position: 'absolute', top: -30, right: -20, fontSize: 130, opacity: 0.06, animation: 'floaty 7s ease-in-out infinite' }}>🌿</span>
-          <div style={{ fontSize: 12, letterSpacing: '.16em', textTransform: 'uppercase', color: '#C5895F', fontWeight: 700, marginBottom: 8, position: 'relative' }}>Bienvenida de nuevo</div>
-          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 34, lineHeight: 1.1, color: 'var(--text-dark)', position: 'relative' }}>
-            Hoy es un buen día para <span style={{ fontStyle: 'italic', color: 'var(--brand)' }}>acompañar</span> emociones.
+      {/* hero — los estilos viven en global.css (.main-hero*) para que el
+          teléfono pueda reordenarlo sin pelear con estilos inline */}
+      <div className="main-hero">
+        <div className="main-hero__copy">
+          <span className="main-hero__leaf" aria-hidden="true">
+            🌿
+          </span>
+          <div className="main-hero__eyebrow">Bienvenida de nuevo</div>
+          <div className="main-hero__title">
+            Hoy es un buen día para <span>acompañar</span> emociones.
           </div>
-          <p style={{ marginTop: 14, fontSize: 14.5, lineHeight: 1.6, color: 'var(--text-body)', maxWidth: 380, position: 'relative' }}>
-            {heroLede}
-          </p>
-          <div style={{ display: 'flex', gap: 10, marginTop: 24, position: 'relative' }}>
-            <button onClick={() => navigate('/emociones')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '13px 20px', borderRadius: 13, background: 'var(--brand-gradient)', color: '#fff', fontSize: 14, fontWeight: 700, boxShadow: '0 10px 22px -8px rgba(31,126,118,.6)' }}>
-              Explorar emociones <span style={{ fontSize: 16 }}>→</span>
+          <p className="main-hero__lede">{heroLede}</p>
+          <div className="main-hero__actions">
+            <button className="main-hero__cta" onClick={() => navigate('/emociones')}>
+              Explorar emociones <span aria-hidden="true">→</span>
             </button>
-            <button onClick={() => navigate('/herramientas')} style={{ padding: '13px 20px', borderRadius: 13, background: '#fff', border: '1.5px solid var(--border-input)', color: 'var(--brand-dark)', fontSize: 14, fontWeight: 700 }}>
+            <button className="main-hero__ghost" onClick={() => navigate('/herramientas')}>
               Mis recursos
             </button>
           </div>
         </div>
-        <div
-          style={{
-            minHeight: 300,
-            background: 'linear-gradient(160deg,#2FA7A0,#1E7E78)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            position: 'relative',
-            overflow: 'hidden',
-          }}>
-          <span style={{ fontSize: 120, opacity: 0.9 }}>🌻</span>
-          <span style={{ position: 'absolute', bottom: 18, left: 22, color: 'rgba(255,255,255,.85)', fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 15 }}>
-            Sueños y Letras
+        <div className="main-hero__visual">
+          <span className="main-hero__flower" aria-hidden="true">
+            🌻
           </span>
+          <span className="main-hero__caption">Sueños y Letras</span>
         </div>
       </div>
 
