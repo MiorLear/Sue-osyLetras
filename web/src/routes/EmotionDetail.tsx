@@ -1,5 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { CacheAgeNote, ContentState } from '@/components/ContentState';
+import { MediaList } from '@/components/DownloadableMediaItem';
 import { Icon } from '@/components/Icon';
 import { api } from '@/lib/api';
 import { cacheKeys } from '@/lib/cache-keys';
@@ -115,18 +116,7 @@ export default function EmotionDetail() {
               {data.stories.length === 0 ? (
                 <p style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Aún no hay historias subidas para esta emoción.</p>
               ) : (
-                data.stories.map((s) => (
-                  <a
-                    key={s.id}
-                    href={s.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, borderRadius: 12, padding: 12, background: '#fff', border: '1.5px solid var(--border)' }}>
-                    <Icon name="book-open" size={15} color={color} />
-                    <span style={{ flex: 1, fontSize: 13, color: 'var(--text-body)', lineHeight: 1.45 }}>{s.title}</span>
-                    <Icon name="download" size={14} color="var(--text-muted)" />
-                  </a>
-                ))
+                <MediaList items={data.stories} />
               )}
             </div>
           </>

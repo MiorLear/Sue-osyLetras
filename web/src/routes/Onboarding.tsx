@@ -32,7 +32,7 @@ export default function Onboarding() {
     () => api.screenIntros.get('home'),
     [],
   );
-  const videoUrl = intro?.video.url ?? null;
+  const introVideo = intro?.video ?? null;
   const goToLogin = () => navigate('/login');
   const next = () => (index < SLIDES - 1 ? setIndex(index + 1) : goToLogin());
 
@@ -55,7 +55,7 @@ export default function Onboarding() {
             <p style={{ fontSize: 14, color: 'var(--text-body)', textAlign: 'center', lineHeight: 1.5 }}>
               Lectura, arte y emociones para construir comunidades de aprendizaje más saludables.
             </p>
-            <VideoPlaceholder caption="Video de bienvenida del equipo de Sueños y Letras" videoUrl={videoUrl} />
+            <VideoPlaceholder caption="Video de bienvenida del equipo de Sueños y Letras" video={introVideo} />
             <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
               Acompañamos a docentes con recursos prácticos para promover el bienestar emocional, la
               creatividad y el desarrollo socioemocional de niñas, niños y adolescentes.

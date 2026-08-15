@@ -1,14 +1,19 @@
 import { useState } from 'react';
+import type { MediaItem } from '@explorarte/shared';
 import { Icon } from './Icon';
-import { VideoModal } from './VideoModal';
+import { MediaViewer } from './MediaViewer';
 
-/** videoUrl is null until an admin uploads a real intro video for this screen
+/** `video` is null until an admin uploads a real intro video for this screen
  * (via /admin/videos-intro) — hide the placeholder entirely rather than show
- * a broken/empty state. */
-export function VideoPlaceholder({ caption, videoUrl }: { caption: string; videoUrl: string | null }) {
+ * a broken/empty state.
+ *
+ * Toma el MediaItem entero y no solo su URL porque el visor necesita el id
+ * para buscar la copia local: con solo la URL, el video de bienvenida sería lo
+ * único de la app que no se puede ver sin conexión. */
+export function VideoPlaceholder({ caption, video }: { caption: string; video: MediaItem | null }) {
   const [open, setOpen] = useState(false);
 
-  if (!videoUrl) return null;
+  if (!video) return null;
 
   return (
     <>
@@ -18,7 +23,7 @@ export function VideoPlaceholder({ caption, videoUrl }: { caption: string; video
         </span>
         <span className="cap">{caption}</span>
       </button>
-      {open ? <VideoModal videoUrl={videoUrl} onClose={() => setOpen(false)} /> : null}
+      {open ? <MediaViewer item={video} onClose={() => setOpen(false)} /> : null}
     </>
   );
 }

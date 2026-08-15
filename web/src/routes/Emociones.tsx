@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CacheAgeNote, ContentState } from '@/components/ContentState';
 import { Masthead } from '@/components/Masthead';
-import { VideoModal } from '@/components/VideoModal';
+import { MediaViewer } from '@/components/MediaViewer';
 import { api } from '@/lib/api';
 import { cacheKeys } from '@/lib/cache-keys';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
@@ -60,7 +60,9 @@ export default function Emociones() {
         ) : null}
       </div>
 
-      {videoOpen && videoUrl ? <VideoModal videoUrl={videoUrl} onClose={() => setVideoOpen(false)} /> : null}
+      {videoOpen && intro?.video ? (
+        <MediaViewer item={intro.video} onClose={() => setVideoOpen(false)} />
+      ) : null}
 
       <div className="section-head" style={{ gap: 12 }}>
         <h2 className="section-title">Biblioteca</h2>

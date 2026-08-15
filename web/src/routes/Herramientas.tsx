@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { CacheAgeNote, ContentState } from '@/components/ContentState';
+import { DownloadableMediaItem, MediaList } from '@/components/DownloadableMediaItem';
 import { Masthead } from '@/components/Masthead';
-import { VideoModal } from '@/components/VideoModal';
+import { MediaViewer } from '@/components/MediaViewer';
 import { api } from '@/lib/api';
 import { cacheKeys } from '@/lib/cache-keys';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
@@ -46,7 +47,9 @@ export default function Herramientas() {
         </button>
       ) : null}
 
-      {videoOpen && videoUrl ? <VideoModal videoUrl={videoUrl} onClose={() => setVideoOpen(false)} /> : null}
+      {videoOpen && intro?.video ? (
+        <MediaViewer item={intro.video} onClose={() => setVideoOpen(false)} />
+      ) : null}
 
       {tools ? (
         <>
@@ -59,7 +62,9 @@ export default function Herramientas() {
                 <span style={{ display: 'block', marginTop: 4, fontSize: 13, color: '#6A7C78', lineHeight: 1.5 }}>Documento principal de la metodología.</span>
               </span>
               {tools.manualDocument ? (
-                <a href={tools.manualDocument.url} target="_blank" rel="noreferrer" style={{ marginTop: 'auto', alignSelf: 'flex-start', padding: '11px 18px', borderRadius: 12, background: 'var(--brand-dark)', color: '#fff', fontSize: 13, fontWeight: 700 }}>⬇ Descargar PDF</a>
+                <div style={{ marginTop: 'auto', width: '100%' }}>
+                  <DownloadableMediaItem item={tools.manualDocument} />
+                </div>
               ) : (
                 <span style={{ marginTop: 'auto', fontSize: 12.5, color: '#8A9A96' }}>Aún no disponible</span>
               )}
@@ -71,12 +76,8 @@ export default function Herramientas() {
                 <span style={{ display: 'block', marginTop: 4, fontSize: 13, color: '#6A7C78', lineHeight: 1.5 }}>Materiales complementarios para docentes.</span>
               </span>
               {tools.activityGuides.length > 0 ? (
-                <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
-                  {tools.activityGuides.map((g) => (
-                    <a key={g.id} href={g.url} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--brand-dark)' }}>
-                      {g.title} →
-                    </a>
-                  ))}
+                <div style={{ marginTop: 'auto', width: '100%' }}>
+                  <MediaList items={tools.activityGuides} />
                 </div>
               ) : (
                 <span style={{ marginTop: 'auto', fontSize: 12.5, color: '#8A9A96' }}>Aún no disponibles</span>
@@ -90,19 +91,11 @@ export default function Herramientas() {
               <span style={{ fontSize: 22 }}>📥</span>
               <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 600, color: 'var(--text-dark)' }}>Recursos descargables</h3>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-              {tools.downloadables.length === 0 ? (
-                <p style={{ fontSize: 13, color: '#8A9A96' }}>Aún no hay recursos subidos.</p>
-              ) : (
-                tools.downloadables.map((item) => (
-                  <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px', borderRadius: 13, background: 'var(--bg)', border: '1px solid var(--border-soft)' }}>
-                    <span style={{ width: 34, height: 34, borderRadius: 10, background: '#fff', border: '1px solid var(--border-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>📄</span>
-                    <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text-dark)' }}>{item.title}</span>
-                    <a href={item.url} target="_blank" rel="noreferrer" style={{ padding: '8px 13px', borderRadius: 10, background: '#fff', border: '1.5px solid var(--brand)', color: 'var(--brand-dark)', fontSize: 12.5, fontWeight: 700 }}>⬇ Descargar</a>
-                  </div>
-                ))
-              )}
-            </div>
+            {tools.downloadables.length === 0 ? (
+              <p style={{ fontSize: 13, color: '#8A9A96' }}>Aún no hay recursos subidos.</p>
+            ) : (
+              <MediaList items={tools.downloadables} />
+            )}
           </div>
 
           {/* bibliografía */}
