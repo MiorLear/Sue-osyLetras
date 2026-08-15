@@ -16,6 +16,7 @@ import Herramientas from './routes/Herramientas';
 import Aprendiendo from './routes/Aprendiendo';
 import Comunidad from './routes/Comunidad';
 import CalendarScreen from './routes/Calendar';
+import Descargas from './routes/Descargas';
 import Profile from './routes/Profile';
 import Sobre from './routes/Sobre';
 
@@ -67,6 +68,7 @@ export function App() {
         <Route path="/aprendiendo" element={<Aprendiendo />} />
         <Route path="/comunidad" element={<Comunidad />} />
         <Route path="/calendar" element={<CalendarScreen />} />
+        <Route path="/descargas" element={<Descargas />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/sobre" element={<Sobre />} />
 

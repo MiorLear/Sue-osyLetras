@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router-dom';
+import { useContentSync } from '@/lib/useContentSync';
 import { BottomNav } from './BottomNav';
 import { MobileTopBar } from './MobileTopBar';
 import { Sidebar } from './Sidebar';
@@ -10,6 +11,11 @@ import { Sidebar } from './Sidebar';
 //   bar. Which one shows is decided in CSS, not in JS, so there is no viewport
 //   guess to get wrong on first paint.
 export function TabsLayout() {
+  // Precarga el contenido al entrar y al recuperar la conexión. Vive aquí y no
+  // en main.tsx porque este layout ya está detrás de RequireAuth: antes de
+  // saber quién es la usuaria, lo cacheado va al ámbito anónimo.
+  useContentSync();
+
   return (
     <div className="app-layout">
       <Sidebar />

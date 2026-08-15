@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { AuthResult, UserProfile } from '@explorarte/shared';
 import { api } from '@/lib/api';
+import { requestPersistentStorage } from '@/lib/storage-persist';
 
 interface AuthState {
   user: UserProfile | null;
@@ -45,6 +46,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(TOKEN_KEY, result.token);
     setAuthed(true);
     setUser(result.user);
+    // Ahora sí hay contenido de alguien que proteger del desalojo del
+    // navegador. Antes del login no lo había, y un permiso pedido demasiado
+    // pronto es un permiso que se deniega (PWA-2.13).
+    void requestPersistentStorage();
   };
 
   const signOut = () => {

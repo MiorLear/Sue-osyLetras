@@ -22,6 +22,9 @@ export const TEACHER_NAV: NavItem[] = [
   { emoji: '🌱', label: 'Aprendiendo', href: '/aprendiendo' },
   { emoji: '💬', label: 'Comunidad', href: '/comunidad' },
   { emoji: '🗓️', label: 'Calendario', href: '/calendar' },
+  // No entra en MAIN_TABS: las cuatro pestañas del teléfono replican la app RN
+  // a propósito, y esto es una pantalla de mantenimiento, no de uso diario.
+  { emoji: '📥', label: 'Descargas', href: '/descargas' },
   { emoji: '👤', label: 'Perfil', href: '/profile' },
 ];
 
