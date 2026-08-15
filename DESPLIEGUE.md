@@ -277,21 +277,20 @@ va en la misma release en que los clientes dejen de asignar la URL directo a `sr
 
 ### Lo que hace falta del lado de Firebase Hosting
 
-> 📌 **Para quien mantiene `web/firebase.json` (Lote 5) — este runbook necesita que ese archivo
-> tenga un rewrite de `/media/**` hacia el mismo servicio de Cloud Run que ya tiene `/api/**`.**
-> No lo edité porque no es mío.
+✅ **Ya aplicado en `web/firebase.json`.** El archivo tiene el rewrite de `/media/**` apuntando al
+mismo servicio de Cloud Run que `/api/**` — **los dos, no uno en lugar del otro**:
 
 ```jsonc
 // web/firebase.json → hosting.rewrites, junto al de /api/**
 { "source": "/media/**", "run": { "serviceId": "explorarte-api", "region": "us-central1" } }
 ```
 
-> 📌 **Y la CSP de ese mismo archivo necesita `https://storage.googleapis.com` en `img-src` y
-> `media-src`.** Una URL de medios responde 302 hacia Cloud Storage, y **la CSP se aplica a la URL
-> final de la redirección, no a la inicial**. Sin esa entrada, las fotos de perfil y los videos se
-> rompen en silencio: no hay error de red, solo una violación en la consola del navegador. Ya está
-> aplicado en el espejo de `render.yaml`, de donde se puede copiar la forma exacta. Los
-> `https://*.supabase.co` que hay hoy se pueden quitar cuando termine §7.
+✅ **Y su CSP ya lleva `https://storage.googleapis.com` en `img-src`, `media-src` y `connect-src`**,
+con la misma forma que el espejo de `render.yaml`. Una URL de medios responde 302 hacia Cloud
+Storage, y **la CSP se aplica a la URL final de la redirección, no a la inicial**: sin esa entrada,
+las fotos de perfil y los videos se rompen en silencio — no hay error de red, solo una violación en
+la consola del navegador. Los `https://*.supabase.co` que hay hoy se pueden quitar cuando termine
+§7. `web/src/test/firebase-headers.test.ts` vigila ambas cosas.
 
 Sin ese rewrite, `APP_MEDIA_PUBLIC_BASE_URL` tiene que apuntar a la URL directa de Cloud Run
 (`https://explorarte-api-xxxx.run.app`) y los medios quedan en otro origen que la PWA — con lo que

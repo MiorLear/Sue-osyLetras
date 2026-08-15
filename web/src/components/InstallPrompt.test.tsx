@@ -29,10 +29,10 @@ function mockDisplayMode(standalone: boolean) {
   }));
 }
 
-function firePrompt() {
+function firePrompt(outcome: 'accepted' | 'dismissed' = 'accepted') {
   const event = Object.assign(new Event('beforeinstallprompt'), {
     platforms: ['web'],
-    userChoice: Promise.resolve({ outcome: 'accepted' as const, platform: 'web' }),
+    userChoice: Promise.resolve({ outcome, platform: 'web' }),
     prompt: vi.fn().mockResolvedValue(undefined),
   });
   act(() => {
@@ -68,12 +68,25 @@ describe('<InstallPrompt />', () => {
   });
   afterEach(cleanup);
 
-  it('no aparece hasta que el navegador dice que la app es instalable', () => {
+  it('se ofrece en escritorio y usa el prompt nativo en cuanto llega', async () => {
     render(<InstallPrompt />);
-    expect(screen.queryByRole('region', { name: /instalar/i })).toBeNull();
-
-    firePrompt();
     expect(screen.getByRole('button', { name: 'Instalar' })).toBeTruthy();
+
+    const event = firePrompt();
+    await act(async () => {
+      screen.getByRole('button', { name: 'Instalar' }).click();
+    });
+    expect(event.prompt).toHaveBeenCalled();
+  });
+
+  // Firefox no implementa beforeinstallprompt y Chrome lo retiene hasta que hay
+  // interacción: sin esta salida, "Instalar" no haría nada y parecería roto.
+  it('si el navegador nunca dispara el prompt, explica la ruta manual', async () => {
+    render(<InstallPrompt />);
+    await act(async () => {
+      screen.getByRole('button', { name: 'Instalar' }).click();
+    });
+    expect(screen.getByText(/icono de instalación/i)).toBeTruthy();
   });
 
   it('en iOS ofrece los pasos manuales porque no existe la API de prompt', () => {
@@ -102,5 +115,18 @@ describe('<InstallPrompt />', () => {
     const until = Number(localStorage.getItem('explorarte.install.snoozed-until'));
     expect(until).toBeGreaterThan(Date.now());
     expect(until).toBeLessThan(Date.now() + 15 * 86_400_000);
+  });
+
+  it('rechazar el diálogo nativo también lo posterga', async () => {
+    render(<InstallPrompt />);
+    firePrompt('dismissed');
+    await act(async () => {
+      screen.getByRole('button', { name: 'Instalar' }).click();
+    });
+
+    expect(screen.queryByRole('region', { name: /instalar/i })).toBeNull();
+    expect(Number(localStorage.getItem('explorarte.install.snoozed-until'))).toBeGreaterThan(
+      Date.now(),
+    );
   });
 });

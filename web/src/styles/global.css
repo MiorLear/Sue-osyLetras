@@ -11,9 +11,20 @@ html,
 body,
 #root {
   min-height: 100%;
+  width: 100%;
+}
+
+html {
+  /* Safari en iPhone agranda el texto al girar el teléfono si no se le dice
+     que no. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
+  /* 100dvh y no 100vh: la barra de direcciones del móvil se retrae y con vh
+     queda una franja del fondo del navegador debajo del contenido. */
+  min-height: 100dvh;
   font-family: var(--font-sans);
   background: var(--bg);
   color: var(--text-dark);
@@ -192,6 +203,26 @@ a {
 }
 .sidebar-nav button.active .dot {
   background: var(--brand);
+}
+
+.sidebar-logout {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 14px;
+  border: 1.5px solid #feb2b2;
+  background: #fff5f5;
+  color: #c53030;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.sidebar-logout:hover {
+  background: #fff0f0;
 }
 
 .sidebar-user {
@@ -400,6 +431,117 @@ a {
 }
 .gradient-header > * {
   position: relative;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   HERO DEL PANEL PRINCIPAL
+   ════════════════════════════════════════════════════════════════════ */
+.main-hero {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  border-radius: 28px;
+  overflow: hidden;
+  border: 1px solid #eae0d0;
+  background: #fff;
+  box-shadow: 0 18px 50px -28px rgba(24, 48, 45, 0.28);
+  margin-bottom: 40px;
+}
+.main-hero__copy {
+  position: relative;
+  padding: 44px 42px;
+  background: radial-gradient(120% 120% at 0% 0%, #eaf5f3 0%, #fffcf6 60%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+}
+.main-hero__leaf {
+  position: absolute;
+  top: -30px;
+  right: -20px;
+  font-size: 130px;
+  opacity: 0.06;
+  animation: floaty 7s ease-in-out infinite;
+}
+.main-hero__eyebrow {
+  position: relative;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #c5895f;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.main-hero__title {
+  position: relative;
+  font-family: var(--font-serif);
+  font-size: 34px;
+  line-height: 1.1;
+  color: var(--text-dark);
+}
+.main-hero__title span {
+  font-style: italic;
+  color: var(--brand);
+}
+.main-hero__lede {
+  position: relative;
+  margin-top: 14px;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--text-body);
+  max-width: 380px;
+}
+.main-hero__actions {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  margin-top: 24px;
+}
+.main-hero__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 20px;
+  border-radius: 13px;
+  background: var(--brand-gradient);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 10px 22px -8px rgba(31, 126, 118, 0.6);
+}
+.main-hero__cta span {
+  font-size: 16px;
+}
+.main-hero__ghost {
+  padding: 13px 20px;
+  border-radius: 13px;
+  background: #fff;
+  border: 1.5px solid var(--border-input);
+  color: var(--brand-dark);
+  font-size: 14px;
+  font-weight: 700;
+}
+.main-hero__visual {
+  min-height: 300px;
+  background: linear-gradient(160deg, #2fa7a0, #1e7e78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+.main-hero__flower {
+  font-size: 120px;
+  opacity: 0.9;
+}
+.main-hero__caption {
+  position: absolute;
+  bottom: 18px;
+  left: 22px;
+  color: rgba(255, 255, 255, 0.85);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 15px;
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -830,6 +972,22 @@ a {
 .more-sheet__list button.active .tile {
   background: #fff;
 }
+.more-sheet__logout {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 14px;
+  border: 1.5px solid #feb2b2;
+  background: #fff5f5;
+  color: #c53030;
+  font-size: 14px;
+  font-weight: 700;
+}
 
 /* ── barra superior de identidad (solo móvil) ── */
 .mobile-topbar {
@@ -909,6 +1067,8 @@ a {
   }
   .main-area {
     height: auto;
+    min-height: 100dvh;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .page {
     /* El padding inferior deja pasar la barra de tabs y el home indicator. */
@@ -923,6 +1083,89 @@ a {
   }
   .masthead h1 {
     font-size: 34px;
+  }
+  /* El hero pasa a una columna, con el visual debajo del texto. */
+  .main-hero {
+    grid-template-columns: 1fr;
+    margin-bottom: 28px;
+    border-radius: 22px;
+  }
+  .main-hero__copy {
+    padding: 28px 22px 26px;
+  }
+  .main-hero__visual {
+    min-height: 220px;
+    order: 2;
+  }
+  .main-hero__title {
+    font-size: clamp(28px, 7.8vw, 34px);
+    line-height: 1.08;
+  }
+  .main-hero__lede {
+    max-width: none;
+    font-size: 14px;
+  }
+  .main-hero__actions {
+    flex-wrap: wrap;
+  }
+  .main-hero__actions > button {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+}
+
+/* responsive: teléfonos estrechos */
+@media (max-width: 520px) {
+  .main-hero__visual {
+    min-height: 190px;
+  }
+  .main-hero__flower {
+    font-size: 92px;
+  }
+  .page {
+    padding-top: 20px;
+  }
+  .masthead {
+    margin-bottom: 24px;
+  }
+  .masthead h1 {
+    font-size: clamp(28px, 8vw, 34px);
+  }
+  .masthead .lede {
+    font-size: 14px;
+  }
+  .hub-grid,
+  .emotion-grid,
+  .main-split {
+    grid-template-columns: 1fr;
+  }
+  .gradient-header {
+    padding: 22px 20px;
+    border-radius: 20px;
+  }
+  .modal-backdrop {
+    padding: 12px;
+  }
+  .modal-card {
+    max-height: calc(100dvh - 24px);
+    border-radius: 18px;
+  }
+  .more-sheet {
+    max-height: 78dvh;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
+
+/* Quien pide menos movimiento en el sistema no debería ver el hero flotando ni
+   las transiciones de la hoja de "Más". */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
@@ -1131,6 +1374,15 @@ a {
   display: grid;
   gap: 6px;
   font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-body);
+}
+.install-banner__fallback {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f4eee2;
+  font-size: 12px;
   line-height: 1.45;
   color: var(--text-body);
 }

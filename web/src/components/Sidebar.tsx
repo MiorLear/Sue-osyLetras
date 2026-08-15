@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { Icon } from './Icon';
 // Las listas viven en nav-items.ts para que la barra inferior de móvil y la
 // hoja de "Más" naveguen exactamente lo mismo que el sidebar.
 import { ADMIN_NAV, TEACHER_NAV, isActive } from './nav-items';
@@ -7,13 +8,20 @@ import { ADMIN_NAV, TEACHER_NAV, isActive } from './nav-items';
 export function Sidebar() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, signOut } = useAuth();
 
   const nav = isAdmin ? ADMIN_NAV : TEACHER_NAV;
   const initials = user
     ? ((user.name.charAt(0) || '') + (user.lastname.charAt(0) || '')).toUpperCase()
     : 'MR';
   const roleLabel = isAdmin ? 'Administradora' : user ? `Docente · ${user.institucion}` : 'Docente';
+
+  // Mismo gesto que en Mi perfil: la sesión se cierra y se vuelve a /login sin
+  // dejar la pantalla anterior en el historial.
+  const logout = () => {
+    signOut();
+    navigate('/login', { replace: true });
+  };
 
   return (
     <aside className="sidebar">
@@ -43,6 +51,11 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      <button className="sidebar-logout" type="button" onClick={logout}>
+        <Icon name="log-out" size={17} color="#C53030" />
+        <span>Cerrar sesión</span>
+      </button>
 
       <button className="sidebar-user" onClick={() => navigate('/profile')}>
         {user?.photo ? (

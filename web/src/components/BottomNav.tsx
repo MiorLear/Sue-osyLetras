@@ -17,7 +17,7 @@ import { ADMIN_NAV, ADMIN_TABS, MAIN_TABS, TEACHER_NAV, isActive } from './nav-i
 export function BottomNav() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { isAdmin } = useAuth();
+  const { isAdmin, signOut } = useAuth();
   const [moreOpen, setMoreOpen] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
 
@@ -32,9 +32,20 @@ export function BottomNav() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setMoreOpen(false);
     };
+    // En el teléfono el gesto de "atrás" es lo primero que se prueba para
+    // cerrar una hoja: sin esto, la hoja sobrevive y se navega por debajo.
+    const onPopState = () => setMoreOpen(false);
     document.addEventListener('keydown', onKey);
+    window.addEventListener('popstate', onPopState);
+    // La hoja es modal; el fondo no debe hacer scroll detrás de ella.
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     sheetRef.current?.focus();
-    return () => document.removeEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('popstate', onPopState);
+      document.body.style.overflow = previousOverflow;
+    };
   }, [moreOpen]);
 
   const go = (href: string) => {
@@ -77,6 +88,17 @@ export function BottomNav() {
                 </button>
               ))}
             </div>
+            <button
+              type="button"
+              className="more-sheet__logout"
+              onClick={() => {
+                setMoreOpen(false);
+                signOut();
+                navigate('/login', { replace: true });
+              }}>
+              <Icon name="log-out" size={18} color="#C53030" />
+              <span>Cerrar sesión</span>
+            </button>
           </div>
         </div>
       )}
