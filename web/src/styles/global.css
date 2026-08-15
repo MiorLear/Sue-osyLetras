@@ -1686,3 +1686,86 @@ a {
   flex-direction: column;
   gap: 8px;
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   PANTALLA DE DESCARGAS (PWA-2.12 / PWA-2.13)
+   ════════════════════════════════════════════════════════════════════ */
+.storage-card {
+  padding: 22px 24px;
+  border-radius: 20px;
+  background: #fff;
+  border: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+.storage-card__head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.storage-card__total {
+  font-family: var(--font-serif);
+  font-size: 32px;
+  color: var(--brand-dark);
+  line-height: 1;
+}
+.storage-card__label {
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+.storage-card__bar {
+  margin-top: 16px;
+  height: 8px;
+  border-radius: 4px;
+  background: #eae0d0;
+  overflow: hidden;
+}
+.storage-card__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--brand-gradient);
+  transition: width 0.25s ease;
+}
+.storage-card__hint {
+  margin-top: 10px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+.storage-card__persist {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-body);
+}
+.storage-card__persist--ok {
+  color: var(--brand-dark);
+}
+.storage-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.storage-actions .btn {
+  min-height: 44px;
+}
+.storage-progress {
+  margin-bottom: 18px;
+}
+.storage-delete {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff5f5;
+  border: 1.5px solid #feb2b2;
+  flex-shrink: 0;
+}
