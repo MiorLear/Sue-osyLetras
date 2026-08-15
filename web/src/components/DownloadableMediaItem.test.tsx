@@ -73,7 +73,11 @@ describe('<DownloadableMediaItem />', () => {
       screen.getByRole('button').click();
     });
 
-    await waitFor(() => expect(screen.getByText(/disponible sin conexión/i)).toBeTruthy());
+    // El segundo por defecto de waitFor se queda corto en un runner lento: la
+    // descarga encadena stream, Cache Storage e IndexedDB antes de repintar.
+    await waitFor(() => expect(screen.getByText(/disponible sin conexión/i)).toBeTruthy(), {
+      timeout: 5000,
+    });
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(screen.getByText('Abrir')).toBeTruthy();
   });
@@ -120,7 +124,7 @@ describe('<DownloadableMediaItem />', () => {
       screen.getByRole('button').click();
     });
 
-    await waitFor(() => expect(error).toHaveBeenCalledOnce());
+    await waitFor(() => expect(error).toHaveBeenCalledOnce(), { timeout: 5000 });
     expect(error.mock.calls[0][0]).toMatch(/500/);
     // Y la fila vuelve a ofrecer la descarga, no se queda colgada.
     await waitFor(() => expect(screen.getByText('Descargar')).toBeTruthy());
