@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EVENT_COLORS, type CalEvent, type EventType } from '@explorarte/shared';
+import { CacheAgeNote, ContentState } from '@/components/ContentState';
 import { Icon } from '@/components/Icon';
 import { Select } from '@/components/ui';
 import { api } from '@/lib/api';
-import { useAsync } from '@/lib/useAsync';
+import { cacheKeys } from '@/lib/cache-keys';
+import { useOfflineAsync } from '@/lib/useOfflineAsync';
 
 type ViewMode = 'día' | 'semana' | 'mes';
 type ModalMode = 'create' | 'detail' | 'edit' | 'delete' | null;
@@ -30,7 +32,11 @@ export default function CalendarScreen() {
   const navigate = useNavigate();
   const [view, setView] = useState<ViewMode>('día');
   const [selDate, setSelDate] = useState(new Date());
-  const { data, loading, error, reload } = useAsync(() => api.events.list(), []);
+  const { data, status, ageMs, reload } = useOfflineAsync(
+    cacheKeys.events(),
+    () => api.events.list(),
+    [],
+  );
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [modal, setModal] = useState<ModalMode>(null);
   const [selEvent, setSelEvent] = useState<CalEvent | null>(null);
@@ -133,15 +139,11 @@ export default function CalendarScreen() {
       </div>
 
       <div style={{ maxWidth: 820 }}>
-        {loading ? (
-          <p style={{ textAlign: 'center', padding: '48px 0', fontSize: 14, color: 'var(--text-muted)' }}>Cargando…</p>
-        ) : error ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '40px 0' }}>
-            <p style={{ fontSize: 14, color: 'var(--text-body)', textAlign: 'center' }}>No pudimos cargar tu calendario. Revisa tu conexión.</p>
-            <button onClick={reload} style={{ padding: '9px 18px', borderRadius: 10, background: 'var(--brand)', color: '#fff', fontSize: 13, fontWeight: 700 }}>Reintentar</button>
-          </div>
+        {status === 'loading' || status === 'error' || status === 'offline-empty' ? (
+          <ContentState status={status} onRetry={reload} what="tu calendario" />
         ) : (
           <>
+            <CacheAgeNote status={status} ageMs={ageMs} />
             {events.length === 0 ? (
               <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>Aún no tienes eventos. Crea uno con “Nuevo evento”.</p>
             ) : null}
