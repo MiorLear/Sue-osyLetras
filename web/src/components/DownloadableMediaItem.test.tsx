@@ -5,19 +5,31 @@ import type { MediaItem } from '@explorarte/shared';
 
 import { DownloadableMediaItem, MediaList } from '@/components/DownloadableMediaItem';
 import { clearToasts, toast } from '@/components/toast-store';
-import { clearEverything } from '@/lib/idb';
-import { download } from '@/lib/media-cache';
-import { installFakeCacheStorage } from '@/test/cache-storage';
+import { MediaDownloadError } from '@/lib/media-cache';
 
-// La fila que hace visible la caché de medios. Lo que importa es que los tres
-// estados que pide el ticket se distingan de verdad, y que descargar siga
-// siendo una decisión de la usuaria y no un efecto de abrir la pantalla
-// (SCALE-03: son megabytes del plan de datos de una docente).
+// Lo que se prueba aquí es lo que DECIDE el componente: los tres estados que
+// pide el ticket, y que descargar siga siendo una acción de la usuaria y no un
+// efecto de abrir la pantalla (SCALE-03: son megabytes de su plan de datos).
 //
-// La conectividad se simula sustituyendo el hook y no `navigator.onLine`:
-// useIsOnline no se fía de esa bandera —miente en un portal cautivo— y hace su
-// propio sondeo con fetch, que aquí competiría con las respuestas simuladas de
-// la descarga. Ese sondeo ya tiene sus 12 tests en useNetworkStatus.test.ts.
+// media-cache va mockeado a propósito. La primera versión de este archivo
+// llamaba al módulo de verdad, que encadena fetch, Cache Storage e IndexedDB;
+// esos tres compartían estado entre tests y el resultado era un fallo
+// intermitente —uno de cada tres— en el test del error de descarga. El camino
+// real ya está cubierto, y de forma determinista, en media-cache.test.ts: aquí
+// solo hace falta poder decir "la descarga falla" y ver qué hace la fila.
+const media = vi.hoisted(() => ({
+  isDownloaded: vi.fn(async () => false),
+  download: vi.fn(async () => 'http://localhost:3000/media/tools/manual.pdf'),
+}));
+
+vi.mock('@/lib/media-cache', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/media-cache')>()),
+  isDownloaded: media.isDownloaded,
+  download: media.download,
+}));
+
+// La conectividad también se sustituye: useIsOnline no se fía de
+// navigator.onLine —miente en un portal cautivo— y hace su propio sondeo de red.
 let online = true;
 vi.mock('@/lib/useNetworkStatus', () => ({
   useIsOnline: () => online,
@@ -31,27 +43,16 @@ const PDF: MediaItem = {
   sizeBytes: 2048,
 };
 
-function pdfResponse(bytes = 2048): Response {
-  return new Response(new Uint8Array(bytes), {
-    status: 200,
-    headers: { 'Content-Type': 'application/pdf', 'Content-Length': String(bytes) },
-  });
-}
-
-let fetchMock: ReturnType<typeof vi.fn>;
-
-beforeEach(async () => {
-  installFakeCacheStorage();
-  await clearEverything();
+beforeEach(() => {
   clearToasts();
   online = true;
-  fetchMock = vi.fn().mockResolvedValue(pdfResponse());
-  vi.stubGlobal('fetch', fetchMock);
+  media.isDownloaded.mockResolvedValue(false);
+  media.download.mockResolvedValue(PDF.url);
 });
 
 afterEach(() => {
   cleanup();
-  vi.unstubAllGlobals();
+  vi.clearAllMocks();
   vi.restoreAllMocks();
 });
 
@@ -61,8 +62,8 @@ describe('<DownloadableMediaItem />', () => {
 
     await waitFor(() => expect(screen.getByText('Descargar')).toBeTruthy());
     expect(screen.getByText('Manual ExplorArte')).toBeTruthy();
-    // Lo importante: renderizar la fila no gasta datos.
-    expect(fetchMock).not.toHaveBeenCalled();
+    // Lo que más importa del ticket: renderizar la fila no gasta datos.
+    expect(media.download).not.toHaveBeenCalled();
   });
 
   it('descarga al pulsar y queda disponible sin conexión', async () => {
@@ -73,29 +74,46 @@ describe('<DownloadableMediaItem />', () => {
       screen.getByRole('button').click();
     });
 
-    // El segundo por defecto de waitFor se queda corto en un runner lento: la
-    // descarga encadena stream, Cache Storage e IndexedDB antes de repintar.
-    await waitFor(() => expect(screen.getByText(/disponible sin conexión/i)).toBeTruthy(), {
-      timeout: 5000,
-    });
-    expect(fetchMock).toHaveBeenCalledOnce();
+    await waitFor(() => expect(screen.getByText(/disponible sin conexión/i)).toBeTruthy());
+    expect(media.download).toHaveBeenCalledOnce();
     expect(screen.getByText('Abrir')).toBeTruthy();
   });
 
-  it('un archivo ya descargado se abre sin tocar la red', async () => {
-    await download(PDF.id, PDF.url);
-    fetchMock.mockClear();
+  it('enseña el avance real que reporta la descarga', async () => {
+    // La descarga se queda a medias y reporta el 42%.
+    let resolveDownload: (url: string) => void = () => {};
+    media.download.mockImplementation(async (_id: string, url: string, opts?: unknown) => {
+      (opts as { onProgress?: (p: { loaded: number; total: number; ratio: number }) => void })
+        ?.onProgress?.({ loaded: 42, total: 100, ratio: 0.42 });
+      return new Promise<string>((resolve) => {
+        resolveDownload = resolve;
+      });
+    });
 
     render(<DownloadableMediaItem item={PDF} />);
-
-    await waitFor(() => expect(screen.getByText('Abrir')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Descargar')).toBeTruthy());
     await act(async () => {
       screen.getByRole('button').click();
     });
 
-    // Se abrió el visor.
+    await waitFor(() => expect(screen.getByText(/42%/)).toBeTruthy());
+    await act(async () => {
+      resolveDownload(PDF.url);
+    });
+  });
+
+  it('un archivo ya descargado abre el visor y no vuelve a descargar', async () => {
+    media.isDownloaded.mockResolvedValue(true);
+
+    render(<DownloadableMediaItem item={PDF} />);
+    await waitFor(() => expect(screen.getByText('Abrir')).toBeTruthy());
+
+    await act(async () => {
+      screen.getByRole('button').click();
+    });
+
     await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(media.download).not.toHaveBeenCalled();
   });
 
   it('sin conexión lo explica en vez de fallar en silencio', async () => {
@@ -110,12 +128,14 @@ describe('<DownloadableMediaItem />', () => {
     });
 
     expect(notice).toHaveBeenCalledOnce();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(media.download).not.toHaveBeenCalled();
   });
 
   it('un fallo de descarga se cuenta con su propio mensaje', async () => {
     const error = vi.spyOn(toast, 'error');
-    fetchMock.mockResolvedValueOnce(new Response(null, { status: 500 }));
+    media.download.mockRejectedValue(
+      new MediaDownloadError('El servidor respondió 500.', PDF.id),
+    );
 
     render(<DownloadableMediaItem item={PDF} />);
     await waitFor(() => expect(screen.getByText('Descargar')).toBeTruthy());
@@ -124,10 +144,10 @@ describe('<DownloadableMediaItem />', () => {
       screen.getByRole('button').click();
     });
 
-    await waitFor(() => expect(error).toHaveBeenCalledOnce(), { timeout: 5000 });
+    await waitFor(() => expect(error).toHaveBeenCalled());
     expect(error.mock.calls[0][0]).toMatch(/500/);
-    // Y la fila vuelve a ofrecer la descarga, no se queda colgada.
-    await waitFor(() => expect(screen.getByText('Descargar')).toBeTruthy());
+    // Y la fila vuelve a ofrecer la descarga, no se queda colgada en "Descargando".
+    expect(screen.getByText('Descargar')).toBeTruthy();
   });
 });
 
