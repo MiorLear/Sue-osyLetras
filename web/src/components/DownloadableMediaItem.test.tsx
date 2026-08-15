@@ -17,9 +17,16 @@ import { MediaDownloadError } from '@/lib/media-cache';
 // intermitente —uno de cada tres— en el test del error de descarga. El camino
 // real ya está cubierto, y de forma determinista, en media-cache.test.ts: aquí
 // solo hace falta poder decir "la descarga falla" y ver qué hace la fila.
+type Progress = { loaded: number; total?: number; ratio?: number };
+type DownloadFn = (
+  id: string,
+  url: string,
+  opts?: { version?: string; onProgress?: (p: Progress) => void },
+) => Promise<string>;
+
 const media = vi.hoisted(() => ({
-  isDownloaded: vi.fn(async () => false),
-  download: vi.fn(async () => 'http://localhost:3000/media/tools/manual.pdf'),
+  isDownloaded: vi.fn<(id: string) => Promise<boolean>>(),
+  download: vi.fn<DownloadFn>(),
 }));
 
 vi.mock('@/lib/media-cache', async (importOriginal) => ({
@@ -82,9 +89,8 @@ describe('<DownloadableMediaItem />', () => {
   it('enseña el avance real que reporta la descarga', async () => {
     // La descarga se queda a medias y reporta el 42%.
     let resolveDownload: (url: string) => void = () => {};
-    media.download.mockImplementation(async (_id: string, url: string, opts?: unknown) => {
-      (opts as { onProgress?: (p: { loaded: number; total: number; ratio: number }) => void })
-        ?.onProgress?.({ loaded: 42, total: 100, ratio: 0.42 });
+    media.download.mockImplementation((_id, _url, opts) => {
+      opts?.onProgress?.({ loaded: 42, total: 100, ratio: 0.42 });
       return new Promise<string>((resolve) => {
         resolveDownload = resolve;
       });
