@@ -1,7 +1,9 @@
 import { useNavigate, useParams } from 'react-router-dom';
+import { CacheAgeNote, ContentState } from '@/components/ContentState';
 import { Icon } from '@/components/Icon';
 import { api } from '@/lib/api';
-import { useAsync } from '@/lib/useAsync';
+import { cacheKeys } from '@/lib/cache-keys';
+import { useOfflineAsync } from '@/lib/useOfflineAsync';
 
 function Divider() {
   return <div style={{ height: 1, background: 'var(--border-soft)', margin: '18px 0' }} />;
@@ -50,7 +52,12 @@ function ActivityCard({ text, color, bg }: { text: string; color: string; bg: st
 export default function EmotionDetail() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { data: emotion, loading, error, reload } = useAsync(() => api.emotions.get(id!), [id]);
+  const {
+    data: emotion,
+    status,
+    ageMs,
+    reload,
+  } = useOfflineAsync(cacheKeys.emotion(id!), () => api.emotions.get(id!), [id]);
 
   const color = emotion?.color ?? 'var(--brand)';
   const data = emotion?.content;
@@ -73,6 +80,7 @@ export default function EmotionDetail() {
       </header>
 
       <div>
+        <CacheAgeNote status={status} ageMs={ageMs} />
         {data ? (
           <>
             <SectionTitle>¿Qué es esta emoción?</SectionTitle>
@@ -122,21 +130,13 @@ export default function EmotionDetail() {
               )}
             </div>
           </>
-        ) : loading ? (
-          <p style={{ marginTop: 40, textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>Cargando…</p>
-        ) : error ? (
-          <div style={{ marginTop: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-            <p style={{ fontSize: 13, color: 'var(--text-body)', textAlign: 'center' }}>
-              No pudimos cargar esta emoción. Revisa tu conexión.
-            </p>
-            <button
-              onClick={reload}
-              style={{ padding: '9px 18px', borderRadius: 10, background: 'var(--brand)', color: '#fff', fontWeight: 700, fontSize: 13 }}>
-              Reintentar
-            </button>
-          </div>
         ) : (
-          <p style={{ fontSize: 13, color: 'var(--text-body)' }}>No encontramos información para esta emoción.</p>
+          <ContentState
+            status={status}
+            onRetry={reload}
+            what="esta emoción"
+            emptyLabel="No encontramos información para esta emoción."
+          />
         )}
       </div>
     </div>

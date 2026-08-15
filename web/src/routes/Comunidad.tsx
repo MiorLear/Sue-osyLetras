@@ -3,8 +3,10 @@ import { MODTAG, type MediaItem, type Post } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
 import { toast } from '@/components/toast-store';
+import { CacheAgeNote, ContentState } from '@/components/ContentState';
 import { api } from '@/lib/api';
-import { useAsync } from '@/lib/useAsync';
+import { cacheKeys } from '@/lib/cache-keys';
+import { useOfflineAsync } from '@/lib/useOfflineAsync';
 import { useAuth } from '@/context/AuthContext';
 
 const FILTERS = [
@@ -30,7 +32,11 @@ export default function Comunidad() {
     ? ((user.name.charAt(0) || '') + (user.lastname.charAt(0) || '')).toUpperCase()
     : 'MR';
   const [filter, setFilter] = useState('todos');
-  const { data, loading, error, reload } = useAsync(() => api.posts.list(filter), [filter]);
+  const { data, status, ageMs, reload } = useOfflineAsync(
+    cacheKeys.posts(filter),
+    () => api.posts.list(filter),
+    [filter],
+  );
 
   // Mirror the loaded feed into local state so like/comment/create mutations can
   // update it in place. Re-sync whenever a fresh list arrives (filter change or
@@ -141,21 +147,16 @@ export default function Comunidad() {
         })}
       </div>
 
-      {loading ? (
-        <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 0', fontSize: 14 }}>Cargando…</p>
-      ) : error ? (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '40px 0' }}>
-          <p style={{ color: 'var(--text-body)', fontSize: 14, textAlign: 'center' }}>
-            No pudimos cargar la comunidad. Revisa tu conexión.
-          </p>
-          <button className="btn btn-primary" onClick={reload} style={{ padding: '10px 20px' }}>
-            Reintentar
-          </button>
-        </div>
-      ) : posts.length === 0 ? (
-        <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 0', fontSize: 13.5 }}>
-          Aún no hay publicaciones. ¡Sé la primera en compartir!
-        </p>
+      <CacheAgeNote status={status} ageMs={ageMs} />
+
+      {posts.length === 0 ? (
+        <ContentState
+          status={status}
+          onRetry={reload}
+          what="la comunidad"
+          isEmpty={data?.length === 0}
+          emptyLabel="Aún no hay publicaciones. ¡Sé la primera en compartir!"
+        />
       ) : (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {posts.map((p) => {

@@ -3,7 +3,8 @@ import { EVENT_COLORS } from '@explorarte/shared';
 import { Masthead } from '@/components/Masthead';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
-import { useAsync } from '@/lib/useAsync';
+import { cacheKeys } from '@/lib/cache-keys';
+import { useOfflineAsync } from '@/lib/useOfflineAsync';
 
 interface HubCard {
   emoji: string;
@@ -66,7 +67,9 @@ interface RailEvent {
 export default function Main() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data: events } = useAsync(() => api.events.list(), []);
+  // Misma entrada de caché que el calendario: verlo aquí lo deja disponible
+  // allá sin conexión, y al revés.
+  const { data: events } = useOfflineAsync(cacheKeys.events(), () => api.events.list(), []);
 
   const today = new Date();
 

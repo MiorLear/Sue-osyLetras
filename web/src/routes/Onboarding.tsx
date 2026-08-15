@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Logo } from '@/components/Logo';
 import { VideoPlaceholder } from '@/components/VideoPlaceholder';
 import { api } from '@/lib/api';
+import { cacheKeys } from '@/lib/cache-keys';
+import { useOfflineAsync } from '@/lib/useOfflineAsync';
 
 const PILARES = [
   { emoji: '🧠', title: 'Salud mental', text: 'Promovemos herramientas que fortalecen el bienestar psicológico y emocional.' },
@@ -22,13 +24,17 @@ const SLIDES = 3;
 export default function Onboarding() {
   const navigate = useNavigate();
   const [index, setIndex] = useState(0);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  // Esta pantalla es previa al login, así que su caché va al ámbito anónimo.
+  // El hook además absorbe el fallo de red: antes era un .then() suelto que sin
+  // conexión terminaba en un rechazo sin capturar.
+  const { data: intro } = useOfflineAsync(
+    cacheKeys.screenIntro('home'),
+    () => api.screenIntros.get('home'),
+    [],
+  );
+  const videoUrl = intro?.video.url ?? null;
   const goToLogin = () => navigate('/login');
   const next = () => (index < SLIDES - 1 ? setIndex(index + 1) : goToLogin());
-
-  useEffect(() => {
-    api.screenIntros.get('home').then((v) => setVideoUrl(v?.video.url ?? null));
-  }, []);
 
   return (
     <div className="auth-shell">

@@ -1,18 +1,27 @@
 import { useState } from 'react';
+import { CacheAgeNote, ContentState } from '@/components/ContentState';
 import { Masthead } from '@/components/Masthead';
 import { VideoModal } from '@/components/VideoModal';
 
 import { api } from '@/lib/api';
-import { useAsync } from '@/lib/useAsync';
+import { cacheKeys } from '@/lib/cache-keys';
+import { useOfflineAsync } from '@/lib/useOfflineAsync';
 
 const TOPIC_BG = ['#EEEAF7', '#EAF3E8', '#F8E8DE', '#FBF1DA'];
 
 export default function Aprendiendo() {
-  const { data: topics, loading, error, reload } = useAsync(() => api.learning.topics(), []);
-  const { data: videoUrl } = useAsync(
-    () => api.screenIntros.get('learning').then((v) => v?.video.url ?? null),
+  const {
+    data: topics,
+    status,
+    ageMs,
+    reload,
+  } = useOfflineAsync(cacheKeys.learningTopics(), () => api.learning.topics(), []);
+  const { data: intro } = useOfflineAsync(
+    cacheKeys.screenIntro('learning'),
+    () => api.screenIntros.get('learning'),
     [],
   );
+  const videoUrl = intro?.video.url ?? null;
   const [open, setOpen] = useState<string | null>(null);
   const [videoOpen, setVideoOpen] = useState(false);
 
@@ -49,24 +58,16 @@ export default function Aprendiendo() {
 
       {videoOpen && videoUrl ? <VideoModal videoUrl={videoUrl} onClose={() => setVideoOpen(false)} /> : null}
 
-      {loading ? (
-        <p style={{ textAlign: 'center', color: 'var(--text-body)', padding: '48px 0' }}>Cargando…</p>
-      ) : error ? (
-        <div style={{ textAlign: 'center', padding: '40px 0' }}>
-          <p style={{ fontSize: 14.5, color: 'var(--text-body)', marginBottom: 14 }}>
-            No pudimos cargar los contenidos. Revisa tu conexión.
-          </p>
-          <button
-            onClick={reload}
-            style={{ padding: '9px 20px', borderRadius: 10, background: 'var(--brand)', color: '#fff', fontWeight: 700, fontSize: 13.5 }}
-          >
-            Reintentar
-          </button>
-        </div>
-      ) : !topics || topics.length === 0 ? (
-        <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 0', fontSize: 13.5 }}>
-          Aún no hay contenidos disponibles.
-        </p>
+      <CacheAgeNote status={status} ageMs={ageMs} />
+
+      {!topics || topics.length === 0 ? (
+        <ContentState
+          status={status}
+          onRetry={reload}
+          what="los contenidos"
+          isEmpty={topics?.length === 0}
+          emptyLabel="Aún no hay contenidos disponibles."
+        />
       ) : (
         topics.map((topic, ti) => (
           <div key={topic.id} style={{ marginBottom: 26 }}>
