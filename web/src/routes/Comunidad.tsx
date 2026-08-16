@@ -1,12 +1,19 @@
 import { useRef, useState } from 'react';
-import { MODTAG, type MediaItem, type Post } from '@explorarte/shared';
+import { MODTAG, type Comment, type MediaItem, type Post } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
+import { PendingBadge } from '@/components/PendingBadge';
 import { toast } from '@/components/toast-store';
 import { CacheAgeNote, ContentState } from '@/components/ContentState';
 import { api } from '@/lib/api';
 import { cacheKeys } from '@/lib/cache-keys';
+import { isDeadSession } from '@/lib/offline-errors';
+import { enqueuePostComment, enqueuePostCreate, enqueuePostLike } from '@/lib/outbox';
+import { isTempPostId, newTempPostId } from '@/lib/outbox-ids';
+import { usePendingIndex } from '@/lib/use-outbox';
+import { useIsOnline } from '@/lib/useNetworkStatus';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
+import { useRefetchOnDrain } from '@/lib/useRefetchOnDrain';
 import { useAuth } from '@/context/AuthContext';
 
 const FILTERS = [
@@ -32,9 +39,12 @@ export default function Comunidad() {
     ? ((user.name.charAt(0) || '') + (user.lastname.charAt(0) || '')).toUpperCase()
     : 'MR';
   const [filter, setFilter] = useState('todos');
+  const online = useIsOnline();
   const { data, status, ageMs, reload } = useOfflineAsync(
     cacheKeys.posts(filter),
-    () => api.posts.list(filter),
+    // `undefined` y no 'todos': el cliente HTTP manda el filtro tal cual, así
+    // que "todos" llegaba como `?emotion=todos` y la API real devolvía vacío.
+    () => api.posts.list(filter === 'todos' ? undefined : filter),
     [filter],
   );
 
@@ -47,6 +57,30 @@ export default function Comunidad() {
     setSyncedData(data);
     setPosts(data ?? []);
   }
+
+  // Lo escrito sin conexión vive AL LADO del espejo, nunca dentro.
+  //
+  // Si un borrador entrara en `posts`, pasaría esto: la docente publica sin
+  // red → vuelve el wifi → `useOfflineAsync` revalida por su dependencia
+  // `online` → llega una lista del servidor que todavía no trae su publicación
+  // porque la bandeja aún no la ha enviado → el espejo se resincroniza → su
+  // publicación DESAPARECE de la pantalla estando perfectamente a salvo en la
+  // cola. Fuera del espejo, el espejo no puede pisarla porque no la conoce.
+  const [draftPosts, setDraftPosts] = useState<Post[]>([]);
+  const [draftComments, setDraftComments] = useState<Record<number, Comment[]>>({});
+  const [draftLikes, setDraftLikes] = useState<Record<number, { liked: boolean; likes: number }>>({});
+
+  const pending = usePendingIndex();
+  useRefetchOnDrain(reload);
+
+  // Un borrador se pinta mientras su alta siga en la cola. En cuanto sale, la
+  // publicación de verdad llega en la lista y pintar las dos sería duplicarla:
+  // esto es lo que hace que "reconcilia sin duplicar" sea cierto por
+  // construcción y no por un temporizador.
+  const visibleDrafts = draftPosts.filter(
+    (d) => pending.posts.has(d.id) && (filter === 'todos' || d.module === filter),
+  );
+  const feed = [...visibleDrafts, ...posts];
 
   const [openThread, setOpenThread] = useState<number | null>(null);
   const [drafts, setDrafts] = useState<Record<number, string>>({});
@@ -65,11 +99,41 @@ export default function Comunidad() {
   const toggleLike = async (id: number) => {
     if (likingId === id) return;
     setLikingId(id);
+    const row = feed.find((p) => p.id === id);
+    if (!row) {
+      setLikingId(null);
+      return;
+    }
+    const current = pending.likes.has(id) ? draftLikes[id] : undefined;
+    const liked = current?.liked ?? row.liked;
+    const likes = current?.likes ?? row.likes;
+    const encolar = async () => {
+      await enqueuePostLike(id);
+      setDraftLikes((d) => ({ ...d, [id]: { liked: !liked, likes: likes + (liked ? -1 : 1) } }));
+    };
+
     try {
-      const updated = await api.posts.toggleLike(id);
-      setPosts((ps) => ps.map((p) => (p.id === id ? updated : p)));
-    } catch {
-      toast.error('No se pudo actualizar tu reacción. Inténtalo de nuevo.');
+      // Con red va directa: es el camino normal y deja el contador exacto que
+      // devuelve el servidor. La excepción es una publicación creada sin
+      // conexión, que todavía no tiene id de servidor: su reacción siempre pasa
+      // por la cola, y el outbox la reescribe cuando el alta aterriza.
+      if (online && !isTempPostId(id)) {
+        const updated = await api.posts.toggleLike(id);
+        setPosts((ps) => ps.map((p) => (p.id === id ? updated : p)));
+      } else {
+        await encolar();
+        toast.info('Guardamos tu reacción. Se enviará cuando haya conexión.');
+      }
+    } catch (e) {
+      // Un 403 no se encola: la sesión está muerta, ya se está purgando y
+      // sacando a la docente, y la fila solo llegaría a la lista de fallidos.
+      if (isDeadSession(e)) return;
+      try {
+        await encolar();
+        toast.info('Guardamos tu reacción. Se enviará cuando haya conexión.');
+      } catch {
+        toast.error('No se pudo actualizar tu reacción. Inténtalo de nuevo.');
+      }
     } finally {
       setLikingId(null);
     }
@@ -80,12 +144,38 @@ export default function Comunidad() {
     if (!text || sendingComment === id) return;
     setSendingComment(id);
     setCommentErrors((e) => ({ ...e, [id]: '' }));
-    try {
-      const comment = await api.posts.addComment(id, { text });
-      setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, comments: [...p.comments, comment] } : p)));
+    // Firmado con su nombre real: la app RN pone "Tú" porque su módulo no
+    // conoce a la usuaria, pero aquí `useAuth()` está a mano y así el
+    // comentario encolado se parece al que llegará del servidor.
+    const local: Comment = {
+      user: user ? `${user.name} ${user.lastname}` : 'Tú',
+      initials: myInitials,
+      avatarBg: '#3DBFB8',
+      time: 'ahora',
+      text,
+    };
+    const encolar = async () => {
+      await enqueuePostComment(id, { text });
+      setDraftComments((d) => ({ ...d, [id]: [...(d[id] ?? []), local] }));
       setDrafts((d) => ({ ...d, [id]: '' }));
-    } catch {
-      setCommentErrors((e) => ({ ...e, [id]: 'No se pudo enviar el comentario. Inténtalo de nuevo.' }));
+      toast.info('Tu comentario se enviará cuando haya conexión.');
+    };
+
+    try {
+      if (online && !isTempPostId(id)) {
+        const comment = await api.posts.addComment(id, { text });
+        setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, comments: [...p.comments, comment] } : p)));
+        setDrafts((d) => ({ ...d, [id]: '' }));
+      } else {
+        await encolar();
+      }
+    } catch (e) {
+      if (isDeadSession(e)) return;
+      try {
+        await encolar();
+      } catch {
+        setCommentErrors((e2) => ({ ...e2, [id]: 'No se pudo enviar el comentario. Inténtalo de nuevo.' }));
+      }
     } finally {
       setSendingComment(null);
     }
@@ -96,23 +186,74 @@ export default function Comunidad() {
     if (!text || submitting) return;
     setSubmitting(true);
     setComposeError(null);
-    try {
-      // tag the post with the active emotion filter (null under "todos")
-      const module = filter === 'todos' ? null : filter;
-      const np = await api.posts.create({ text, module, attachments: attachment ? [attachment] : [] });
+    // tag the post with the active emotion filter (null under "todos")
+    const module = filter === 'todos' ? null : filter;
+    const input = { text, module, attachments: attachment ? [attachment] : [] };
+    const close = () => {
       setComposeOpen(false);
       setComposeText('');
       setAttachment(null);
-      // the new post always matches the active filter now, so show it immediately
-      setPosts((ps) => [np, ...ps]);
-    } catch {
-      setComposeError('No se pudo publicar. Inténtalo de nuevo.');
+    };
+    const encolar = async () => {
+      const tempId = newTempPostId();
+      await enqueuePostCreate(tempId, input);
+      setDraftPosts((ds) => [
+        {
+          id: tempId,
+          user: user ? `${user.name} ${user.lastname}` : 'Tú',
+          handle: user ? `@${user.name.toLowerCase()}` : '@tú',
+          verified: false,
+          time: 'ahora',
+          avatarBg: '#3DBFB8',
+          module,
+          text: input.text,
+          likes: 0,
+          liked: false,
+          reposts: 0,
+          comments: [],
+          attachments: input.attachments,
+        },
+        ...ds,
+      ]);
+      close();
+      toast.info('Tu publicación se enviará cuando vuelva la conexión.', {
+        title: 'Guardada sin conexión',
+      });
+    };
+
+    try {
+      if (online) {
+        const np = await api.posts.create(input);
+        close();
+        // the new post always matches the active filter now, so show it immediately
+        setPosts((ps) => [np, ...ps]);
+      } else {
+        await encolar();
+      }
+    } catch (e) {
+      if (isDeadSession(e)) return;
+      try {
+        await encolar();
+      } catch {
+        setComposeError('No se pudo publicar. Inténtalo de nuevo.');
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleAttach = async (file: File) => {
+    // Adjuntar sin conexión no se puede resolver encolando: no hay a dónde
+    // subir los bytes, y guardar una URL local en la cola sería mandarle al
+    // servidor una dirección que solo existe en esta pestaña. Se dice y se
+    // ofrece la salida, en vez de deshabilitar el botón y dejarla adivinando.
+    if (!online) {
+      toast.info(
+        'Para adjuntar una imagen o un vídeo necesitas conexión. Puedes publicar solo el texto ahora.',
+        { title: 'Sin conexión' },
+      );
+      return;
+    }
     setAttaching(true);
     setComposeError(null);
     try {
@@ -149,7 +290,7 @@ export default function Comunidad() {
 
       <CacheAgeNote status={status} ageMs={ageMs} />
 
-      {posts.length === 0 ? (
+      {feed.length === 0 ? (
         <ContentState
           status={status}
           onRetry={reload}
@@ -159,12 +300,24 @@ export default function Comunidad() {
         />
       ) : (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {posts.map((p) => {
+        {feed.map((p) => {
           const tag = p.module ? MODTAG[p.module] : null;
           const initials = p.user.split(' ').map((w) => w.charAt(0)).slice(0, 2).join('').toUpperCase();
           const threadOpen = openThread === p.id;
+          // Las capas optimistas se aplican al pintar, no al estado: mientras
+          // su cambio siga en la bandeja mandan ellas; cuando sale, desaparecen
+          // solas y lo que se ve es lo que dijo el servidor.
+          const isDraft = pending.posts.has(p.id);
+          const like = pending.likes.has(p.id) ? draftLikes[p.id] : undefined;
+          const liked = like?.liked ?? p.liked;
+          const likes = like?.likes ?? p.likes;
+          const queuedComments = pending.comments.has(p.id) ? (draftComments[p.id] ?? []) : [];
+          const comments = [...p.comments, ...queuedComments];
           return (
-            <article key={p.id} style={{ borderRadius: 20, background: '#fff', overflow: 'hidden', border: '1px solid var(--border)' }}>
+            <article
+              key={p.id}
+              className={isDraft ? 'is-pending' : undefined}
+              style={{ borderRadius: 20, background: '#fff', overflow: 'hidden', border: '1px solid var(--border)' }}>
               <div style={{ padding: 20 }}>
                 <div style={{ display: 'flex', gap: 13 }}>
                   <span style={{ width: 44, height: 44, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', background: p.avatarBg, color: '#fff', fontSize: 14, fontWeight: 800, flexShrink: 0 }}>{initials}</span>
@@ -172,7 +325,10 @@ export default function Comunidad() {
                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 7 }}>
                       <span style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--text-dark)' }}>{p.user}</span>
                       {p.verified ? <Icon name="check-circle" size={14} color="var(--brand)" /> : null}
-                      <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>{p.handle} · {p.time}</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>
+                        {p.handle}{isDraft ? '' : ` · ${p.time}`}
+                      </span>
+                      {isDraft ? <PendingBadge /> : null}
                     </div>
                     {tag ? (
                       <span style={{ display: 'inline-block', marginTop: 6, background: tag.bg, borderRadius: 8, padding: '3px 10px', fontSize: 11, fontWeight: 700, color: tag.color }}>
@@ -188,8 +344,26 @@ export default function Comunidad() {
                       ),
                     )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 14 }}>
-                      <ActionBtn icon="message-circle" value={p.comments.length} onClick={() => setOpenThread(threadOpen ? null : p.id)} />
-                      <ActionBtn icon="heart" value={p.likes} active={p.liked} activeColor="var(--danger)" fill={p.liked} disabled={likingId === p.id} onClick={() => toggleLike(p.id)} />
+                      <ActionBtn
+                        icon="message-circle"
+                        value={comments.length}
+                        label={`Comentarios (${comments.length})`}
+                        onClick={() => setOpenThread(threadOpen ? null : p.id)}
+                      />
+                      <ActionBtn
+                        icon="heart"
+                        value={likes}
+                        active={liked}
+                        activeColor="var(--danger)"
+                        fill={liked}
+                        disabled={likingId === p.id}
+                        pressed={liked}
+                        // Una insignia por corazón sería ruido, y un "me gusta"
+                        // no tiene contenido que perder: el estado pendiente va
+                        // en el nombre accesible, no en la pantalla.
+                        label={`${liked ? 'Quitar me gusta' : 'Me gusta'}${pending.likes.has(p.id) ? ', pendiente de enviar' : ''}`}
+                        onClick={() => toggleLike(p.id)}
+                      />
                     </div>
                   </div>
                 </div>
@@ -197,13 +371,14 @@ export default function Comunidad() {
 
               {threadOpen ? (
                 <div style={{ padding: '12px 20px 18px', background: '#FBF7F0', borderTop: '1px solid var(--border)' }}>
-                  {p.comments.map((c, i) => (
+                  {comments.map((c, i) => (
                     <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
                       <span style={{ width: 28, height: 28, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: c.avatarBg, color: '#fff', fontSize: 9, fontWeight: 800, flexShrink: 0 }}>{c.initials}</span>
                       <div style={{ flex: 1, background: '#fff', borderRadius: 12, padding: '8px 12px', border: '1px solid var(--border)' }}>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, flexWrap: 'wrap' }}>
                           <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-dark)' }}>{c.user}</span>
                           <span style={{ fontSize: 10.5, color: 'var(--text-faint)' }}>· {c.time}</span>
+                          {i >= p.comments.length ? <PendingBadge label="Sin enviar" /> : null}
                         </div>
                         <p style={{ marginTop: 2, fontSize: 12.5, color: 'var(--text-body)', lineHeight: 1.4 }}>{c.text}</p>
                       </div>
@@ -217,7 +392,7 @@ export default function Comunidad() {
                       placeholder="Escribe un comentario..."
                       style={{ flex: 1, padding: '9px 14px', borderRadius: 20, fontSize: 12.5, color: 'var(--text-dark)', border: '1.5px solid var(--border-input)', background: '#fff', outline: 'none' }}
                     />
-                    <button onClick={() => sendComment(p.id)} disabled={!(drafts[p.id] || '').trim() || sendingComment === p.id} style={{ width: 34, height: 34, borderRadius: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', background: (drafts[p.id] || '').trim() && sendingComment !== p.id ? 'var(--brand)' : 'var(--disabled)' }}>
+                    <button aria-label="Enviar comentario" onClick={() => sendComment(p.id)} disabled={!(drafts[p.id] || '').trim() || sendingComment === p.id} style={{ width: 34, height: 34, borderRadius: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', background: (drafts[p.id] || '').trim() && sendingComment !== p.id ? 'var(--brand)' : 'var(--disabled)' }}>
                       <Icon name="send" size={15} color="#fff" />
                     </button>
                   </div>
@@ -304,12 +479,14 @@ export default function Comunidad() {
   );
 }
 
-function ActionBtn({ icon, value, active, activeColor, fill, disabled, onClick }: {
-  icon: 'message-circle' | 'heart'; value: number; active?: boolean; activeColor?: string; fill?: boolean; disabled?: boolean; onClick?: () => void;
+function ActionBtn({ icon, value, active, activeColor, fill, disabled, pressed, label, onClick }: {
+  icon: 'message-circle' | 'heart'; value: number; active?: boolean; activeColor?: string; fill?: boolean; disabled?: boolean; pressed?: boolean; label?: string; onClick?: () => void;
 }) {
   const color = active ? activeColor! : 'var(--text-muted)';
   return (
-    <button onClick={onClick} disabled={disabled} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: active ? 700 : 400, color }}>
+    // Sin `aria-label` esto se leía como un número suelto: el icono no tiene
+    // texto y el botón tampoco.
+    <button onClick={onClick} disabled={disabled} aria-label={label} aria-pressed={pressed} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: active ? 700 : 400, color }}>
       <Icon name={icon} size={15} color={color} fill={fill ? color : 'none'} />
       <span>{value}</span>
     </button>

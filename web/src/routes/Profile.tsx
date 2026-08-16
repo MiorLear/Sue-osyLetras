@@ -1,13 +1,21 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { UserProfile } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
 import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
+import { toast } from '@/components/toast-store';
 import { useAuth } from '@/context/AuthContext';
 import { CacheAgeNote, ContentState } from '@/components/ContentState';
 import { api } from '@/lib/api';
 import { cacheKeys } from '@/lib/cache-keys';
+import { writeCache } from '@/lib/offline-cache';
+import { isDeadSession } from '@/lib/offline-errors';
+import { enqueueProfileUpdate } from '@/lib/outbox';
+import { usePendingIndex } from '@/lib/use-outbox';
+import { useIsOnline } from '@/lib/useNetworkStatus';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
+import { useRefetchOnDrain } from '@/lib/useRefetchOnDrain';
 import { useSchools } from '@/lib/useSchools';
 
 export default function Profile() {
@@ -22,6 +30,9 @@ export default function Profile() {
     reload,
   } = useOfflineAsync(cacheKeys.profile(), () => api.profile.get(), []);
   const schools = useSchools();
+  const online = useIsOnline();
+  const pending = usePendingIndex();
+  useRefetchOnDrain(reload);
 
   const [photo, setPhoto] = useState<string | null>(null);
   const [name, setName] = useState('María Reneé');
@@ -51,6 +62,18 @@ export default function Profile() {
   const pickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Sin conexión no hay nada que encolar: no existe a dónde subir los bytes,
+    // y guardar una URL local en la cola sería mandarle al servidor una
+    // dirección que solo existe en esta pestaña. Aquí está la línea: la foto
+    // necesita red al elegirla, los campos de texto no la necesitan nunca.
+    if (!online) {
+      toast.info(
+        'La foto necesita conexión para subirse. Guarda tus datos ahora y cambia la foto cuando vuelvas a tener internet.',
+        { title: 'Sin conexión' },
+      );
+      e.target.value = '';
+      return;
+    }
     setSaveError(null);
     setUploadingPhoto(true);
     try {
@@ -68,15 +91,47 @@ export default function Profile() {
   const handleSave = async () => {
     setSaveError(null);
     setSaving(true);
+    const textInput = { name, lastname, email, phone, institucion, ubicacion };
+    // La foto solo entra en la cola si de verdad se subió: solo entonces es una
+    // URL alojada que el servidor puede aceptar tal cual. Si no cambió,
+    // reenviarla es un no-op que además pisaría un cambio hecho desde otro
+    // dispositivo.
+    const fotoSubida =
+      photo && photo !== (profile?.photo ?? null) && /^https?:/.test(photo) ? { photo } : {};
+
+    const encolar = async () => {
+      await enqueueProfileUpdate({ ...textInput, ...fotoSubida });
+      // La caché también: sin esto, recargar sin conexión revive el perfil
+      // viejo y el cambio parece haberse perdido aunque siga en la cola.
+      void writeCache(cacheKeys.profile(), { ...(profile ?? {}), ...textInput, ...fotoSubida });
+      // Y AuthContext, que es de donde sacan el nombre la barra lateral y la
+      // superior: si no, la cabecera se queda con el nombre viejo.
+      if (profile) setUser({ ...profile, ...textInput, ...fotoSubida } as UserProfile);
+      toast.info('Tus cambios se enviarán cuando haya conexión.', {
+        title: 'Guardado sin conexión',
+      });
+    };
+
     try {
-      const updated = await api.profile.update({ name, lastname, email, phone, institucion, ubicacion, photo });
-      setUser(updated);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
+      if (online) {
+        const updated = await api.profile.update({ ...textInput, photo });
+        setUser(updated);
+        // El verde solo en el camino directo: "Perfil actualizado
+        // correctamente" sería mentira mientras el cambio siga en la cola.
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2500);
+      } else {
+        await encolar();
+      }
     } catch (e) {
-      setSaveError(
-        e instanceof Error ? e.message : 'No pudimos guardar los cambios. Inténtalo de nuevo.',
-      );
+      if (isDeadSession(e)) return;
+      try {
+        await encolar();
+      } catch {
+        setSaveError(
+          e instanceof Error ? e.message : 'No pudimos guardar los cambios. Inténtalo de nuevo.',
+        );
+      }
     } finally {
       setSaving(false);
     }
@@ -149,6 +204,12 @@ export default function Profile() {
             <LocationAutocomplete label="Ubicación" value={ubicacion} onChange={setUbicacion} />
 
             <PrimaryButton label={saving ? 'Guardando…' : 'Guardar cambios'} onClick={handleSave} disabled={saving} />
+            {pending.profile ? (
+              <p className="pending-note">
+                <Icon name="clock" size={14} color="currentColor" />
+                Tus cambios están guardados en esta tablet y se enviarán cuando haya conexión.
+              </p>
+            ) : null}
           </>
         )}
 

@@ -1769,3 +1769,40 @@ a {
   border: 1.5px solid #feb2b2;
   flex-shrink: 0;
 }
+
+/* ── Cambios sin enviar ─────────────────────────────────────────────────────
+   Ámbar: ni el verde del éxito ni el rojo de --danger, que ya significa "esto
+   falló". Aquí no ha fallado nada todavía; solo no ha salido. */
+.pending-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: #fdf3e3;
+  color: #8a5a12;
+  border: 1px solid #f0dfc0;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+/* Borde discontinuo = "sin cerrar", legible sin depender del color. No se baja
+   la opacidad: atenuar se lee como deshabilitado y encima empeora el
+   contraste de algo que la docente sí puede seguir tocando. */
+.is-pending {
+  border-style: dashed !important;
+}
+
+.pending-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fdf3e3;
+  border: 1px solid #f0dfc0;
+  color: #8a5a12;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
