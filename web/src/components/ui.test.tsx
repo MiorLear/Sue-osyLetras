@@ -125,3 +125,25 @@ describe('<LocationAutocomplete />', () => {
     expect(places.searchPlaces).not.toHaveBeenCalled();
   });
 });
+
+describe('<LocationAutocomplete /> · el panel no se dibuja sobre lo de abajo', () => {
+  it('ocupa espacio en el flujo en vez de flotar', async () => {
+    // Flotando tapaba el botón "Guardar cambios" del perfil al 100%: quien
+    // escribía su ciudad e iba directa a guardar pulsaba la primera sugerencia
+    // sin querer. jsdom no calcula layout, así que se comprueba la causa —el
+    // posicionamiento— y no el solape, que es su consecuencia.
+    render(<Host initial="" />);
+    const input = screen.getByRole('textbox');
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'San Sal' } });
+
+    const opcion = await screen.findByRole('button', { name: 'San Salvador Volcano' });
+    const panel = opcion.parentElement as HTMLElement;
+
+    expect(panel.style.position).not.toBe('absolute');
+    expect(panel.style.position).not.toBe('fixed');
+    // Y con muchas coincidencias no puede empujar el botón fuera de la pantalla.
+    expect(panel.style.maxHeight).toBe('200px');
+    expect(panel.style.overflowY).toBe('auto');
+  });
+});

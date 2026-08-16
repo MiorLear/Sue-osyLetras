@@ -292,19 +292,24 @@ export function LocationAutocomplete({
         }}
       />
       {open && items.length > 0 ? (
+        // En el flujo, no flotando. Flotando se dibujaba justo encima del botón
+        // "Guardar cambios" del perfil y lo tapaba entero: quien escribía su
+        // ciudad e iba directa a guardar pulsaba la primera sugerencia sin
+        // querer. Empujando el contenido, el botón nunca queda debajo de nada;
+        // a cambio el formulario crece mientras la lista está abierta, que es
+        // un movimiento que se entiende porque lo provocó ella al escribir.
         <div
           style={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            right: 0,
-            zIndex: 20,
             marginTop: 4,
+            // Con muchas coincidencias, la lista no puede empujar el botón
+            // fuera de la pantalla.
+            maxHeight: 200,
+            overflowY: 'auto',
+            overflowX: 'hidden',
             background: '#fff',
             border: '1px solid var(--border)',
             borderRadius: 12,
             boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
-            overflow: 'hidden',
           }}>
           {items.map((s, i) => (
             <button

@@ -46,8 +46,38 @@ export default function Profile() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
+  /**
+   * Hay algo escrito que todavía no se ha guardado.
+   *
+   * Mientras lo haya, el formulario NO se resincroniza con el perfil que llega
+   * de abajo. Sin este freno, cualquier lectura que aterrice mientras la
+   * docente escribe le borra lo escrito, y no hace falta nada raro para
+   * provocarla: perder la conexión ya vuelve a ejecutar la lectura de caché, y
+   * si esa lectura resuelve después de pulsar "Guardar cambios" —cosa que pasa,
+   * son milisegundos— deja el campo con el valor viejo. El cambio sí se había
+   * encolado bien, pero en pantalla parecía haberse esfumado, que para el caso
+   * es peor: la app decía "guardado" y enseñaba lo contrario.
+   *
+   * Es la misma regla que Comunidad y Calendario: el espejo del servidor no
+   * pisa lo que la usuaria tiene a medias.
+   */
+  const [dirty, setDirty] = useState(false);
+
+  /** Envuelve un setter para marcar el formulario como tocado. */
+  const edit =
+    <T,>(set: (v: T) => void) =>
+    (v: T) => {
+      setDirty(true);
+      set(v);
+    };
+
+  // `pending.profile` mantiene el freno después de guardar sin conexión: el
+  // cambio ya no está "a medias" pero tampoco ha llegado al servidor, así que
+  // una lectura que traiga el perfil de antes seguiría siendo la equivocada. El
+  // freno se suelta solo cuando la cola drena y `useRefetchOnDrain` pide el
+  // perfil de verdad.
   useEffect(() => {
-    if (!profile) return;
+    if (!profile || dirty || pending.profile) return;
     setName(profile.name);
     setLastname(profile.lastname);
     setEmail(profile.email);
@@ -55,7 +85,16 @@ export default function Profile() {
     setInstitucion(profile.institucion);
     setUbicacion(profile.ubicacion);
     setPhoto(profile.photo ?? null);
-  }, [profile]);
+  }, [profile, dirty, pending.profile]);
+
+  // Cuando el cambio encolado por fin sale, el formulario vuelve a estar en
+  // manos del servidor: se suelta el freno y `useRefetchOnDrain` ya habrá
+  // pedido el perfil de verdad.
+  const wasPendingProfile = useRef(pending.profile);
+  useEffect(() => {
+    if (wasPendingProfile.current && !pending.profile) setDirty(false);
+    wasPendingProfile.current = pending.profile;
+  }, [pending.profile]);
 
   const initials = ((name.charAt(0) || '') + (lastname.charAt(0) || '')).toUpperCase();
 
@@ -78,7 +117,7 @@ export default function Profile() {
     setUploadingPhoto(true);
     try {
       const media = await api.media.upload(file, file.name, 'profile');
-      setPhoto(media.url);
+      edit(setPhoto)(media.url);
     } catch (err) {
       setSaveError(
         err instanceof Error ? err.message : 'No pudimos subir la foto. Inténtalo de nuevo.',
@@ -107,6 +146,10 @@ export default function Profile() {
       // Y AuthContext, que es de donde sacan el nombre la barra lateral y la
       // superior: si no, la cabecera se queda con el nombre viejo.
       if (profile) setUser({ ...profile, ...textInput, ...fotoSubida } as UserProfile);
+      // OJO: aquí NO se limpia `dirty`. Entre limpiarlo y que `pending.profile`
+      // se ponga a true hay un hueco —el índice de la bandeja se recalcula en
+      // otra vuelta— y en ese hueco el formulario se resincronizaría con el
+      // perfil de antes. Lo limpia el efecto de abajo, cuando la cola drena.
       toast.info('Tus cambios se enviarán cuando haya conexión.', {
         title: 'Guardado sin conexión',
       });
@@ -116,6 +159,7 @@ export default function Profile() {
       if (online) {
         const updated = await api.profile.update({ ...textInput, photo });
         setUser(updated);
+        setDirty(false);
         // El verde solo en el camino directo: "Perfil actualizado
         // correctamente" sería mentira mientras el cambio siga en la cola.
         setSaved(true);
@@ -192,16 +236,16 @@ export default function Profile() {
             ) : null}
 
             <SectionLabel>Información personal</SectionLabel>
-            <Field label="Nombre" icon="user" value={name} onChangeText={setName} placeholder="Tu nombre" />
-            <Field label="Apellido" icon="user" value={lastname} onChangeText={setLastname} placeholder="Tu apellido" />
+            <Field label="Nombre" icon="user" value={name} onChangeText={edit(setName)} placeholder="Tu nombre" />
+            <Field label="Apellido" icon="user" value={lastname} onChangeText={edit(setLastname)} placeholder="Tu apellido" />
 
             <SectionLabel>Contacto</SectionLabel>
-            <Field label="Correo electrónico" icon="mail" value={email} onChangeText={setEmail} type="email" autoCapitalize="none" placeholder="correo@ejemplo.com" />
-            <Field label="Teléfono" icon="phone" value={phone} onChangeText={setPhone} placeholder="+502 1234 5678" />
+            <Field label="Correo electrónico" icon="mail" value={email} onChangeText={edit(setEmail)} type="email" autoCapitalize="none" placeholder="correo@ejemplo.com" />
+            <Field label="Teléfono" icon="phone" value={phone} onChangeText={edit(setPhone)} placeholder="+502 1234 5678" />
 
             <SectionLabel>Institución</SectionLabel>
-            <SelectOrAdd label="Institución" icon="map-pin" value={institucion} options={schools} onChange={setInstitucion} newPlaceholder="Nombre de la institución" />
-            <LocationAutocomplete label="Ubicación" value={ubicacion} onChange={setUbicacion} />
+            <SelectOrAdd label="Institución" icon="map-pin" value={institucion} options={schools} onChange={edit(setInstitucion)} newPlaceholder="Nombre de la institución" />
+            <LocationAutocomplete label="Ubicación" value={ubicacion} onChange={edit(setUbicacion)} />
 
             <PrimaryButton label={saving ? 'Guardando…' : 'Guardar cambios'} onClick={handleSave} disabled={saving} />
             {pending.profile ? (
