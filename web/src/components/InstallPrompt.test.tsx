@@ -2,6 +2,12 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// La franja va anclada abajo, asi que antes de iniciar sesion se comia el boton
+// "Iniciar sesion". Solo se ofrece con sesion abierta.
+const auth = vi.hoisted(() => ({ authed: true }));
+vi.mock('@/context/AuthContext', () => ({ useAuth: () => auth }));
+
 import { InstallPrompt } from './InstallPrompt';
 
 const manifest = JSON.parse(
@@ -128,5 +134,20 @@ describe('<InstallPrompt />', () => {
     expect(Number(localStorage.getItem('explorarte.install.snoozed-until'))).toBeGreaterThan(
       Date.now(),
     );
+  });
+});
+
+describe('<InstallPrompt /> · antes de iniciar sesión', () => {
+  it('no se ofrece en la pantalla de entrada', () => {
+    // Va anclada abajo y tapaba el botón "Iniciar sesión" y las cuentas de
+    // demostración: lo primero que veía una docente nueva era una app que
+    // parecía rota. Y un permiso pedido antes de saber qué es esto es un
+    // permiso que se deniega.
+    mockDisplayMode(false);
+    setUserAgent('Mozilla/5.0 (Windows NT 10.0) Chrome/120');
+    auth.authed = false;
+    const { container } = render(<InstallPrompt />);
+    expect(container.firstChild).toBeNull();
+    auth.authed = true;
   });
 });

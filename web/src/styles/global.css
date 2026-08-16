@@ -854,6 +854,10 @@ a {
    ════════════════════════════════════════════════════════════════════ */
 :root {
   --bottom-nav-height: 0px;
+  /* El ámbar de "esto todavía no ha salido". Un solo tono para la insignia, el
+     borde de la tarjeta y el punto del calendario, para que las tres señales se
+     reconozcan como la misma cosa. */
+  --pending-accent: #d89b2c;
 }
 
 /* En escritorio manda el sidebar; el shell móvil no existe. */
@@ -1787,10 +1791,16 @@ a {
 }
 
 /* Borde discontinuo = "sin cerrar", legible sin depender del color. No se baja
-   la opacidad: atenuar se lee como deshabilitado y encima empeora el
-   contraste de algo que la docente sí puede seguir tocando. */
+   la opacidad: atenuar se lee como deshabilitado y encima empeora el contraste
+   de algo que la docente sí puede seguir tocando.
+   El grosor y el color van aquí y no heredados: cambiar solo `border-style`
+   dejaba la tarjeta de Comunidad con su borde de 1px en beige sobre fondo
+   crema — técnicamente discontinuo, visualmente inexistente. Ámbar, el mismo
+   que la insignia, para que las dos señales digan lo mismo. */
 .is-pending {
   border-style: dashed !important;
+  border-width: 1.5px !important;
+  border-color: var(--pending-accent) !important;
 }
 
 .pending-note {

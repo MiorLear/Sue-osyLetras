@@ -389,9 +389,11 @@ function MonthView({ selDate, setSelDate, events, isPending }: { selDate: Date; 
                 <span style={{ fontSize: 12, fontWeight: isToday || isSel ? 700 : 400, color: isToday || isSel ? 'var(--brand)' : 'var(--text-dark)' }}>{day.getDate()}</span>
                 {evs.length > 0 ? (
                   <div style={{ display: 'flex', gap: 2, marginTop: 3 }}>
-                    {/* El punto hueco dice "todavia no ha salido" sin necesitar texto, que
-                        en una rejilla de mes no cabe. */}
-                    {evs.slice(0, 3).map((e, i) => (<span key={i} style={{ width: 4, height: 4, borderRadius: 2, background: isPending(e.id) ? 'transparent' : EVENT_COLORS[e.type], border: isPending(e.id) ? `1px solid ${EVENT_COLORS[e.type]}` : 'none' }} />))}
+                    {/* En una rejilla de mes no cabe texto, así que lo pendiente
+                        se dice con el mismo ámbar que la insignia y un punto algo
+                        mayor. Hueco no valía: un cuadrado de 4px sin relleno y con
+                        un borde pastel es invisible a esta escala. */}
+                    {evs.slice(0, 3).map((e, i) => (<span key={i} style={{ width: isPending(e.id) ? 6 : 4, height: isPending(e.id) ? 6 : 4, borderRadius: 3, background: isPending(e.id) ? 'var(--pending-accent)' : EVENT_COLORS[e.type] }} />))}
                   </div>
                 ) : null}
               </div>

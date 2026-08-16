@@ -196,27 +196,33 @@ export function LocationAutocomplete({
   const [query, setQuery] = useState(value);
   const [items, setItems] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
-  // Arranca en true para saltar la corrida del montaje: query inicia con `value`
-  // (p. ej. "San Salvador"), y sin esto el efecto de abajo buscaría y abriría el
-  // dropdown solo al entrar a la pantalla.
-  const skip = useRef(true);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const focused = useRef(false);
+
+  /**
+   * Lo último que la usuaria ESCRIBIÓ, que no es lo mismo que el valor del
+   * campo: éste también cambia al cargar el perfil, y eso no es una búsqueda.
+   *
+   * Antes el guard era un `useRef` que se consumía en la primera corrida del
+   * efecto. En desarrollo, StrictMode monta los efectos dos veces, así que la
+   * segunda ya lo encontraba gastado, buscaba sola y abría el desplegable SIN
+   * que el campo hubiera tenido el foco jamás — y como el único cierre era su
+   * `onBlur`, no quedaba forma de cerrarlo: se comía el botón "Guardar
+   * cambios" del perfil. Con el disparo en un estado que solo toca
+   * `onChangeText`, montar dos veces no busca ninguna.
+   */
+  const [typed, setTyped] = useState<string | null>(null);
 
   // Si el valor cambia desde afuera (p. ej. al cargar el perfil), sincroniza sin
   // disparar una búsqueda automática.
   useEffect(() => {
-    if (value !== query) {
-      skip.current = true;
-      setQuery(value);
-    }
+    if (value !== query) setQuery(value);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   useEffect(() => {
-    if (skip.current) {
-      skip.current = false;
-      return;
-    }
-    const q = query.trim();
+    if (typed === null) return;
+    const q = typed.trim();
     if (q.length < 2) {
       setItems([]);
       setOpen(false);
@@ -225,13 +231,30 @@ export function LocationAutocomplete({
     const t = setTimeout(async () => {
       const res = await searchPlaces(q);
       setItems(res);
-      setOpen(true);
+      // Si mientras se buscaba el foco se fue a otro sitio, no se abre nada: un
+      // desplegable que aparece solo es un desplegable que nadie sabe cerrar.
+      setOpen(focused.current && res.length > 0);
     }, 300);
     return () => clearTimeout(t);
-  }, [query]);
+  }, [typed]);
+
+  // Cerrar al tocar fuera. Sin esto, el único cierre era el `blur` del input, y
+  // eso deja atrapado cualquier desplegable que se abriera sin foco.
+  //
+  // El listener se pone al montar y no al abrir: atándolo a `open` queda una
+  // ventana entre que la lista se pinta y que el efecto corre, y un toque
+  // dentro de esa ventana no cierra nada. `setOpen(false)` con `open` ya en
+  // false no cuesta un render.
+  useEffect(() => {
+    const onPointerDown = (e: Event) => {
+      if (!boxRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, []);
 
   const choose = (s: string) => {
-    skip.current = true;
+    setTyped(null);
     onChange(s);
     setQuery(s);
     setItems([]);
@@ -239,7 +262,15 @@ export function LocationAutocomplete({
   };
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div
+      ref={boxRef}
+      style={{ position: 'relative' }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && open) {
+          e.stopPropagation();
+          setOpen(false);
+        }
+      }}>
       <Field
         label={label}
         icon={icon}
@@ -248,10 +279,17 @@ export function LocationAutocomplete({
         autoComplete="off"
         onChangeText={(v) => {
           setQuery(v);
+          setTyped(v);
           onChange(v);
         }}
-        onFocus={() => items.length > 0 && setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onFocus={() => {
+          focused.current = true;
+          if (items.length > 0) setOpen(true);
+        }}
+        onBlur={() => {
+          focused.current = false;
+          setTimeout(() => setOpen(false), 150);
+        }}
       />
       {open && items.length > 0 ? (
         <div

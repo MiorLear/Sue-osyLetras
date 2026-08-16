@@ -139,6 +139,33 @@ async function walkContent(write: Writer, result: SyncResult): Promise<void> {
     result.complete = false;
     result.failures.push({ id: 'learning:topics', reason: reasonOf(e) });
   }
+
+  // Las tres pantallas donde la docente ESCRIBE. Faltaban, y eso dejaba la
+  // escritura sin conexión fuera de su alcance justo donde importa: quien
+  // pierde la señal antes de abrir Comunidad se la encuentra vacía, y en una
+  // pantalla vacía no hay nada que comentar ni a qué reaccionar. Van al final
+  // porque son de la usuaria y no contenido común: si algo se queda a medias,
+  // que sea esto y no la biblioteca que comparten todas.
+  try {
+    await write(cacheKeys.posts(undefined), await api.posts.list());
+  } catch (e) {
+    result.complete = false;
+    result.failures.push({ id: 'posts', reason: reasonOf(e) });
+  }
+
+  try {
+    await write(cacheKeys.events(), await api.events.list());
+  } catch (e) {
+    result.complete = false;
+    result.failures.push({ id: 'events', reason: reasonOf(e) });
+  }
+
+  try {
+    await write(cacheKeys.profile(), await api.profile.get());
+  } catch (e) {
+    result.complete = false;
+    result.failures.push({ id: 'profile', reason: reasonOf(e) });
+  }
 }
 
 function reasonOf(e: unknown): string {

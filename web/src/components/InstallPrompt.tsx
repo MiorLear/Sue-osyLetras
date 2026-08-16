@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+import { useAuth } from '@/context/AuthContext';
+
 const SNOOZE_KEY = 'explorarte.install.snoozed-until';
 // Installing is not cosmetic: iOS wipes all origin storage after 7 days without
 // interaction and only Home-Screen apps are exempt, so the ask comes back.
@@ -50,6 +52,7 @@ function snooze() {
  * Rendered once from `main.tsx`, above everything else.
  */
 export function InstallPrompt() {
+  const { authed } = useAuth();
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [iosHelpOpen, setIosHelpOpen] = useState(false);
   const [fallbackOpen, setFallbackOpen] = useState(false);
@@ -73,7 +76,13 @@ export function InstallPrompt() {
     };
   }, []);
 
-  if (hidden) return null;
+  // Nada de ofrecerse antes de iniciar sesión. La franja va anclada abajo y en
+  // la pantalla de entrada se come el botón "Iniciar sesión" y las cuentas de
+  // demostración, así que lo primero que ve una docente nueva es una app que
+  // parece rota. Y es el mismo argumento que ya rige para pedir almacenamiento
+  // persistente en `AuthContext`: un permiso pedido antes de que la usuaria
+  // sepa qué es esto es un permiso que se deniega.
+  if (!authed || hidden) return null;
 
   const dismiss = () => {
     snooze();
