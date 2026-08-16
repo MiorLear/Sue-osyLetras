@@ -29,7 +29,7 @@ import Comunidad from '@/routes/Comunidad';
 import { cacheKeys } from '@/lib/cache-keys';
 import { clearEverything } from '@/lib/idb';
 import { setCacheUser, writeCache } from '@/lib/offline-cache';
-import { __resetOutbox, listPending } from '@/lib/outbox';
+import { __resetOutbox, listPending, replayPass } from '@/lib/outbox';
 import { __resetOutboxView } from '@/lib/use-outbox';
 import { __resetSyncStatus } from '@/lib/sync-status';
 import { clearToasts } from '@/components/toast-store';
@@ -183,20 +183,26 @@ describe('<Comunidad /> · reconciliación', () => {
     expect(screen.getByText('Pendiente de enviar')).toBeTruthy();
   });
 
-  it('cuando el alta sale de la bandeja, no queda la tarjeta duplicada', async () => {
+  it('cuando el alta se envía de verdad, no queda la tarjeta duplicada', async () => {
+    // El ciclo entero, sin refrescos a mano: publicar sin red, volver la
+    // conexión y dejar que el replay la envíe. Si el replay no avisara de que
+    // la fila salió de la bandeja, la copia optimista se quedaría encima de la
+    // publicación real que llega en el refresco — el duplicado que todo el
+    // diseño de la capa optimista existe para evitar.
     online = false;
     view();
     await screen.findByText('Hola comunidad');
     await publicar('Se va a enviar');
     await screen.findByText('Pendiente de enviar');
 
-    // El alta sale de la cola: el borrador deja de pintarse por construcción.
-    __resetOutbox();
-    await clearEverything();
-    const { refreshOutboxView } = await import('@/lib/use-outbox');
-    await refreshOutboxView();
+    const enviada = { ...POST, id: 42, user: 'Ana Ruiz', text: 'Se va a enviar', time: 'ahora' };
+    api.posts.create.mockResolvedValue(enviada);
+    api.posts.list.mockResolvedValue([enviada, POST]);
+    online = true;
+    await replayPass();
 
-    await waitFor(() => expect(screen.queryByText('Se va a enviar')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Pendiente de enviar')).toBeNull());
+    await waitFor(() => expect(screen.getAllByText('Se va a enviar')).toHaveLength(1));
   });
 
   it('un borrador etiquetado no se cuela bajo otro filtro', async () => {

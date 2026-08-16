@@ -732,6 +732,11 @@ async function settleSuccess(
       store.delete(claimed.seq!);
     },
   );
+  // Avisar aquí y no solo al final de la pasada no es un detalle: mientras la
+  // fila siga en la bandeja, la pantalla pinta su copia optimista. Si nadie
+  // avisa de que ya salió, esa copia se queda encima de la fila de verdad que
+  // llega en el refresco — que es justo el duplicado que todo esto evita.
+  emitOutboxChanged();
 }
 
 /** Puede funcionar más tarde: se apunta el intento y cuándo volver a probar. */
@@ -787,6 +792,7 @@ async function moveToDeadLetter(
       if (seq !== undefined) outbox.delete(seq);
     }
   });
+  emitOutboxChanged();
 }
 
 /**
