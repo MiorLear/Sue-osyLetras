@@ -25,7 +25,7 @@
 // safe and the whole point.
 
 export const DB_NAME = 'explorarte-offline';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 export const STORES = {
   apiCache: 'apiCache',
@@ -117,7 +117,14 @@ export type OutboxStatus = 'pending' | 'inflight' | 'failed';
  *  so the queue keeps a total order without storing an explicit index. */
 export interface OutboxRecord {
   seq?: number;
-  /** Client-generated stable id (the one screens optimistically render). */
+  /**
+   * Id de ESTA FILA (`m-…`), no el id temporal de la entidad que toca.
+   *
+   * La distinción importa porque `by-id` es UNIQUE: una misma entidad acumula
+   * varias filas (un create y dos ediciones del mismo evento), así que meter
+   * aquí el id temporal haría que el segundo `put` abortara la transacción
+   * entera. El id temporal vive en el `payload`.
+   */
   id: string;
   userId: string;
   kind: string;
@@ -128,6 +135,17 @@ export interface OutboxRecord {
   nextAttemptAt: number;
   status: OutboxStatus;
   lastError?: string;
+  /**
+   * Unidad de orden y de aislamiento de fallos: la instancia de entidad
+   * (`profile`, `event:<id>`, `post:<id>`). Dentro de una cadena el orden es
+   * estricto; entre cadenas es libre, que es lo que impide que un cambio
+   * atascado retenga de rehén a todos los demás (BUG-03).
+   */
+  chainKey: string;
+  /** Pestaña que reclamó la fila. Solo significa algo con `status: 'inflight'`. */
+  leaseOwner?: string;
+  /** Instante tras el cual la reclama se considera abandonada. */
+  leaseUntil?: number;
 }
 
 /** A mutation that will never be replayed, kept so the user can be told. */
@@ -171,13 +189,16 @@ function promisify<T>(request: IDBRequest<T>): Promise<T> {
 }
 
 /**
- * Versioned upgrade path. Every future migration adds a `case` and falls
- * through, so a tablet that skipped three releases still lands on the current
- * schema in a single open().
+ * Versioned upgrade path: cada release añade un escalón `if (oldVersion < N)`,
+ * así que una tablet que se saltó tres releases pasa por todos los que le
+ * faltan, en orden, en un solo open().
+ *
+ * `tx` es la transacción de versionchange: hace falta para tocar los índices de
+ * un store que ya existe, cosa que `db` por sí solo no permite.
  */
-function upgrade(db: IDBDatabase, oldVersion: number): void {
-  switch (oldVersion) {
-    case 0: {
+function upgrade(db: IDBDatabase, oldVersion: number, tx: IDBTransaction): void {
+  if (oldVersion < 1) {
+    {
       const apiCache = db.createObjectStore(STORES.apiCache, { keyPath: 'id' });
       apiCache.createIndex('by-user', 'userId');
       apiCache.createIndex('by-fetchedAt', 'fetchedAt');
@@ -188,7 +209,6 @@ function upgrade(db: IDBDatabase, oldVersion: number): void {
       const outbox = db.createObjectStore(STORES.outbox, { keyPath: 'seq', autoIncrement: true });
       outbox.createIndex('by-user', 'userId');
       outbox.createIndex('by-id', 'id', { unique: true });
-      outbox.createIndex('by-nextAttemptAt', 'nextAttemptAt');
 
       const deadLetter = db.createObjectStore(STORES.deadLetter, {
         keyPath: 'seq',
@@ -202,8 +222,27 @@ function upgrade(db: IDBDatabase, oldVersion: number): void {
       const meta = db.createObjectStore(STORES.meta, { keyPath: 'id' });
       meta.createIndex('by-user', 'userId');
     }
-    // falls through — next release adds `case 1:` here.
   }
+
+  if (oldVersion < 2) {
+    // Una instalación nueva pasa también por aquí, así que el escalón tiene que
+    // ser idempotente.
+    const outbox = tx.objectStore(STORES.outbox);
+    // `by-nextAttemptAt` no llevaba la usuaria dentro: recorrerlo devuelve "lo
+    // que toca reintentar" de TODAS las docentes de la tablet, ordenado por
+    // fecha. Es justo la consulta que querrá el replay desde el service worker
+    // (PWA-3.5), donde no hay sesión de React que diga quién es — y de ahí sale
+    // despachar la escritura de una bajo el token de otra. Contra eso lo que
+    // aguanta no es un comentario: es que la consulta insegura no exista.
+    if (outbox.indexNames.contains('by-nextAttemptAt')) {
+      outbox.deleteIndex('by-nextAttemptAt');
+    }
+    if (!outbox.indexNames.contains('by-user-nextAttemptAt')) {
+      outbox.createIndex('by-user-nextAttemptAt', ['userId', 'nextAttemptAt']);
+    }
+  }
+
+  // La próxima release añade aquí `if (oldVersion < 3) { … }`.
 }
 
 /** Opens (and memoises) the database. */
@@ -211,7 +250,7 @@ export function openDb(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
   const attempt = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = (event) => upgrade(request.result, event.oldVersion);
+    request.onupgradeneeded = (event) => upgrade(request.result, event.oldVersion, request.transaction!);
     request.onsuccess = () => {
       const db = request.result;
       // Another tab asked for a newer schema: let go so it isn't blocked, and
