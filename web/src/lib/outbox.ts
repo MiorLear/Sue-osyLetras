@@ -977,6 +977,67 @@ function isCreate(kind: string): boolean {
   return kind === 'post.create' || kind === 'event.create';
 }
 
+// ── lo que la docente decide sobre los fallidos ──────────────────────────────
+
+/**
+ * Devuelve un cambio apartado a la bandeja para volver a intentarlo.
+ *
+ * Los intentos vuelven a cero: es una decisión suya sobre algo que ya estaba
+ * muerto, no un reintento automático más. Es el único sitio donde `attempts` se
+ * reinicia; en cualquier otro, hacerlo dejaría mantener vivo un cambio imposible
+ * para siempre.
+ */
+export async function retryDeadLetter(seq: number): Promise<void> {
+  if (!isIdbAvailable()) return;
+  const userId = getCacheUser();
+  await withTx([STORES.outbox, STORES.deadLetter], 'readwrite', async (tx) => {
+    const deadStore = tx.objectStore(STORES.deadLetter);
+    const row = await req<DeadLetterRecord | undefined>(deadStore.get(seq));
+    if (!row || row.userId !== userId) return;
+    const { seq: _seq, failedAt: _failedAt, reason: _reason, ...rest } = row;
+    void _seq;
+    void _failedAt;
+    void _reason;
+    tx.objectStore(STORES.outbox).put({
+      ...rest,
+      status: 'pending',
+      attempts: 0,
+      nextAttemptAt: 0,
+      lastError: undefined,
+    } satisfies Omit<OutboxRecord, 'seq'>);
+    deadStore.delete(seq);
+  });
+  await refreshCounts();
+  emitOutboxChanged();
+}
+
+/** Descartar: se borra de la tablet y no se envía. No hay vuelta atrás. */
+export async function discardDeadLetter(seq: number): Promise<void> {
+  if (!isIdbAvailable()) return;
+  const userId = getCacheUser();
+  await withTx(STORES.deadLetter, 'readwrite', async (tx) => {
+    const store = tx.objectStore(STORES.deadLetter);
+    const row = await req<DeadLetterRecord | undefined>(store.get(seq));
+    if (!row || row.userId !== userId) return;
+    store.delete(seq);
+  });
+  await refreshCounts();
+  emitOutboxChanged();
+}
+
+/** Lo mismo, para todos los de la usuaria actual. */
+export async function discardAllDeadLetters(): Promise<void> {
+  if (!isIdbAvailable()) return;
+  const rows = await listDeadRows();
+  if (rows.length === 0) return;
+  await withTx(STORES.deadLetter, 'readwrite', (tx) => {
+    const store = tx.objectStore(STORES.deadLetter);
+    for (const row of rows) if (row.seq !== undefined) store.delete(row.seq);
+  });
+  await refreshCounts();
+  emitOutboxChanged();
+}
+
 /** El instante más cercano en que algo vuelve a poder salir; `null` si no hay nada. */
 export async function nextDueAt(): Promise<number | null> {
   const rows = await listRows();

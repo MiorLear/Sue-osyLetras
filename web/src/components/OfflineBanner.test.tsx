@@ -1,4 +1,5 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // El banner solo habla cuando tiene algo que decir. Y donde se coloca importa:
@@ -12,8 +13,15 @@ vi.mock('@/lib/useNetworkStatus', () => ({
 }));
 
 const { OfflineBanner, BANNER_BAR_STYLE } = await import('@/components/OfflineBanner');
-const { beginSync, endSync, setPendingCount, withSync, __resetSyncStatus, lastSyncTime } =
-  await import('@/lib/sync-status');
+const {
+  beginSync,
+  endSync,
+  setPendingCount,
+  setFailedCount,
+  withSync,
+  __resetSyncStatus,
+  lastSyncTime,
+} = await import('@/lib/sync-status');
 
 // vitest corre sin `globals`, así que testing-library no engancha su limpieza
 // automática y los renders se irían acumulando en document.body.
@@ -160,5 +168,65 @@ describe('sync-status · store fuera de React', () => {
       endSync();
     });
     expect(lastSyncTime()).toBeTypeOf('number');
+  });
+});
+
+describe('OfflineBanner · cambios que no se pudieron guardar', () => {
+  // Sin esta barra, apartar un cambio sería una forma silenciosa de perderlo:
+  // la franja de arriba seguiría prometiendo que todo se sincroniza.
+  const withRouter = () =>
+    render(
+      <MemoryRouter>
+        <OfflineBanner />
+      </MemoryRouter>,
+    );
+
+  it('aparece aunque haya conexión y no se esté sincronizando', () => {
+    withRouter();
+    act(() => setFailedCount(2));
+    expect(screen.getByText('2 cambios no se pudieron guardar')).toBeDefined();
+  });
+
+  it('concuerda en singular', () => {
+    withRouter();
+    act(() => setFailedCount(1));
+    expect(screen.getByText('1 cambio no se pudo guardar')).toBeDefined();
+  });
+
+  it('lleva a la pantalla donde se decide qué hacer', () => {
+    withRouter();
+    act(() => setFailedCount(1));
+    expect(screen.getByText('Revisar').getAttribute('href')).toBe('/sync-problemas');
+  });
+
+  it('el aviso de arriba nunca enseña dos cifras a la vez', () => {
+    // Con cambios fallidos y pendientes manda el fallido, que es el accionable.
+    online = false;
+    withRouter();
+    act(() => {
+      setPendingCount(3);
+      setFailedCount(2);
+    });
+    expect(screen.queryByText(/3 cambios se sincronizarán/)).toBeNull();
+    expect(screen.getByText('Sin conexión — 2 cambios no se pudieron guardar')).toBeDefined();
+  });
+
+  it('desaparece sola al vaciarse la lista', () => {
+    const { container } = withRouter();
+    act(() => setFailedCount(1));
+    expect(screen.getByText('Revisar')).toBeDefined();
+
+    act(() => setFailedCount(0));
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('la franja de arriba sigue siendo inerte', () => {
+    // Lo pulsable va abajo justamente porque la franja cruza el ancho completo
+    // por encima de la barra superior del móvil.
+    online = false;
+    withRouter();
+    act(() => setFailedCount(1));
+    const franja = screen.getByText(/Sin conexión/).closest('div[role="status"]') as HTMLElement;
+    expect(franja.style.pointerEvents).toBe('none');
   });
 });

@@ -1,3 +1,6 @@
+import { Link } from 'react-router-dom';
+
+import { Icon } from '@/components/Icon';
 import { useSync } from '@/lib/sync-status';
 
 // Thin status strip pinned to the very top of the viewport. It shows only when
@@ -47,29 +50,57 @@ function pendingLabel(pending: number): string {
     : `Sin conexión — ${pending} cambios se sincronizarán al reconectar`;
 }
 
-export function OfflineBanner() {
-  const { online, syncing, pending } = useSync();
+function failedLabel(failed: number): string {
+  return failed === 1
+    ? '1 cambio no se pudo guardar'
+    : `${failed} cambios no se pudieron guardar`;
+}
 
-  // Online and idle: say nothing.
-  if (online && !syncing) return null;
+export function OfflineBanner() {
+  const { online, syncing, pending, failed } = useSync();
 
   const offline = !online;
+  // El aviso de arriba nunca enseña dos cifras: si hay cambios fallidos y
+  // pendientes a la vez, manda el fallido, que es el accionable. El otro se ve
+  // en la pantalla de detalle.
   const label = offline
-    ? pending > 0
-      ? pendingLabel(pending)
-      : 'Sin conexión — mostrando contenido guardado'
+    ? failed > 0
+      ? `Sin conexión — ${failedLabel(failed)}`
+      : pending > 0
+        ? pendingLabel(pending)
+        : 'Sin conexión — mostrando contenido guardado'
     : 'Sincronizando…';
 
   return (
-    <div
-      style={{ ...BANNER_BAR_STYLE, background: offline ? '#FBEAE6' : 'var(--nav-bg, #e7f4f2)' }}
-      role="status"
-      aria-live="polite">
-      <div style={{ ...ROW, color: offline ? 'var(--danger, #d8654a)' : 'var(--brand-dark, #1e7e78)' }}>
-        {offline ? null : <SyncSpinner />}
-        <span>{label}</span>
-      </div>
-    </div>
+    <>
+      {/* La franja se queda inerte. Cruza el ancho completo por encima de todo
+          y en el móvil se solapa con la barra superior, botón de avatar
+          incluido: meter aquí algo pulsable sería un choque real de zonas
+          táctiles. Lo accionable va abajo, donde no cruza nada. */}
+      {online && !syncing ? null : (
+        <div
+          style={{ ...BANNER_BAR_STYLE, background: offline ? '#FBEAE6' : 'var(--nav-bg, #e7f4f2)' }}
+          role="status"
+          aria-live="polite">
+          <div style={{ ...ROW, color: offline ? 'var(--danger, #d8654a)' : 'var(--brand-dark, #1e7e78)' }}>
+            {offline ? null : <SyncSpinner />}
+            <span>{label}</span>
+          </div>
+        </div>
+      )}
+
+      {failed > 0 ? (
+        // `polite` y no `assertive`: la docente puede estar escribiendo un
+        // comentario, y esto no puede robarle el foco.
+        <div className="sync-problems-bar" role="status" aria-live="polite">
+          <Icon name="bell" size={18} color="currentColor" />
+          <span className="sync-problems-bar__copy">{failedLabel(failed)}</span>
+          <Link className="sync-problems-bar__cta" to="/sync-problemas">
+            Revisar
+          </Link>
+        </div>
+      ) : null}
+    </>
   );
 }
 

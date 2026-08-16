@@ -19,6 +19,7 @@ import CalendarScreen from './routes/Calendar';
 import Descargas from './routes/Descargas';
 import Profile from './routes/Profile';
 import Sobre from './routes/Sobre';
+import SyncProblemas from './routes/SyncProblemas';
 
 import AdminDashboard from './routes/admin/AdminDashboard';
 import AdminUsuarios from './routes/admin/AdminUsuarios';
@@ -71,6 +72,7 @@ export function App() {
         <Route path="/descargas" element={<Descargas />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/sobre" element={<Sobre />} />
+        <Route path="/sync-problemas" element={<SyncProblemas />} />
 
         {/* admin console */}
         <Route path="/admin" element={<RequireRole role="admin"><AdminDashboard /></RequireRole>} />
