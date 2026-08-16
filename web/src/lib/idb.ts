@@ -38,7 +38,7 @@ export const STORES = {
 
 export type StoreName = (typeof STORES)[keyof typeof STORES];
 
-/** Stores whose rows belong to one user and must disappear when they log out. */
+/** Stores whose rows belong to one user. Union of the two lists below. */
 export const USER_SCOPED_STORES: StoreName[] = [
   STORES.apiCache,
   STORES.outbox,
@@ -46,6 +46,23 @@ export const USER_SCOPED_STORES: StoreName[] = [
   STORES.idMap,
   STORES.meta,
 ];
+
+/**
+ * Copias de estado que el servidor YA tiene. Se van al cerrar sesión y al
+ * caducar: borrarlas no cuesta nada porque se pueden volver a pedir.
+ */
+export const USER_CONTENT_STORES: StoreName[] = [STORES.apiCache, STORES.meta];
+
+/**
+ * La ÚNICA copia de lo que el servidor NO tiene todavía.
+ *
+ * No se borra porque caduque una sesión. La distinción es la que decide: purgar
+ * una copia es higiene, purgar la única copia es destruir el trabajo que una
+ * docente creía guardado. Y lo que protege el requisito de la tablet compartida
+ * es el ámbito por usuaria —clave compuesta inyectiva, toda lectura pasando por
+ * `getCacheUser()`— no la purga. Solo "olvidar este dispositivo" los borra.
+ */
+export const USER_WORK_STORES: StoreName[] = [STORES.outbox, STORES.deadLetter, STORES.idMap];
 
 /** Scope used before anyone logs in. Never collides with a real user id
  *  because a server id can't contain the separator below. */
@@ -353,19 +370,19 @@ export async function getAllByUser<T>(store: StoreName, userId: string): Promise
 }
 
 /**
- * Wipes every user-scoped store for one user in a single transaction: it either
- * all disappears or nothing does, so a logout can't leave half a teacher's data
- * on a shared tablet. mediaIndex is left alone (public bytes, see header).
+ * Wipes the given stores for one user in a single transaction: it either all
+ * disappears or nothing does, so a logout can't leave half a teacher's data on
+ * a shared tablet. mediaIndex is left alone (public bytes, see header).
  *
  * Deleting by primary key (looked up through `by-user`) is the one code path
  * that works for both the composite-key stores and the autoIncrement ones.
  */
-export async function clearAllUserData(userId: string): Promise<void> {
-  await withTx(USER_SCOPED_STORES, 'readwrite', async (tx) => {
+async function clearStoresForUser(stores: StoreName[], userId: string): Promise<void> {
+  await withTx(stores, 'readwrite', async (tx) => {
     const only = IDBKeyRange.only(userId);
     // Every lookup is issued synchronously, before the first await, so the
     // transaction cannot auto-commit halfway through the wipe.
-    const lookups = USER_SCOPED_STORES.map((store) => ({
+    const lookups = stores.map((store) => ({
       store,
       keys: promisify<IDBValidKey[]>(tx.objectStore(store).index('by-user').getAllKeys(only)),
     }));
@@ -373,6 +390,19 @@ export async function clearAllUserData(userId: string): Promise<void> {
       for (const key of await keys) tx.objectStore(store).delete(key);
     }
   });
+}
+
+/**
+ * Cerrar sesión y sesión caducada: se lleva el contenido cacheado y deja el
+ * trabajo sin sincronizar donde está. Ver `USER_WORK_STORES`.
+ */
+export async function clearUserContent(userId: string): Promise<void> {
+  await clearStoresForUser(USER_CONTENT_STORES, userId);
+}
+
+/** "Olvidar este dispositivo": contenido Y trabajo sin sincronizar. */
+export async function clearAllUserData(userId: string): Promise<void> {
+  await clearStoresForUser(USER_SCOPED_STORES, userId);
 }
 
 /** Nukes every store, including media. For "forget this device" / test resets. */

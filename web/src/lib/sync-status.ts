@@ -18,6 +18,7 @@ import { useIsOnline } from '@/lib/useNetworkStatus';
 let activeCount = 0;
 let lastSyncedAt: number | null = null;
 let pendingCount = 0;
+let failedCount = 0;
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -81,12 +82,41 @@ export function usePendingCount(): number {
   return useSyncExternalStore(subscribe, getPendingCount, getPendingCount);
 }
 
+/**
+ * Publicado también por el outbox: los cambios que ya NO se van a reintentar
+ * solos y necesitan que la docente decida.
+ *
+ * Va en una ranura aparte de `pendingCount` y no sumado a él porque el aviso de
+ * arriba dice "se sincronizarán al reconectar", y de un cambio muerto eso es
+ * mentira — exactamente la que denuncia BUG-03.
+ */
+export function setFailedCount(n: number): void {
+  const next = Math.max(0, n);
+  if (next === failedCount) return;
+  failedCount = next;
+  emit();
+}
+
+function getFailedCount(): number {
+  return failedCount;
+}
+
+export function useFailedCount(): number {
+  return useSyncExternalStore(subscribe, getFailedCount, getFailedCount);
+}
+
 /** Combined connectivity + sync state for the banner and any screen that cares. */
-export function useSync(): { online: boolean; syncing: boolean; pending: number } {
+export function useSync(): {
+  online: boolean;
+  syncing: boolean;
+  pending: number;
+  failed: number;
+} {
   const online = useIsOnline();
   const syncing = useSyncing();
   const pending = usePendingCount();
-  return { online, syncing, pending };
+  const failed = useFailedCount();
+  return { online, syncing, pending, failed };
 }
 
 /** Test-only reset. */
@@ -94,5 +124,6 @@ export function __resetSyncStatus(): void {
   activeCount = 0;
   lastSyncedAt = null;
   pendingCount = 0;
+  failedCount = 0;
   listeners.clear();
 }

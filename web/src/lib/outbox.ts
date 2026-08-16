@@ -6,15 +6,30 @@ import type {
   UpdateProfileInput,
 } from '@explorarte/shared';
 
+import { api } from '@/lib/api';
 import {
   STORES,
   isIdbAvailable,
   req,
   withTx,
+  type DeadLetterRecord,
   type OutboxRecord,
   type OutboxStatus,
 } from '@/lib/idb';
 import { getCacheUser } from '@/lib/offline-cache';
+import { reportDeadSession } from '@/lib/offline-errors';
+import {
+  classifyReplayError,
+  nextAttemptAt,
+  orphanReason,
+  resumePolicy,
+  staleReason,
+  unreadableReason,
+  DEAD_LETTER_TTL_MS,
+  OUTBOX_TTL_MS,
+  type ReplayFailure,
+} from '@/lib/outbox-errors';
+import { checkReachability, isOnline } from '@/lib/useNetworkStatus';
 import {
   isTempEventId,
   isTempPostId,
@@ -25,7 +40,7 @@ import {
   type CreatedRow,
   type MappedEntity,
 } from '@/lib/outbox-ids';
-import { setPendingCount } from '@/lib/sync-status';
+import { setFailedCount, setPendingCount, withSync } from '@/lib/sync-status';
 
 // La bandeja de salida: los cambios que la docente ya hizo y que el servidor
 // todavía no tiene.
@@ -549,6 +564,470 @@ export async function refreshPendingCount(): Promise<number> {
   const rows = await listRows();
   setPendingCount(rows.length);
   return rows.length;
+}
+
+/** Lee los dos stores y publica ambos contadores. Único escritor de las ranuras. */
+export async function refreshCounts(): Promise<{ pending: number; failed: number }> {
+  const userId = getCacheUser();
+  const [pending, failed] = await Promise.all([
+    listRows(userId),
+    listDeadRows(userId),
+  ]);
+  setPendingCount(pending.length);
+  setFailedCount(failed.length);
+  return { pending: pending.length, failed: failed.length };
+}
+
+/** Las filas apartadas de la usuaria. */
+export async function listDeadRows(
+  userId: string = getCacheUser(),
+): Promise<DeadLetterRecord[]> {
+  if (!isIdbAvailable()) return [];
+  try {
+    return await withTx(STORES.deadLetter, 'readonly', (tx) =>
+      req<DeadLetterRecord[]>(
+        tx.objectStore(STORES.deadLetter).index('by-user').getAll(IDBKeyRange.only(userId)),
+      ),
+    );
+  } catch {
+    return [];
+  }
+}
+
+// ── reproducción ─────────────────────────────────────────────────────────────
+
+/** Cuánto vale una reclama antes de darla por abandonada. */
+const LEASE_MS = 60_000;
+
+/**
+ * Tope de vueltas por pasada. No es el criterio de terminación —lo es que cada
+ * vuelta con progreso borra al menos una fila—, sino la red por si alguien
+ * encola sin parar mientras la pasada corre.
+ */
+const MAX_SWEEPS = 50;
+
+/** Identifica a esta pestaña. En memoria: muere con ella, que es el punto. */
+const TAB_ID = 'tab-' + Math.random().toString(36).slice(2);
+
+export interface PassResult {
+  dispatched: number;
+  dead: number;
+  stopped: 'drained' | 'session' | 'unreachable' | 'skipped';
+}
+
+/** Lo que hay que remapear cuando un alta sale bien. */
+type DispatchOutcome = { remap?: { entity: MappedEntity; tempId: string | number; serverId: string; created: CreatedRow } };
+
+/**
+ * Manda un cambio a la API. No toca IndexedDB a propósito: abrir una
+ * transacción a caballo de un `await fetch` la autoconfirmaría en el primer
+ * hueco, y además tendría bloqueadas a las demás pestañas durante toda la
+ * petición.
+ */
+async function dispatch(mutation: Mutation): Promise<DispatchOutcome> {
+  switch (mutation.kind) {
+    case 'profile.update':
+      await api.profile.update(mutation.input);
+      return {};
+    case 'event.create': {
+      const created = await api.events.create(mutation.input);
+      return created?.id
+        ? {
+            remap: {
+              entity: 'event',
+              tempId: mutation.tempId,
+              serverId: String(created.id),
+              created: created as unknown as CreatedRow,
+            },
+          }
+        : {};
+    }
+    case 'event.update':
+      await api.events.update(mutation.targetId, mutation.input);
+      return {};
+    case 'event.remove':
+      await api.events.remove(mutation.targetId);
+      return {};
+    case 'post.create': {
+      const created = await api.posts.create(mutation.input);
+      return typeof created?.id === 'number'
+        ? {
+            remap: {
+              entity: 'post',
+              tempId: mutation.tempId,
+              serverId: String(created.id),
+              created: created as unknown as CreatedRow,
+            },
+          }
+        : {};
+    }
+    case 'post.like':
+      await api.posts.toggleLike(mutation.postId);
+      return {};
+    case 'post.comment':
+      await api.posts.addComment(mutation.postId, mutation.input);
+      return {};
+  }
+}
+
+/**
+ * Relee la fila y la reclama, en la MISMA transacción.
+ *
+ * Aquí está la defensa contra BUG-04, que sobre IndexedDB toma otra forma que
+ * en RN: no hay ningún array compartido que se pueda cambiar bajo un bucle,
+ * pero `getAll` devuelve objetos desconectados del store, y entre esa foto y el
+ * despacho hay un `await` de red de segundos. En ese hueco la docente puede
+ * cancelar el cambio, fundirlo con otro o reemplazarlo. Despachando desde la
+ * foto se enviaría algo que ella deshizo y se borraría un `seq` que ya no
+ * existe.
+ *
+ * Por eso el recorrido lleva claves primarias, no objetos, y lo que sale por la
+ * red es lo que había en el store en el instante de reclamarlo. La reclama,
+ * además, es lo que impide que dos pestañas despachen la misma fila: las
+ * transacciones de escritura sobre un mismo store están serializadas entre
+ * pestañas, así que exactamente una gana.
+ */
+async function claim(seq: number, userId: string): Promise<OutboxRecord | null> {
+  const now = Date.now();
+  return withTx(STORES.outbox, 'readwrite', async (tx) => {
+    const store = tx.objectStore(STORES.outbox);
+    const row = await req<OutboxRecord | undefined>(store.get(seq));
+    if (!row) return null; // cancelada o fundida mientras esperábamos
+    if (row.userId !== userId) return null; // cambió la sesión a mitad de pasada
+    if (row.nextAttemptAt > now) return null; // su cadena todavía está esperando
+    if (row.status === 'inflight' && (row.leaseUntil ?? 0) > now) return null; // otra pestaña
+    const next: OutboxRecord = {
+      ...row,
+      status: 'inflight',
+      leaseOwner: TAB_ID,
+      leaseUntil: now + LEASE_MS,
+    };
+    store.put(next);
+    return next;
+  });
+}
+
+/** True si la fila sigue siendo nuestra; si no, alguien la reemplazó por debajo. */
+function stillOurs(row: OutboxRecord | undefined, seq: number): row is OutboxRecord {
+  return !!row && row.seq === seq && row.leaseOwner === TAB_ID;
+}
+
+/** Salió bien: se borra la fila y, si era un alta, se remapea su id. */
+async function settleSuccess(
+  claimed: OutboxRecord,
+  outcome: DispatchOutcome,
+  userId: string,
+): Promise<void> {
+  await withTx(
+    [STORES.outbox, STORES.idMap, STORES.apiCache],
+    'readwrite',
+    async (tx) => {
+      const store = tx.objectStore(STORES.outbox);
+      const row = await req<OutboxRecord | undefined>(store.get(claimed.seq!));
+      if (!stillOurs(row, claimed.seq!)) return;
+      if (outcome.remap) {
+        const { entity, tempId, serverId, created } = outcome.remap;
+        await applyRemapInTx(tx, userId, entity, tempId, serverId, created);
+      }
+      store.delete(claimed.seq!);
+    },
+  );
+}
+
+/** Puede funcionar más tarde: se apunta el intento y cuándo volver a probar. */
+async function countAttempt(claimed: OutboxRecord, failure: ReplayFailure): Promise<void> {
+  const attempts = claimed.attempts + 1;
+  await withTx(STORES.outbox, 'readwrite', async (tx) => {
+    const store = tx.objectStore(STORES.outbox);
+    const row = await req<OutboxRecord | undefined>(store.get(claimed.seq!));
+    if (!stillOurs(row, claimed.seq!)) return;
+    store.put({
+      ...row,
+      status: 'pending',
+      attempts,
+      nextAttemptAt: nextAttemptAt(attempts, failure.retryAfterMs),
+      lastError: `${failure.status ?? 'net'}: ${failure.detail ?? failure.code}`,
+      leaseOwner: undefined,
+      leaseUntil: undefined,
+    });
+  });
+}
+
+/** La sesión murió o no hay salida: se suelta la fila sin tocar nada más. */
+async function release(claimed: OutboxRecord): Promise<void> {
+  await withTx(STORES.outbox, 'readwrite', async (tx) => {
+    const store = tx.objectStore(STORES.outbox);
+    const row = await req<OutboxRecord | undefined>(store.get(claimed.seq!));
+    if (!stillOurs(row, claimed.seq!)) return;
+    store.put({ ...row, status: 'pending', leaseOwner: undefined, leaseUntil: undefined });
+  });
+}
+
+/**
+ * Aparta filas: salen del outbox y entran en la lista de fallidos EN LA MISMA
+ * transacción.
+ *
+ * Es el invariante más importante de toda la fase: el trabajo de una docente no
+ * puede existir en cero stores ni en dos. O se mueve entero, o no se mueve.
+ */
+async function moveToDeadLetter(
+  rows: { row: OutboxRecord; reason: string }[],
+  failedAt = Date.now(),
+): Promise<void> {
+  if (rows.length === 0) return;
+  await withTx([STORES.outbox, STORES.deadLetter], 'readwrite', (tx) => {
+    const outbox = tx.objectStore(STORES.outbox);
+    const dead = tx.objectStore(STORES.deadLetter);
+    for (const { row, reason } of rows) {
+      const { seq, status: _status, leaseOwner: _o, leaseUntil: _u, ...rest } = row;
+      void _status;
+      void _o;
+      void _u;
+      dead.put({ ...rest, failedAt, reason } satisfies Omit<DeadLetterRecord, 'seq'>);
+      if (seq !== undefined) outbox.delete(seq);
+    }
+  });
+}
+
+/**
+ * Recupera las filas que quedaron en vuelo porque su pestaña murió a mitad de
+ * despacho. No sabemos si el servidor las recibió: `resumePolicy` decide.
+ */
+async function reclaimAbandoned(userId: string): Promise<void> {
+  const now = Date.now();
+  const rows = (await listRows(userId)).filter(
+    (r) => r.status === 'inflight' && (r.leaseUntil ?? 0) <= now,
+  );
+  if (rows.length === 0) return;
+  await withTx(STORES.outbox, 'readwrite', (tx) => {
+    const store = tx.objectStore(STORES.outbox);
+    for (const row of rows) {
+      if (resumePolicy(row.kind) === 'drop') {
+        if (row.seq !== undefined) store.delete(row.seq);
+      } else {
+        store.put({
+          ...row,
+          status: 'pending',
+          attempts: row.attempts + 1,
+          leaseOwner: undefined,
+          leaseUntil: undefined,
+        });
+      }
+    }
+  });
+}
+
+/** Agrupa por cadena conservando el orden de llegada dentro de cada una. */
+function groupChains(rows: OutboxRecord[]): OutboxRecord[][] {
+  const chains = new Map<string, OutboxRecord[]>();
+  for (const row of rows) {
+    const chain = chains.get(row.chainKey);
+    if (chain) chain.push(row);
+    else chains.set(row.chainKey, [row]);
+  }
+  return [...chains.values()];
+}
+
+let running: Promise<PassResult> | null = null;
+
+/**
+ * Una pasada de reproducción.
+ *
+ * Recorre por turnos: un despacho por cadena y vuelta a empezar mientras haya
+ * progreso. Drenando cadena a cadena, treinta comentarios encolados en una
+ * publicación pondrían treinta viajes de red por delante de una edición de
+ * perfil que la docente hizo después; por turnos, el retraso de cabecera se
+ * queda en una petición por cadena y no cuesta ni una petición más — son las
+ * mismas N en otro orden.
+ *
+ * Termina porque solo cuentan como progreso el éxito y la muerte, y ambos
+ * borran su fila del outbox: cada vuelta con progreso deja estrictamente menos
+ * filas.
+ *
+ * Una cadena atascada no detiene a las demás. El único estado que escribe un
+ * fallo son los `attempts` y el `nextAttemptAt` de SU fila, y la elegibilidad
+ * se mira cadena por cadena. Ese `return` ante el primer fallo transitorio que
+ * tiene `mutation-queue.ts:443` es lo que convertía toda la cola en una sola
+ * cadena global: la forma real de BUG-03, una edición de evento atascada
+ * reteniendo de rehén a una de perfil durante horas.
+ */
+export function replayPass(): Promise<PassResult> {
+  if (running) return running;
+  running = runPass().finally(() => {
+    running = null;
+  });
+  return running;
+}
+
+async function runPass(): Promise<PassResult> {
+  if (!isIdbAvailable() || !isOnline()) {
+    return { dispatched: 0, dead: 0, stopped: 'skipped' };
+  }
+  const userId = getCacheUser();
+  const first = await listRows(userId);
+  if (first.length === 0) {
+    await refreshCounts();
+    return { dispatched: 0, dead: 0, stopped: 'drained' };
+  }
+
+  // `withSync` envuelve la pasada ENTERA, nunca cada despacho: si no, el aviso
+  // parpadearía una vez por petición. Y una pasada que no hace nada ni siquiera
+  // entra aquí, para que no destelle por un no-op.
+  return withSync(async () => {
+    await reclaimAbandoned(userId);
+
+    let dispatched = 0;
+    let dead = 0;
+    let sweeps = 0;
+    let progress = true;
+
+    while (progress && sweeps < MAX_SWEEPS) {
+      progress = false;
+      sweeps += 1;
+      // Se relee en cada vuelta: lo encolado a mitad de pasada se ve en la
+      // siguiente, y lo que se fundió no se despacha desde una foto vieja.
+      const rows = await listRows(userId);
+      if (rows.length === 0) break;
+
+      for (const chain of groupChains(rows)) {
+        const head = chain[0];
+        if (head.seq === undefined) continue;
+
+        const claimed = await claim(head.seq, userId);
+        if (!claimed) continue;
+
+        const mutation = toMutation(claimed);
+        if (!mutation) {
+          // Una fila que esta versión de la app ya no sabe leer. Se aparta sin
+          // gastar una sola petición, con toda su cadena: si el payload es
+          // ilegible, nada que dependa de él tiene sentido.
+          await moveToDeadLetter(chain.map((row) => ({ row, reason: unreadableReason() })));
+          dead += chain.length;
+          progress = true;
+          continue;
+        }
+
+        try {
+          const outcome = await dispatch(mutation);
+          await settleSuccess(claimed, outcome, userId);
+          dispatched += 1;
+          progress = true;
+        } catch (error) {
+          const failure = classifyReplayError(error, claimed.attempts + 1);
+
+          if (failure.verdict === 'session') {
+            // No se cuenta intento ni se escribe nada en la fila: tiene que
+            // sobrevivir a la caducidad de la sesión para replicarse cuando la
+            // docente vuelva a entrar.
+            await release(claimed);
+            await refreshCounts();
+            // Y se avisa a quien es dueño de esa decisión. El outbox no purga
+            // nada por su cuenta: `reportDeadSession` se lleva el contenido
+            // cacheado —copia de lo que el servidor ya tiene— y deja en paz la
+            // bandeja, que es la única copia de lo que todavía no tiene.
+            void reportDeadSession(failure.detail);
+            return { dispatched, dead, stopped: 'session' as const };
+          }
+
+          if (failure.verdict === 'unreachable') {
+            // Un fallo de transporte no dice de quién es la culpa. `isOnline()`
+            // da true con alcanzabilidad desconocida, así que una tablet
+            // enganchada a un punto de acceso sin salida sí corre pasadas: si
+            // esto contase intento, un aula sin internet mataría el trabajo de
+            // la docente sin que ningún servidor lo hubiera rechazado.
+            const reachable = await checkReachability(true);
+            if (!reachable) {
+              await release(claimed);
+              await refreshCounts();
+              return { dispatched, dead, stopped: 'unreachable' as const };
+            }
+            await countAttempt(claimed, failure);
+            continue;
+          }
+
+          if (failure.verdict === 'retry') {
+            await countAttempt(claimed, failure);
+            continue; // su cadena queda fuera hasta que le toque
+          }
+
+          // Muerta. Si era la cabeza de una cadena que nace de un alta, o el
+          // servidor dice que la entidad ya no existe, se lleva al resto: sin
+          // id de servidor que mapear, lo que venga detrás solo produciría una
+          // ristra de 404 contra algo que nunca existió.
+          const cascades = failure.cascades || isCreate(claimed.kind);
+          const victims = cascades ? chain : [claimed];
+          await moveToDeadLetter(
+            victims.map((row) => ({
+              row,
+              reason: row.seq === claimed.seq ? failure.reason : orphanReason(claimed.kind),
+            })),
+          );
+          dead += victims.length;
+          progress = true;
+        }
+      }
+    }
+
+    await refreshCounts();
+    return { dispatched, dead, stopped: 'drained' as const };
+  });
+}
+
+function isCreate(kind: string): boolean {
+  return kind === 'post.create' || kind === 'event.create';
+}
+
+/** El instante más cercano en que algo vuelve a poder salir; `null` si no hay nada. */
+export async function nextDueAt(): Promise<number | null> {
+  const rows = await listRows();
+  if (rows.length === 0) return null;
+  return Math.min(...rows.map((r) => r.nextAttemptAt));
+}
+
+/**
+ * Vuelve la conexión o la app al primer plano: todo puede reintentarse ya.
+ *
+ * Se reinicia `nextAttemptAt`, NUNCA `attempts`. Reiniciar los intentos dejaría
+ * mantener vivo un cambio imposible para siempre a base de modo avión.
+ */
+export async function resetBackoff(): Promise<void> {
+  if (!isIdbAvailable()) return;
+  const userId = getCacheUser();
+  const rows = (await listRows(userId)).filter((r) => r.nextAttemptAt > 0);
+  if (rows.length === 0) return;
+  await withTx(STORES.outbox, 'readwrite', (tx) => {
+    const store = tx.objectStore(STORES.outbox);
+    for (const row of rows) store.put({ ...row, nextAttemptAt: 0 });
+  });
+}
+
+/**
+ * Limpieza por antigüedad: lo que lleva demasiado sin poder salir se aparta
+ * —para que la docente lo vea y decida— y lo apartado hace mucho se borra.
+ *
+ * Es la contrapartida de que el trabajo sin sincronizar sobreviva a cerrar
+ * sesión: sobrevive, pero no indefinidamente.
+ */
+export async function sweepStale(now: number = Date.now()): Promise<void> {
+  if (!isIdbAvailable()) return;
+  const userId = getCacheUser();
+
+  const stale = (await listRows(userId)).filter((r) => now - r.createdAt > OUTBOX_TTL_MS);
+  await moveToDeadLetter(stale.map((row) => ({ row, reason: staleReason() })), now);
+
+  const rotten = (await listDeadRows(userId)).filter(
+    (r) => now - r.failedAt > DEAD_LETTER_TTL_MS,
+  );
+  if (rotten.length > 0) {
+    await withTx(STORES.deadLetter, 'readwrite', (tx) => {
+      const store = tx.objectStore(STORES.deadLetter);
+      for (const row of rotten) if (row.seq !== undefined) store.delete(row.seq);
+    });
+  }
+  if (stale.length > 0 || rotten.length > 0) {
+    await refreshCounts();
+    emitOutboxChanged();
+  }
 }
 
 /** Solo para tests: suelta los suscriptores y cierra el canal entre pestañas. */

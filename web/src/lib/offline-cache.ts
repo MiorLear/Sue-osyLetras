@@ -2,6 +2,7 @@ import {
   ANONYMOUS_SCOPE,
   STORES,
   clearAllUserData,
+  clearUserContent,
   getAllByUser,
   getRecord,
   isIdbAvailable,
@@ -155,11 +156,26 @@ export async function readAllCachedEntries(): Promise<Record<string, CacheEntry<
 }
 
 /**
- * Logout: removes every entry belonging to `userId` (the current user by
- * default) across every user-scoped store, so the next teacher to pick up the
- * tablet starts from nothing.
+ * Cerrar sesión o sesión caducada: borra el contenido cacheado de `userId` (por
+ * defecto la usuaria actual), así que la siguiente docente que coja la tablet
+ * empieza de cero.
+ *
+ * Lo que NO se lleva es la bandeja de salida. La caché es una copia de algo que
+ * el servidor ya tiene; la bandeja es la única copia de algo que todavía no
+ * tiene, y que la docente cree guardado. Que no sea legible bajo la sesión de
+ * otra persona lo garantiza el ámbito por usuaria, no el borrado.
  */
 export async function clearUserCache(userId: string = getCacheUser()): Promise<void> {
+  if (!isIdbAvailable()) return;
+  try {
+    await clearUserContent(userId);
+  } catch {
+    /* best-effort */
+  }
+}
+
+/** "Olvidar este dispositivo": también el trabajo sin sincronizar. */
+export async function clearUserEverything(userId: string = getCacheUser()): Promise<void> {
   if (!isIdbAvailable()) return;
   try {
     await clearAllUserData(userId);
