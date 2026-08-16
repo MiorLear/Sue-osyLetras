@@ -12,6 +12,7 @@ export function ConfirmDialog() {
   const request = usePendingConfirm();
   const ref = useRef<HTMLDialogElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const el = ref.current;
@@ -29,8 +30,11 @@ export function ConfirmDialog() {
       if (typeof el.showModal === 'function') el.showModal();
       else el.setAttribute('open', '');
     }
-    // Focus the safe action, not the destructive one.
-    confirmRef.current?.focus();
+    // Enfoca la acción SEGURA, que es lo que este comentario decía y lo que el
+    // código no hacía: con `tone: 'danger'` el botón de confirmar ES el
+    // destructivo, así que enfocarlo convierte un Intro de más en un borrado.
+    if (request.tone === 'danger') cancelRef.current?.focus();
+    else confirmRef.current?.focus();
   }, [request]);
 
   // Escape fires `cancel`; treat it exactly like pressing "Cancelar".
@@ -54,6 +58,7 @@ export function ConfirmDialog() {
           {request.message && <p className="confirm-dialog__message">{request.message}</p>}
           <div className="confirm-dialog__actions">
             <button
+              ref={cancelRef}
               type="button"
               className="confirm-dialog__cancel"
               onClick={() => settleConfirm(false)}>

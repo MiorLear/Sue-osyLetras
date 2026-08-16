@@ -15,6 +15,9 @@ const api = vi.hoisted(() => ({
   emotions: { list: vi.fn(), get: vi.fn() },
   tools: { get: vi.fn() },
   learning: { topics: vi.fn() },
+  posts: { list: vi.fn() },
+  events: { list: vi.fn() },
+  profile: { get: vi.fn() },
 }));
 vi.mock('@/lib/api', () => ({ api }));
 
@@ -66,6 +69,9 @@ function happyApi() {
     bibliography: [],
   });
   api.learning.topics.mockResolvedValue([]);
+  api.posts.list.mockResolvedValue([]);
+  api.events.list.mockResolvedValue([]);
+  api.profile.get.mockResolvedValue({ id: 'ana', name: 'Ana' });
 }
 
 beforeEach(async () => {
@@ -97,6 +103,11 @@ describe('content-sync · la pasada automática', () => {
         'emotion:alegria',
         'tools',
         'learning:topics',
+        // Las tres pantallas donde se escribe: sin ellas cacheadas, escribir
+        // sin conexion es inalcanzable para quien no las abrio antes con red.
+        'posts:todos',
+        'events',
+        'profile:me',
       ]),
     );
     expect(result.complete).toBe(true);

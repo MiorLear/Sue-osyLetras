@@ -25,6 +25,10 @@ export const TEACHER_NAV: NavItem[] = [
   // No entra en MAIN_TABS: las cuatro pestañas del teléfono replican la app RN
   // a propósito, y esto es una pantalla de mantenimiento, no de uso diario.
   { emoji: '📥', label: 'Descargas', href: '/descargas' },
+  // Siempre visible, no solo cuando hay algo que revisar: un menu que aparece y
+  // desaparece desconcierta mas de lo que ayuda, y la pantalla tiene estado
+  // vacio que responde la pregunta a quien entre por si acaso.
+  { emoji: '⚠️', label: 'Cambios sin enviar', href: '/sync-problemas' },
   { emoji: '👤', label: 'Perfil', href: '/profile' },
 ];
 
@@ -37,6 +41,7 @@ export const ADMIN_NAV: NavItem[] = [
   { emoji: '🧰', label: 'Herramientas', href: '/admin/herramientas' },
   { emoji: '🌱', label: 'Aprendiendo', href: '/admin/aprendiendo' },
   { emoji: '🎬', label: 'Videos de introducción', href: '/admin/videos-intro' },
+  { emoji: '⚠️', label: 'Cambios sin enviar', href: '/sync-problemas' },
   { emoji: '👤', label: 'Perfil', href: '/profile' },
 ];
 

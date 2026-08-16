@@ -50,6 +50,14 @@ const PDF: MediaItem = {
   sizeBytes: 2048,
 };
 
+/**
+ * "Descargar" ya se lee en el primer render, con el estado en `checking` y el
+ * botón deshabilitado, así que esperar ese texto no garantiza que se pueda
+ * pulsar: en cuanto la máquina va justa, el click cae sobre un botón muerto.
+ * Lo que hay que esperar es a que deje de estarlo.
+ */
+const enabled = () => !(screen.getByRole('button') as HTMLButtonElement).disabled;
+
 beforeEach(() => {
   clearToasts();
   online = true;
@@ -75,7 +83,7 @@ describe('<DownloadableMediaItem />', () => {
 
   it('descarga al pulsar y queda disponible sin conexión', async () => {
     render(<DownloadableMediaItem item={PDF} />);
-    await waitFor(() => expect(screen.getByText('Descargar')).toBeTruthy());
+    await waitFor(() => expect(enabled()).toBe(true));
 
     await act(async () => {
       screen.getByRole('button').click();
@@ -97,7 +105,7 @@ describe('<DownloadableMediaItem />', () => {
     });
 
     render(<DownloadableMediaItem item={PDF} />);
-    await waitFor(() => expect(screen.getByText('Descargar')).toBeTruthy());
+    await waitFor(() => expect(enabled()).toBe(true));
     await act(async () => {
       screen.getByRole('button').click();
     });
@@ -127,7 +135,7 @@ describe('<DownloadableMediaItem />', () => {
     const notice = vi.spyOn(toast, 'info');
 
     render(<DownloadableMediaItem item={PDF} />);
-    await waitFor(() => expect(screen.getByText('Descargar')).toBeTruthy());
+    await waitFor(() => expect(enabled()).toBe(true));
 
     await act(async () => {
       screen.getByRole('button').click();
@@ -144,7 +152,7 @@ describe('<DownloadableMediaItem />', () => {
     );
 
     render(<DownloadableMediaItem item={PDF} />);
-    await waitFor(() => expect(screen.getByText('Descargar')).toBeTruthy());
+    await waitFor(() => expect(enabled()).toBe(true));
 
     await act(async () => {
       screen.getByRole('button').click();

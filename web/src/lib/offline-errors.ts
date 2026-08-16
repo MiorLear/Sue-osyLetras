@@ -117,6 +117,14 @@ export function classifyError(err: unknown): Classification {
     // same way here so the cache is purged too.
     return { code: 'session-expired', retryable: false, fatalToSession: true, status, detail };
   }
+  if (status === 408 || status === 425) {
+    // Timeout de petición y "too early" son fallos de transporte con número: el
+    // servidor no llegó a decidir nada. Caían en `unknown` → no reintentable,
+    // que en una LECTURA solo significa enseñar un error, pero en una ESCRITURA
+    // significa tirar el trabajo de la docente sin haberlo intentado. Se cierra
+    // aquí y no en el outbox porque el hueco está en la taxonomía.
+    return { code: 'network', retryable: true, fatalToSession: false, status, detail };
+  }
   if (status === 429) {
     return {
       code: 'rate-limited',

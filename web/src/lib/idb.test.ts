@@ -61,6 +61,7 @@ describe('idb · esquema', () => {
       userId: 'u1',
       kind: 'event.create',
       payload: {},
+      chainKey: `event:${id}`,
       createdAt: Date.now(),
       attempts: 0,
       nextAttemptAt: 0,
@@ -88,6 +89,88 @@ describe('idb · esquema', () => {
       scopedKey(ANONYMOUS_SCOPE, 'installPrompt'),
     );
     expect(row?.value).toBe('dismissed');
+  });
+});
+
+describe('idb · migración v1 → v2', () => {
+  // El índice viejo `by-nextAttemptAt` no llevaba la usuaria dentro, así que
+  // recorrerlo devolvía "lo que toca reintentar" de todas las docentes de la
+  // tablet. Se sustituye por el compuesto. La migración tiene que llegar sin
+  // perder lo que ya hubiera guardado.
+  function openV1(): Promise<IDBDatabase> {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        const apiCache = db.createObjectStore(STORES.apiCache, { keyPath: 'id' });
+        apiCache.createIndex('by-user', 'userId');
+        apiCache.createIndex('by-fetchedAt', 'fetchedAt');
+        const mediaIndex = db.createObjectStore(STORES.mediaIndex, { keyPath: 'id' });
+        mediaIndex.createIndex('by-url', 'url');
+        const outbox = db.createObjectStore(STORES.outbox, {
+          keyPath: 'seq',
+          autoIncrement: true,
+        });
+        outbox.createIndex('by-user', 'userId');
+        outbox.createIndex('by-id', 'id', { unique: true });
+        outbox.createIndex('by-nextAttemptAt', 'nextAttemptAt');
+        const deadLetter = db.createObjectStore(STORES.deadLetter, {
+          keyPath: 'seq',
+          autoIncrement: true,
+        });
+        deadLetter.createIndex('by-user', 'userId');
+        const idMap = db.createObjectStore(STORES.idMap, { keyPath: 'id' });
+        idMap.createIndex('by-user', 'userId');
+        const meta = db.createObjectStore(STORES.meta, { keyPath: 'id' });
+        meta.createIndex('by-user', 'userId');
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  beforeEach(async () => {
+    closeDb();
+    await new Promise<void>((resolve) => {
+      const del = indexedDB.deleteDatabase(DB_NAME);
+      del.onsuccess = () => resolve();
+      del.onerror = () => resolve();
+      del.onblocked = () => resolve();
+    });
+  });
+
+  it('sube a v2, cambia el índice inseguro por el compuesto y no pierde datos', async () => {
+    const v1 = await openV1();
+    await new Promise<void>((resolve, reject) => {
+      const tx = v1.transaction(STORES.outbox, 'readwrite');
+      tx.objectStore(STORES.outbox).put({
+        id: 'm-vieja',
+        userId: 'ana',
+        kind: 'profile.update',
+        payload: { input: { name: 'Ana' } },
+        chainKey: 'profile',
+        createdAt: 1,
+        attempts: 2,
+        nextAttemptAt: 3,
+        status: 'pending',
+      });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    v1.close();
+
+    const db = await openDb();
+    expect(db.version).toBe(2);
+    await withTx(STORES.outbox, 'readonly', (tx) => {
+      const names = [...tx.objectStore(STORES.outbox).indexNames];
+      expect(names).not.toContain('by-nextAttemptAt');
+      expect(names).toContain('by-user-nextAttemptAt');
+    });
+
+    const rows = await getAllByUser<OutboxRecord>(STORES.outbox, 'ana');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].attempts).toBe(2);
+    expect(rows[0].chainKey).toBe('profile');
   });
 });
 
@@ -132,6 +215,7 @@ describe('idb · clearAllUserData', () => {
       userId: 'ana',
       kind: 'profile.update',
       payload: {},
+      chainKey: 'profile',
       createdAt: 0,
       attempts: 0,
       nextAttemptAt: 0,
@@ -142,6 +226,7 @@ describe('idb · clearAllUserData', () => {
       userId: 'bea',
       kind: 'profile.update',
       payload: {},
+      chainKey: 'profile',
       createdAt: 0,
       attempts: 0,
       nextAttemptAt: 0,
@@ -160,6 +245,7 @@ describe('idb · clearAllUserData', () => {
       userId: 'ana',
       kind: 'post.create',
       payload: {},
+      chainKey: 'post:1',
       createdAt: 0,
       attempts: 5,
       nextAttemptAt: 0,

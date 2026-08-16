@@ -195,6 +195,15 @@ function subscribe(cb: () => void): () => void {
   };
 }
 
+/**
+ * Imperative subscription, for non-React modules (the outbox scheduler wants to
+ * know when the connection comes back). Arranca el cableado del navegador igual
+ * que el hook, así que suscribirse basta.
+ */
+export function subscribeNetwork(cb: () => void): () => void {
+  return subscribe(cb);
+}
+
 function getOnlineSnapshot(): boolean {
   return computeOnline(state);
 }

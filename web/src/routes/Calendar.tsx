@@ -1,12 +1,19 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
 import { EVENT_COLORS, type CalEvent, type EventType } from '@explorarte/shared';
 import { CacheAgeNote, ContentState } from '@/components/ContentState';
 import { Icon } from '@/components/Icon';
+import { PendingBadge } from '@/components/PendingBadge';
+import { toast } from '@/components/toast-store';
 import { Select } from '@/components/ui';
 import { api } from '@/lib/api';
 import { cacheKeys } from '@/lib/cache-keys';
+import { isDeadSession } from '@/lib/offline-errors';
+import { enqueueEventCreate, enqueueEventRemove, enqueueEventUpdate } from '@/lib/outbox';
+import { isTempEventId, newTempEventId } from '@/lib/outbox-ids';
+import { usePendingIndex } from '@/lib/use-outbox';
+import { useIsOnline } from '@/lib/useNetworkStatus';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
+import { useRefetchOnDrain } from '@/lib/useRefetchOnDrain';
 
 type ViewMode = 'día' | 'semana' | 'mes';
 type ModalMode = 'create' | 'detail' | 'edit' | 'delete' | null;
@@ -29,30 +36,47 @@ interface Form { title: string; type: EventType; dateStr: string; startTime: str
 const blankForm = (date: Date): Form => ({ title: '', type: 'sesión', dateStr: toISO(date), startTime: '10:00', endTime: '11:00', reminder: 'ninguno' });
 
 export default function CalendarScreen() {
-  const navigate = useNavigate();
   const [view, setView] = useState<ViewMode>('día');
   const [selDate, setSelDate] = useState(new Date());
+  const online = useIsOnline();
   const { data, status, ageMs, reload } = useOfflineAsync(
     cacheKeys.events(),
     () => api.events.list(),
     [],
   );
-  const [events, setEvents] = useState<CalEvent[]>([]);
+  const [serverEvents, setServerEvents] = useState<CalEvent[]>([]);
   const [modal, setModal] = useState<ModalMode>(null);
   const [selEvent, setSelEvent] = useState<CalEvent | null>(null);
   const [form, setForm] = useState<Form>(blankForm(new Date()));
-  const [toast, setToast] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (data) setEvents(data);
+    if (data) setServerEvents(data);
   }, [data]);
 
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2200);
-  };
+  // Lo escrito sin conexión, al lado del espejo y nunca dentro: `serverEvents`
+  // lo reemplaza entero cada revalidación, así que un evento optimista metido
+  // ahí desaparecería en cuanto volviera la red, estando a salvo en la cola.
+  const [draftEvents, setDraftEvents] = useState<Record<string, CalEvent>>({});
+  const [draftRemoved, setDraftRemoved] = useState<Record<string, true>>({});
+
+  const pending = usePendingIndex();
+  useRefetchOnDrain(reload);
+
+  // `events` sigue llamándose `events`, así que todo lo que hay debajo —las
+  // tres vistas, el estado vacío, el filtro del día— no se entera de nada.
+  const events = useMemo(() => {
+    const base = serverEvents
+      .filter((e) => !(draftRemoved[e.id] && pending.eventsRemoved.has(e.id)))
+      .map((e) => (draftEvents[e.id] && pending.events.has(e.id) ? draftEvents[e.id] : e));
+    const creados = Object.values(draftEvents).filter(
+      (e) => isTempEventId(e.id) && pending.events.has(e.id),
+    );
+    return [...base, ...creados];
+  }, [serverEvents, draftEvents, draftRemoved, pending]);
+
+  const isPending = (id: string) => pending.events.has(id) || pending.eventsRemoved.has(id);
 
   const closeModal = () => { setModal(null); setSelEvent(null); };
   const openCreate = () => { setForm(blankForm(selDate)); setSelEvent(null); setModal('create'); };
@@ -64,22 +88,61 @@ export default function CalendarScreen() {
   };
 
   const submitForm = async () => {
-    if (!form.title.trim()) { showToast('Por favor ingresa un título'); return; }
+    if (!form.title.trim()) { toast.error('Por favor ingresa un título'); return; }
     if (submitting) return;
     setSubmitting(true);
-    try {
-      if (modal === 'edit' && selEvent) {
-        const updated = await api.events.update(selEvent.id, { title: form.title, type: form.type, date: form.dateStr, startTime: form.startTime, endTime: form.endTime, reminder: form.reminder });
-        setEvents((es) => es.map((e) => (e.id === updated.id ? updated : e)));
-        showToast('Evento actualizado correctamente');
+    const input = {
+      title: form.title,
+      type: form.type,
+      date: form.dateStr,
+      startTime: form.startTime,
+      endTime: form.endTime,
+      reminder: form.reminder,
+    };
+    const isEdit = modal === 'edit' && !!selEvent;
+    const encolar = async () => {
+      if (isEdit && selEvent) {
+        // El id puede ser provisional (un evento creado hace un momento sin
+        // conexión). No se distingue aquí a propósito: el outbox reescribe el
+        // objetivo cuando el alta aterriza, y así la pantalla no lleva casos
+        // especiales.
+        await enqueueEventUpdate(selEvent.id, input);
+        setDraftEvents((d) => ({ ...d, [selEvent.id]: { ...selEvent, ...input } }));
       } else {
-        const created = await api.events.create({ title: form.title, type: form.type, date: form.dateStr, startTime: form.startTime, endTime: form.endTime, reminder: form.reminder, completed: false });
-        setEvents((es) => [...es, created]);
-        showToast('Evento creado correctamente');
+        const tempId = newTempEventId();
+        await enqueueEventCreate(tempId, { ...input, completed: false });
+        setDraftEvents((d) => ({ ...d, [tempId]: { id: tempId, ...input, completed: false } }));
       }
       closeModal();
-    } catch {
-      showToast('No se pudo guardar el evento. Intenta de nuevo.');
+      toast.info(isEdit ? 'Se actualizará cuando haya conexión.' : 'Se creará cuando haya conexión.', {
+        title: 'Guardado sin conexión',
+      });
+    };
+
+    try {
+      // Un evento creado sin conexión no tiene id de servidor todavía, así que
+      // su edición siempre pasa por la cola aunque haya red.
+      if (online && !(isEdit && isTempEventId(selEvent!.id))) {
+        if (isEdit && selEvent) {
+          const updated = await api.events.update(selEvent.id, input);
+          setServerEvents((es) => es.map((e) => (e.id === updated.id ? updated : e)));
+          toast.success('Evento actualizado correctamente');
+        } else {
+          const created = await api.events.create({ ...input, completed: false });
+          setServerEvents((es) => [...es, created]);
+          toast.success('Evento creado correctamente');
+        }
+        closeModal();
+      } else {
+        await encolar();
+      }
+    } catch (e) {
+      if (isDeadSession(e)) return;
+      try {
+        await encolar();
+      } catch {
+        toast.error('No se pudo guardar el evento. Intenta de nuevo.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -89,13 +152,32 @@ export default function CalendarScreen() {
     if (!selEvent) { closeModal(); return; }
     if (submitting) return;
     setSubmitting(true);
-    try {
-      await api.events.remove(selEvent.id);
-      setEvents((es) => es.filter((e) => e.id !== selEvent.id));
+    const id = selEvent.id;
+    const encolar = async () => {
+      // Si es un evento creado sin conexión, el outbox cancela su alta en vez
+      // de encolar un borrado contra un id que el servidor nunca ha visto.
+      await enqueueEventRemove(id);
+      setDraftRemoved((d) => ({ ...d, [id]: true }));
       closeModal();
-      showToast('Evento eliminado');
-    } catch {
-      showToast('No se pudo eliminar el evento. Intenta de nuevo.');
+      toast.info('Se eliminará cuando haya conexión.', { title: 'Guardado sin conexión' });
+    };
+
+    try {
+      if (online && !isTempEventId(id)) {
+        await api.events.remove(id);
+        setServerEvents((es) => es.filter((e) => e.id !== id));
+        closeModal();
+        toast.success('Evento eliminado');
+      } else {
+        await encolar();
+      }
+    } catch (e) {
+      if (isDeadSession(e)) return;
+      try {
+        await encolar();
+      } catch {
+        toast.error('No se pudo eliminar el evento. Intenta de nuevo.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -106,11 +188,29 @@ export default function CalendarScreen() {
     if (!ev || ev.type !== 'tarea') return;
     if (togglingId) return;
     setTogglingId(id);
+    const next = !ev.completed;
+    // Marcar y desmarcar sin conexión deja UNA sola actualización con el valor
+    // final: el outbox funde las ediciones seguidas del mismo evento. Es lo que
+    // hace que la casilla se sienta normal sin red.
+    const encolar = async () => {
+      await enqueueEventUpdate(id, { completed: next });
+      setDraftEvents((d) => ({ ...d, [id]: { ...ev, completed: next } }));
+    };
+
     try {
-      const updated = await api.events.update(id, { completed: !ev.completed });
-      setEvents((es) => es.map((e) => (e.id === id ? updated : e)));
-    } catch {
-      showToast('No se pudo actualizar la tarea. Intenta de nuevo.');
+      if (online && !isTempEventId(id)) {
+        const updated = await api.events.update(id, { completed: next });
+        setServerEvents((es) => es.map((e) => (e.id === id ? updated : e)));
+      } else {
+        await encolar();
+      }
+    } catch (e) {
+      if (isDeadSession(e)) return;
+      try {
+        await encolar();
+      } catch {
+        toast.error('No se pudo actualizar la tarea. Intenta de nuevo.');
+      }
     } finally {
       setTogglingId(null);
     }
@@ -147,18 +247,12 @@ export default function CalendarScreen() {
             {events.length === 0 ? (
               <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>Aún no tienes eventos. Crea uno con “Nuevo evento”.</p>
             ) : null}
-            {view === 'día' ? <DayView selDate={selDate} dayEvents={dayEvents} onEvent={openDetail} onToggle={toggleTask} togglingId={togglingId} /> : null}
-            {view === 'semana' ? <WeekView selDate={selDate} setSelDate={setSelDate} dayEvents={dayEvents} onEvent={openDetail} onToggle={toggleTask} togglingId={togglingId} /> : null}
-            {view === 'mes' ? <MonthView selDate={selDate} setSelDate={setSelDate} events={events} /> : null}
+            {view === 'día' ? <DayView selDate={selDate} dayEvents={dayEvents} onEvent={openDetail} onToggle={toggleTask} togglingId={togglingId} isPending={isPending} /> : null}
+            {view === 'semana' ? <WeekView selDate={selDate} setSelDate={setSelDate} dayEvents={dayEvents} onEvent={openDetail} onToggle={toggleTask} togglingId={togglingId} isPending={isPending} /> : null}
+            {view === 'mes' ? <MonthView selDate={selDate} setSelDate={setSelDate} events={events} isPending={isPending} /> : null}
           </>
         )}
       </div>
-
-      {toast ? (
-        <div className="toast">
-          <Icon name="check-circle" size={15} color="#4DD9A6" strokeWidth={2.4} /> {toast}
-        </div>
-      ) : null}
 
       {modal ? (
         <div className="modal-backdrop" onClick={closeModal}>
@@ -193,29 +287,35 @@ export default function CalendarScreen() {
   );
 }
 
-function EventCard({ event, onEvent, onToggle, togglingId }: { event: CalEvent; onEvent: (e: CalEvent) => void; onToggle: (id: string) => void; togglingId: string | null }) {
+function EventCard({ event, onEvent, onToggle, togglingId, pending }: { event: CalEvent; onEvent: (e: CalEvent) => void; onToggle: (id: string) => void; togglingId: string | null; pending?: boolean }) {
   const color = EVENT_COLORS[event.type];
   const isTask = event.type === 'tarea';
   const toggling = togglingId === event.id;
   return (
-    <div style={{ display: 'flex', gap: 12, borderRadius: 12, padding: 12, background: '#fff', border: `1.5px solid ${color}40`, opacity: event.completed ? 0.6 : 1 }}>
+    <div className={pending ? 'is-pending' : undefined} style={{ display: 'flex', gap: 12, borderRadius: 12, padding: 12, background: '#fff', border: `1.5px solid ${color}40`, opacity: event.completed ? 0.6 : 1 }}>
       <span style={{ width: 4, height: 44, borderRadius: 9, background: color, flexShrink: 0 }} />
       <div style={{ flex: 1, display: 'flex', gap: 8 }}>
         {isTask ? (
-          <button onClick={() => onToggle(event.id)} disabled={toggling} style={{ width: 18, height: 18, marginTop: 1, borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', background: event.completed ? 'var(--brand)' : '#fff', border: `2px solid ${event.completed ? 'var(--brand)' : '#C0DEDC'}`, flexShrink: 0, opacity: toggling ? 0.5 : 1 }}>
+          <button
+            onClick={() => onToggle(event.id)}
+            disabled={toggling}
+            aria-label={`${event.completed ? 'Marcar como pendiente' : 'Marcar como completada'}: ${event.title}`}
+            aria-pressed={!!event.completed}
+            style={{ width: 18, height: 18, marginTop: 1, borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', background: event.completed ? 'var(--brand)' : '#fff', border: `2px solid ${event.completed ? 'var(--brand)' : '#C0DEDC'}`, flexShrink: 0, opacity: toggling ? 0.5 : 1 }}>
             {event.completed ? <Icon name="check" size={12} color="#fff" strokeWidth={3} /> : null}
           </button>
         ) : null}
         <button onClick={() => onEvent(event)} style={{ flex: 1, textAlign: 'left' }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-dark)', textDecoration: event.completed ? 'line-through' : 'none' }}>{event.title}</div>
           <div style={{ marginTop: 2, fontSize: 11.5, color: 'var(--text-muted)' }}>{event.startTime} - {event.endTime}</div>
+          {pending ? <div style={{ marginTop: 4 }}><PendingBadge label="Sin enviar" /></div> : null}
         </button>
       </div>
     </div>
   );
 }
 
-function DayView({ selDate, dayEvents, onEvent, onToggle, togglingId }: { selDate: Date; dayEvents: CalEvent[]; onEvent: (e: CalEvent) => void; onToggle: (id: string) => void; togglingId: string | null }) {
+function DayView({ selDate, dayEvents, onEvent, onToggle, togglingId, isPending }: { selDate: Date; dayEvents: CalEvent[]; onEvent: (e: CalEvent) => void; onToggle: (id: string) => void; togglingId: string | null; isPending: (id: string) => boolean }) {
   const slots = Array.from({ length: 13 }, (_, i) => {
     const hour = i + 7;
     const evs = dayEvents.filter((e) => parseInt(e.startTime.split(':')[0], 10) === hour);
@@ -231,7 +331,7 @@ function DayView({ selDate, dayEvents, onEvent, onToggle, togglingId }: { selDat
           <div key={slot.label} style={{ display: 'flex', gap: 12 }}>
             <span style={{ width: 60, fontSize: 11.5, color: 'var(--text-muted)', paddingTop: 2, flexShrink: 0 }}>{slot.label}</span>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {slot.evs.length === 0 ? <div style={{ height: 32, borderBottom: '1px solid var(--border)' }} /> : slot.evs.map((ev) => <EventCard key={ev.id} event={ev} onEvent={onEvent} onToggle={onToggle} togglingId={togglingId} />)}
+              {slot.evs.length === 0 ? <div style={{ height: 32, borderBottom: '1px solid var(--border)' }} /> : slot.evs.map((ev) => <EventCard key={ev.id} event={ev} onEvent={onEvent} onToggle={onToggle} togglingId={togglingId} pending={isPending(ev.id)} />)}
             </div>
           </div>
         ))}
@@ -240,7 +340,7 @@ function DayView({ selDate, dayEvents, onEvent, onToggle, togglingId }: { selDat
   );
 }
 
-function WeekView({ selDate, setSelDate, dayEvents, onEvent, onToggle, togglingId }: { selDate: Date; setSelDate: (d: Date) => void; dayEvents: CalEvent[]; onEvent: (e: CalEvent) => void; onToggle: (id: string) => void; togglingId: string | null }) {
+function WeekView({ selDate, setSelDate, dayEvents, onEvent, onToggle, togglingId, isPending }: { selDate: Date; setSelDate: (d: Date) => void; dayEvents: CalEvent[]; onEvent: (e: CalEvent) => void; onToggle: (id: string) => void; togglingId: string | null; isPending: (id: string) => boolean }) {
   const ws = startOfWeek(selDate);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(ws, i));
   const sorted = dayEvents.slice().sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -260,13 +360,13 @@ function WeekView({ selDate, setSelDate, dayEvents, onEvent, onToggle, togglingI
       </div>
       <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 700, color: 'var(--text-dark)', textTransform: 'capitalize' }}>{title}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {sorted.length === 0 ? <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>No hay eventos para este día</p> : sorted.map((ev) => <EventCard key={ev.id} event={ev} onEvent={onEvent} onToggle={onToggle} togglingId={togglingId} />)}
+        {sorted.length === 0 ? <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>No hay eventos para este día</p> : sorted.map((ev) => <EventCard key={ev.id} event={ev} onEvent={onEvent} onToggle={onToggle} togglingId={togglingId} pending={isPending(ev.id)} />)}
       </div>
     </div>
   );
 }
 
-function MonthView({ selDate, setSelDate, events }: { selDate: Date; setSelDate: (d: Date) => void; events: CalEvent[] }) {
+function MonthView({ selDate, setSelDate, events, isPending }: { selDate: Date; setSelDate: (d: Date) => void; events: CalEvent[]; isPending: (id: string) => boolean }) {
   const monthStart = new Date(selDate.getFullYear(), selDate.getMonth(), 1);
   const gridStart = startOfWeek(monthStart);
   const cells = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
@@ -289,7 +389,11 @@ function MonthView({ selDate, setSelDate, events }: { selDate: Date; setSelDate:
                 <span style={{ fontSize: 12, fontWeight: isToday || isSel ? 700 : 400, color: isToday || isSel ? 'var(--brand)' : 'var(--text-dark)' }}>{day.getDate()}</span>
                 {evs.length > 0 ? (
                   <div style={{ display: 'flex', gap: 2, marginTop: 3 }}>
-                    {evs.slice(0, 3).map((e, i) => (<span key={i} style={{ width: 4, height: 4, borderRadius: 2, background: EVENT_COLORS[e.type] }} />))}
+                    {/* En una rejilla de mes no cabe texto, así que lo pendiente
+                        se dice con el mismo ámbar que la insignia y un punto algo
+                        mayor. Hueco no valía: un cuadrado de 4px sin relleno y con
+                        un borde pastel es invisible a esta escala. */}
+                    {evs.slice(0, 3).map((e, i) => (<span key={i} style={{ width: isPending(e.id) ? 6 : 4, height: isPending(e.id) ? 6 : 4, borderRadius: 3, background: isPending(e.id) ? 'var(--pending-accent)' : EVENT_COLORS[e.type] }} />))}
                   </div>
                 ) : null}
               </div>

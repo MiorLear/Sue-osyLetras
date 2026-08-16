@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import { useContentSync } from '@/lib/useContentSync';
+import { useOutboxReplay } from '@/lib/outbox-scheduler';
 import { BottomNav } from './BottomNav';
 import { MobileTopBar } from './MobileTopBar';
 import { Sidebar } from './Sidebar';
@@ -15,6 +16,11 @@ export function TabsLayout() {
   // en main.tsx porque este layout ya está detrás de RequireAuth: antes de
   // saber quién es la usuaria, lo cacheado va al ámbito anónimo.
   useContentSync();
+
+  // Y su gemelo en el otro sentido: vaciar la bandeja de cambios hechos sin
+  // conexión. Vive aquí por la misma razón — una pasada corriendo en la
+  // pantalla de login leería el ámbito anónimo.
+  useOutboxReplay();
 
   return (
     <div className="app-layout">

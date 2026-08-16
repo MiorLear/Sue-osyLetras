@@ -25,7 +25,7 @@
 // safe and the whole point.
 
 export const DB_NAME = 'explorarte-offline';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 export const STORES = {
   apiCache: 'apiCache',
@@ -38,7 +38,7 @@ export const STORES = {
 
 export type StoreName = (typeof STORES)[keyof typeof STORES];
 
-/** Stores whose rows belong to one user and must disappear when they log out. */
+/** Stores whose rows belong to one user. Union of the two lists below. */
 export const USER_SCOPED_STORES: StoreName[] = [
   STORES.apiCache,
   STORES.outbox,
@@ -46,6 +46,23 @@ export const USER_SCOPED_STORES: StoreName[] = [
   STORES.idMap,
   STORES.meta,
 ];
+
+/**
+ * Copias de estado que el servidor YA tiene. Se van al cerrar sesión y al
+ * caducar: borrarlas no cuesta nada porque se pueden volver a pedir.
+ */
+export const USER_CONTENT_STORES: StoreName[] = [STORES.apiCache, STORES.meta];
+
+/**
+ * La ÚNICA copia de lo que el servidor NO tiene todavía.
+ *
+ * No se borra porque caduque una sesión. La distinción es la que decide: purgar
+ * una copia es higiene, purgar la única copia es destruir el trabajo que una
+ * docente creía guardado. Y lo que protege el requisito de la tablet compartida
+ * es el ámbito por usuaria —clave compuesta inyectiva, toda lectura pasando por
+ * `getCacheUser()`— no la purga. Solo "olvidar este dispositivo" los borra.
+ */
+export const USER_WORK_STORES: StoreName[] = [STORES.outbox, STORES.deadLetter, STORES.idMap];
 
 /** Scope used before anyone logs in. Never collides with a real user id
  *  because a server id can't contain the separator below. */
@@ -117,7 +134,14 @@ export type OutboxStatus = 'pending' | 'inflight' | 'failed';
  *  so the queue keeps a total order without storing an explicit index. */
 export interface OutboxRecord {
   seq?: number;
-  /** Client-generated stable id (the one screens optimistically render). */
+  /**
+   * Id de ESTA FILA (`m-…`), no el id temporal de la entidad que toca.
+   *
+   * La distinción importa porque `by-id` es UNIQUE: una misma entidad acumula
+   * varias filas (un create y dos ediciones del mismo evento), así que meter
+   * aquí el id temporal haría que el segundo `put` abortara la transacción
+   * entera. El id temporal vive en el `payload`.
+   */
   id: string;
   userId: string;
   kind: string;
@@ -128,6 +152,17 @@ export interface OutboxRecord {
   nextAttemptAt: number;
   status: OutboxStatus;
   lastError?: string;
+  /**
+   * Unidad de orden y de aislamiento de fallos: la instancia de entidad
+   * (`profile`, `event:<id>`, `post:<id>`). Dentro de una cadena el orden es
+   * estricto; entre cadenas es libre, que es lo que impide que un cambio
+   * atascado retenga de rehén a todos los demás (BUG-03).
+   */
+  chainKey: string;
+  /** Pestaña que reclamó la fila. Solo significa algo con `status: 'inflight'`. */
+  leaseOwner?: string;
+  /** Instante tras el cual la reclama se considera abandonada. */
+  leaseUntil?: number;
 }
 
 /** A mutation that will never be replayed, kept so the user can be told. */
@@ -171,13 +206,16 @@ function promisify<T>(request: IDBRequest<T>): Promise<T> {
 }
 
 /**
- * Versioned upgrade path. Every future migration adds a `case` and falls
- * through, so a tablet that skipped three releases still lands on the current
- * schema in a single open().
+ * Versioned upgrade path: cada release añade un escalón `if (oldVersion < N)`,
+ * así que una tablet que se saltó tres releases pasa por todos los que le
+ * faltan, en orden, en un solo open().
+ *
+ * `tx` es la transacción de versionchange: hace falta para tocar los índices de
+ * un store que ya existe, cosa que `db` por sí solo no permite.
  */
-function upgrade(db: IDBDatabase, oldVersion: number): void {
-  switch (oldVersion) {
-    case 0: {
+function upgrade(db: IDBDatabase, oldVersion: number, tx: IDBTransaction): void {
+  if (oldVersion < 1) {
+    {
       const apiCache = db.createObjectStore(STORES.apiCache, { keyPath: 'id' });
       apiCache.createIndex('by-user', 'userId');
       apiCache.createIndex('by-fetchedAt', 'fetchedAt');
@@ -188,7 +226,6 @@ function upgrade(db: IDBDatabase, oldVersion: number): void {
       const outbox = db.createObjectStore(STORES.outbox, { keyPath: 'seq', autoIncrement: true });
       outbox.createIndex('by-user', 'userId');
       outbox.createIndex('by-id', 'id', { unique: true });
-      outbox.createIndex('by-nextAttemptAt', 'nextAttemptAt');
 
       const deadLetter = db.createObjectStore(STORES.deadLetter, {
         keyPath: 'seq',
@@ -202,8 +239,27 @@ function upgrade(db: IDBDatabase, oldVersion: number): void {
       const meta = db.createObjectStore(STORES.meta, { keyPath: 'id' });
       meta.createIndex('by-user', 'userId');
     }
-    // falls through — next release adds `case 1:` here.
   }
+
+  if (oldVersion < 2) {
+    // Una instalación nueva pasa también por aquí, así que el escalón tiene que
+    // ser idempotente.
+    const outbox = tx.objectStore(STORES.outbox);
+    // `by-nextAttemptAt` no llevaba la usuaria dentro: recorrerlo devuelve "lo
+    // que toca reintentar" de TODAS las docentes de la tablet, ordenado por
+    // fecha. Es justo la consulta que querrá el replay desde el service worker
+    // (PWA-3.5), donde no hay sesión de React que diga quién es — y de ahí sale
+    // despachar la escritura de una bajo el token de otra. Contra eso lo que
+    // aguanta no es un comentario: es que la consulta insegura no exista.
+    if (outbox.indexNames.contains('by-nextAttemptAt')) {
+      outbox.deleteIndex('by-nextAttemptAt');
+    }
+    if (!outbox.indexNames.contains('by-user-nextAttemptAt')) {
+      outbox.createIndex('by-user-nextAttemptAt', ['userId', 'nextAttemptAt']);
+    }
+  }
+
+  // La próxima release añade aquí `if (oldVersion < 3) { … }`.
 }
 
 /** Opens (and memoises) the database. */
@@ -211,7 +267,7 @@ export function openDb(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
   const attempt = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = (event) => upgrade(request.result, event.oldVersion);
+    request.onupgradeneeded = (event) => upgrade(request.result, event.oldVersion, request.transaction!);
     request.onsuccess = () => {
       const db = request.result;
       // Another tab asked for a newer schema: let go so it isn't blocked, and
@@ -314,19 +370,19 @@ export async function getAllByUser<T>(store: StoreName, userId: string): Promise
 }
 
 /**
- * Wipes every user-scoped store for one user in a single transaction: it either
- * all disappears or nothing does, so a logout can't leave half a teacher's data
- * on a shared tablet. mediaIndex is left alone (public bytes, see header).
+ * Wipes the given stores for one user in a single transaction: it either all
+ * disappears or nothing does, so a logout can't leave half a teacher's data on
+ * a shared tablet. mediaIndex is left alone (public bytes, see header).
  *
  * Deleting by primary key (looked up through `by-user`) is the one code path
  * that works for both the composite-key stores and the autoIncrement ones.
  */
-export async function clearAllUserData(userId: string): Promise<void> {
-  await withTx(USER_SCOPED_STORES, 'readwrite', async (tx) => {
+async function clearStoresForUser(stores: StoreName[], userId: string): Promise<void> {
+  await withTx(stores, 'readwrite', async (tx) => {
     const only = IDBKeyRange.only(userId);
     // Every lookup is issued synchronously, before the first await, so the
     // transaction cannot auto-commit halfway through the wipe.
-    const lookups = USER_SCOPED_STORES.map((store) => ({
+    const lookups = stores.map((store) => ({
       store,
       keys: promisify<IDBValidKey[]>(tx.objectStore(store).index('by-user').getAllKeys(only)),
     }));
@@ -334,6 +390,19 @@ export async function clearAllUserData(userId: string): Promise<void> {
       for (const key of await keys) tx.objectStore(store).delete(key);
     }
   });
+}
+
+/**
+ * Cerrar sesión y sesión caducada: se lleva el contenido cacheado y deja el
+ * trabajo sin sincronizar donde está. Ver `USER_WORK_STORES`.
+ */
+export async function clearUserContent(userId: string): Promise<void> {
+  await clearStoresForUser(USER_CONTENT_STORES, userId);
+}
+
+/** "Olvidar este dispositivo": contenido Y trabajo sin sincronizar. */
+export async function clearAllUserData(userId: string): Promise<void> {
+  await clearStoresForUser(USER_SCOPED_STORES, userId);
 }
 
 /** Nukes every store, including media. For "forget this device" / test resets. */
