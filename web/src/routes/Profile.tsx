@@ -181,8 +181,8 @@ export default function Profile() {
     }
   };
 
-  const logout = () => {
-    signOut();
+  const logout = async () => {
+    await signOut();
     navigate('/login', { replace: true });
   };
 

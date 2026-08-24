@@ -42,5 +42,8 @@ setup('inicia sesión como docente y guarda la sesión', async ({ page }) => {
   await page.reload();
   await expect(page.locator('.install-banner')).toHaveCount(0);
 
-  await page.context().storageState({ path: ARCHIVO_SESION });
+  // La sesión vive en IndexedDB desde PWA-4.1. El valor por defecto de
+  // storageState solo guarda cookies/localStorage y dejaría a los proyectos
+  // dependientes desconectados aunque el login de setup hubiera funcionado.
+  await page.context().storageState({ path: ARCHIVO_SESION, indexedDB: true });
 });

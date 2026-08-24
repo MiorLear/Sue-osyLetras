@@ -70,14 +70,14 @@ export default function Login() {
   // La comprobación de estado se conserva para el modo mock, que resuelve la
   // cuenta en memoria y devuelve 200 con el status dentro. Contra la API real
   // esta rama ya no se alcanza: el servidor responde 403 (ver failed()).
-  const enter = (result: AuthResult) => {
+  const enter = async (result: AuthResult) => {
     setError(null);
     const u = result.user;
     if (u.status === 'rejected' || u.status === 'pending') {
       showPendingScreen(u.status);
       return;
     }
-    signIn(result);
+    await signIn(result);
     navigate(u.role === 'admin' ? '/admin' : '/main', { replace: true });
   };
 

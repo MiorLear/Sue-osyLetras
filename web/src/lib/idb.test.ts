@@ -31,12 +31,12 @@ beforeEach(async () => {
 });
 
 describe('idb · esquema', () => {
-  it('abre la base con los seis stores versionados', async () => {
+  it('abre la base con los siete stores versionados', async () => {
     const db = await openDb();
     expect(db.name).toBe(DB_NAME);
     expect(db.version).toBe(DB_VERSION);
     expect([...db.objectStoreNames].sort()).toEqual(
-      ['apiCache', 'deadLetter', 'idMap', 'mediaIndex', 'meta', 'outbox'].sort(),
+      ['apiCache', 'authToken', 'deadLetter', 'idMap', 'mediaIndex', 'meta', 'outbox'].sort(),
     );
   });
 
@@ -92,7 +92,7 @@ describe('idb · esquema', () => {
   });
 });
 
-describe('idb · migración v1 → v2', () => {
+describe('idb · migración v1 → v3', () => {
   // El índice viejo `by-nextAttemptAt` no llevaba la usuaria dentro, así que
   // recorrerlo devolvía "lo que toca reintentar" de todas las docentes de la
   // tablet. Se sustituye por el compuesto. La migración tiene que llegar sin
@@ -139,7 +139,7 @@ describe('idb · migración v1 → v2', () => {
     });
   });
 
-  it('sube a v2, cambia el índice inseguro por el compuesto y no pierde datos', async () => {
+  it('sube a v3, cambia el índice inseguro, crea authToken y no pierde datos', async () => {
     const v1 = await openV1();
     await new Promise<void>((resolve, reject) => {
       const tx = v1.transaction(STORES.outbox, 'readwrite');
@@ -160,7 +160,8 @@ describe('idb · migración v1 → v2', () => {
     v1.close();
 
     const db = await openDb();
-    expect(db.version).toBe(2);
+    expect(db.version).toBe(3);
+    expect([...db.objectStoreNames]).toContain(STORES.authToken);
     await withTx(STORES.outbox, 'readonly', (tx) => {
       const names = [...tx.objectStore(STORES.outbox).indexNames];
       expect(names).not.toContain('by-nextAttemptAt');
