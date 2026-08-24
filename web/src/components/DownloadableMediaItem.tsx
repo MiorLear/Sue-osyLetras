@@ -5,7 +5,7 @@ import type { MediaItem } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { MediaViewer } from '@/components/MediaViewer';
 import { toast } from '@/components/toast-store';
-import { download, isDownloaded, mediaVersion } from '@/lib/media-cache';
+import { download, isDownloaded, mediaVersion, needsUpdate } from '@/lib/media-cache';
 import { formatBytes, iconFor } from '@/lib/media-format';
 import { reportDownloadError } from '@/lib/open-file';
 import { useIsOnline } from '@/lib/useNetworkStatus';
@@ -34,13 +34,15 @@ export function DownloadableMediaItem({ item }: { item: MediaItem }) {
 
   useEffect(() => {
     let active = true;
-    void isDownloaded(item.id).then((has) => {
-      if (active) setState(has ? 'ready' : 'absent');
-    });
+    void (async () => {
+      const has = await isDownloaded(item.id);
+      const stale = has && online ? await needsUpdate(item.id, mediaVersion(item)) : false;
+      if (active) setState(has && !stale ? 'ready' : 'absent');
+    })();
     return () => {
       active = false;
     };
-  }, [item.id]);
+  }, [item.etag, item.id, item.updatedAt, online]);
 
   const startDownload = async () => {
     if (!online) {
