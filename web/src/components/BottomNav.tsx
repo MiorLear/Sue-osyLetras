@@ -91,9 +91,9 @@ export function BottomNav() {
             <button
               type="button"
               className="more-sheet__logout"
-              onClick={() => {
+              onClick={async () => {
                 setMoreOpen(false);
-                signOut();
+                await signOut();
                 navigate('/login', { replace: true });
               }}>
               <Icon name="log-out" size={18} color="#C53030" />

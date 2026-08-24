@@ -67,6 +67,25 @@ function usable(): boolean {
   return isCacheStorageAvailable() && isIdbAvailable();
 }
 
+/** Logout privacy boundary: remove the downloaded bytes and their index. */
+export async function clearMediaDownloads(): Promise<void> {
+  if (isCacheStorageAvailable()) {
+    try {
+      await caches.delete(MEDIA_CACHE);
+    } catch {
+      /* best effort */
+    }
+  }
+  if (isIdbAvailable()) {
+    try {
+      const rows = await getAllRecords<MediaIndexRecord>(STORES.mediaIndex);
+      await Promise.all(rows.map((row) => deleteRecord(STORES.mediaIndex, row.id)));
+    } catch {
+      /* best effort */
+    }
+  }
+}
+
 async function openMediaCache(): Promise<Cache | null> {
   if (!isCacheStorageAvailable()) return null;
   try {

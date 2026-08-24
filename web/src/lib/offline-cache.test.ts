@@ -113,14 +113,12 @@ describe('offline-cache · namespacing por usuaria (tablet compartida)', () => {
     await expect(readCache('emotions:list')).resolves.toBeUndefined();
   });
 
-  it('deriva la usuaria del perfil persistido si nadie llamó a setCacheUser', async () => {
-    // Tras un reload, la primera lectura ocurre antes de que ningún provider
-    // haya podido fijar el scope; sale de localStorage, como AuthContext.
+  it('no deriva identidad de un blob manipulable en localStorage', async () => {
     localStorage.setItem('explorarte_user', JSON.stringify({ id: 'u-77', name: 'Ana' }));
-    expect(getCacheUser()).toBe('u-77');
+    expect(getCacheUser()).toBe('@anonymous');
 
     await writeCache('profile', { nombre: 'Ana' });
-    const rows = await getAllByUser<ApiCacheRecord>(STORES.apiCache, 'u-77');
+    const rows = await getAllByUser<ApiCacheRecord>(STORES.apiCache, '@anonymous');
     expect(rows).toHaveLength(1);
   });
 
@@ -129,9 +127,9 @@ describe('offline-cache · namespacing por usuaria (tablet compartida)', () => {
     expect(getCacheUser()).toBe('@anonymous');
   });
 
-  it('normaliza un id numérico a string para que la clave sea estable', async () => {
+  it('ignora también un id numérico persistido por una versión antigua', () => {
     localStorage.setItem('explorarte_user', JSON.stringify({ id: 42 }));
-    expect(getCacheUser()).toBe('42');
+    expect(getCacheUser()).toBe('@anonymous');
   });
 });
 

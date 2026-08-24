@@ -25,7 +25,7 @@
 // safe and the whole point.
 
 export const DB_NAME = 'explorarte-offline';
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 
 export const STORES = {
   apiCache: 'apiCache',
@@ -34,6 +34,7 @@ export const STORES = {
   deadLetter: 'deadLetter',
   idMap: 'idMap',
   meta: 'meta',
+  authToken: 'authToken',
 } as const;
 
 export type StoreName = (typeof STORES)[keyof typeof STORES];
@@ -45,13 +46,14 @@ export const USER_SCOPED_STORES: StoreName[] = [
   STORES.deadLetter,
   STORES.idMap,
   STORES.meta,
+  STORES.authToken,
 ];
 
 /**
  * Copias de estado que el servidor YA tiene. Se van al cerrar sesión y al
  * caducar: borrarlas no cuesta nada porque se pueden volver a pedir.
  */
-export const USER_CONTENT_STORES: StoreName[] = [STORES.apiCache, STORES.meta];
+export const USER_CONTENT_STORES: StoreName[] = [STORES.apiCache, STORES.meta, STORES.authToken];
 
 /**
  * La ÚNICA copia de lo que el servidor NO tiene todavía.
@@ -194,6 +196,13 @@ export interface MetaRecord {
   updatedAt: number;
 }
 
+export interface AuthTokenRecord {
+  id: 'current';
+  userId: string;
+  token: string;
+  updatedAt: number;
+}
+
 // ── connection ───────────────────────────────────────────────────────────────
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -259,7 +268,12 @@ function upgrade(db: IDBDatabase, oldVersion: number, tx: IDBTransaction): void 
     }
   }
 
-  // La próxima release añade aquí `if (oldVersion < 3) { … }`.
+  if (oldVersion < 3) {
+    const authToken = db.createObjectStore(STORES.authToken, { keyPath: 'id' });
+    authToken.createIndex('by-user', 'userId');
+  }
+
+  // La próxima release añade aquí `if (oldVersion < 4) { … }`.
 }
 
 /** Opens (and memoises) the database. */

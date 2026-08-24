@@ -18,8 +18,8 @@ export function Sidebar() {
 
   // Mismo gesto que en Mi perfil: la sesión se cierra y se vuelve a /login sin
   // dejar la pantalla anterior en el historial.
-  const logout = () => {
-    signOut();
+  const logout = async () => {
+    await signOut();
     navigate('/login', { replace: true });
   };
 

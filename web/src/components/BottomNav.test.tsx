@@ -2,8 +2,11 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, describe, expect, it } from 'vitest';
-import { AuthProvider } from '@/context/AuthContext';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/context/AuthContext', () => ({
+  useAuth: () => ({ isAdmin: false, signOut: vi.fn(async () => undefined) }),
+}));
 import { BottomNav } from './BottomNav';
 import { MAIN_TABS, TEACHER_NAV } from './nav-items';
 
@@ -16,9 +19,7 @@ const css = readFileSync(path.resolve(import.meta.dirname, '../styles/global.css
 function renderAt(pathname: string) {
   return render(
     <MemoryRouter initialEntries={[pathname]}>
-      <AuthProvider>
-        <BottomNav />
-      </AuthProvider>
+      <BottomNav />
     </MemoryRouter>,
   );
 }

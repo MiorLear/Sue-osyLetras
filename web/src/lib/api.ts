@@ -1,4 +1,5 @@
 import { createConfigurableApiClient, type ApiModuleKey } from '@explorarte/shared';
+import { clearAuthToken, getAuthToken } from '@/lib/auth-token';
 
 // Default: the in-memory mock. Set VITE_API_URL in a .env file to point the
 // app at the real REST backend — no screen code changes required.
@@ -15,12 +16,11 @@ const mockModules = ((import.meta.env.VITE_API_MOCK_MODULES as string | undefine
 export const api = createConfigurableApiClient({
   baseUrl,
   mockModules,
-  getToken: () => localStorage.getItem('explorarte_token'),
+  getToken: getAuthToken,
   // On any 401 the session is gone/expired — clear it and bounce to login so
   // screens don't sit blank on an unhandled auth error.
   onUnauthorized: () => {
-    localStorage.removeItem('explorarte_token');
-    localStorage.removeItem('explorarte_user');
+    void clearAuthToken();
     if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
       window.location.assign('/login');
     }

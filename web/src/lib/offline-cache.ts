@@ -33,29 +33,14 @@ import {
 /** Explicit override, set by the auth layer on sign-in/sign-out. */
 let currentUser: string | null = null;
 
-/** Where AuthContext persists the signed-in profile. */
-const USER_KEY = 'explorarte_user';
-
 /**
- * The scope every key is written under. Falls back to the persisted profile so
- * the cache is correctly namespaced from the very first read after a reload,
- * before any React provider has had a chance to call setCacheUser().
- *
+ * AuthContext restores this scope from IndexedDB before rendering children.
  * Anonymous (pre-login) traffic gets its own scope rather than sharing one, so
  * public content fetched on the login screen is never attributed to whoever
  * logs in next.
  */
 export function getCacheUser(): string {
-  if (currentUser) return currentUser;
-  try {
-    const raw = localStorage.getItem(USER_KEY);
-    if (!raw) return ANONYMOUS_SCOPE;
-    const parsed = JSON.parse(raw) as { id?: string | number } | null;
-    const id = parsed?.id;
-    return id === undefined || id === null || id === '' ? ANONYMOUS_SCOPE : String(id);
-  } catch {
-    return ANONYMOUS_SCOPE;
-  }
+  return currentUser ?? ANONYMOUS_SCOPE;
 }
 
 /** Called on sign-in (with the user id) and on sign-out (with null). */

@@ -1,6 +1,7 @@
 import { ApiError } from '@explorarte/shared';
 
 import { clearUserCache, getCacheUser } from '@/lib/offline-cache';
+import { clearAuthToken } from '@/lib/auth-token';
 
 // Telling failure modes apart is the whole point of this file. A screen that
 // cannot distinguish them cannot choose the right message, and — worse — the
@@ -165,12 +166,7 @@ export function onDeadSession(fn: DeadSessionHandler | null): void {
 }
 
 function defaultHandler(): void {
-  try {
-    localStorage.removeItem('explorarte_token');
-    localStorage.removeItem('explorarte_user');
-  } catch {
-    /* storage may be unavailable */
-  }
+  void clearAuthToken();
   if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
     window.location.assign('/login');
   }
@@ -186,7 +182,7 @@ export async function reportDeadSession(reason?: string): Promise<void> {
   purging = true;
   const userId = getCacheUser();
   try {
-    await clearUserCache(userId);
+    await Promise.all([clearUserCache(userId), clearAuthToken()]);
   } finally {
     (handler ?? defaultHandler)(reason);
     // Released on the next tick so a burst of concurrent 403s collapses into

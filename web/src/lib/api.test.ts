@@ -77,26 +77,27 @@ describe('api · modo', () => {
 });
 
 describe('api · sesion', () => {
-  it('manda el token guardado en localStorage', async () => {
+  it('manda el token mantenido por auth-token, no por localStorage', async () => {
     const fetchSpy = mockFetch();
-    localStorage.setItem('explorarte_token', 'tok-abc');
 
     const { api } = await loadApi({ VITE_API_URL: 'https://api.test' });
+    const { storeAuthToken } = await import('@/lib/auth-token');
+    await storeAuthToken('tok-abc', 'ana');
     await api.emotions.list();
 
     expect(headersOf(fetchSpy.mock.calls[0][1]).Authorization).toBe('Bearer tok-abc');
+    expect(localStorage.getItem('explorarte_token')).toBeNull();
   });
 
-  it('un 401 limpia la sesion y manda a /login', async () => {
+  it('un 401 limpia la memoria de sesión y manda a /login', async () => {
     mockFetch(401, '');
-    localStorage.setItem('explorarte_token', 'tok-abc');
-    localStorage.setItem('explorarte_user', '{"id":1}');
 
     const { api } = await loadApi({ VITE_API_URL: 'https://api.test' });
+    const { getAuthToken, storeAuthToken } = await import('@/lib/auth-token');
+    await storeAuthToken('tok-abc', 'ana');
     await expect(api.emotions.list()).rejects.toThrow();
 
-    expect(localStorage.getItem('explorarte_token')).toBeNull();
-    expect(localStorage.getItem('explorarte_user')).toBeNull();
+    expect(getAuthToken()).toBeNull();
     expect(assign).toHaveBeenCalledWith('/login');
   });
 

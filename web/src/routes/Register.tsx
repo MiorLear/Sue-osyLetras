@@ -35,7 +35,7 @@ export default function Register() {
   // directo a la app.
   const finishRegister = async () => {
     const result = await api.auth.register({ name, lastname, institucion, ubicacion, email, password, phone });
-    signIn(result);
+    await signIn(result);
     navigate('/main', { replace: true });
   };
 
