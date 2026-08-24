@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { MODTAG, type Comment, type MediaItem, type Post } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
@@ -95,6 +95,44 @@ export default function Comunidad() {
   const [composeError, setComposeError] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const composeFabRef = useRef<HTMLButtonElement>(null);
+  const composeDialogRef = useRef<HTMLDivElement>(null);
+  const composeTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!composeOpen) return;
+    const trigger = composeFabRef.current;
+    // El foco entra al trabajo principal y vuelve al disparador al cerrar: sin
+    // esta ida y vuelta, una usuaria de teclado queda detrás del modal.
+    composeTextareaRef.current?.focus();
+    return () => trigger?.focus();
+  }, [composeOpen]);
+
+  const closeComposer = () => setComposeOpen(false);
+
+  const keepFocusInComposer = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeComposer();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const dialog = composeDialogRef.current;
+    if (!dialog) return;
+    const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    )).filter((el) => el.getClientRects().length > 0);
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
 
   const toggleLike = async (id: number) => {
     if (likingId === id) return;
@@ -343,7 +381,7 @@ export default function Comunidad() {
                         <img key={a.id} src={a.url} alt={a.title} style={{ marginTop: 10, maxWidth: '100%', borderRadius: 12 }} />
                       ),
                     )}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
                       <ActionBtn
                         icon="message-circle"
                         value={comments.length}
@@ -390,9 +428,9 @@ export default function Comunidad() {
                       onChange={(e) => setDrafts((d) => ({ ...d, [p.id]: e.target.value }))}
                       onKeyDown={(e) => e.key === 'Enter' && sendComment(p.id)}
                       placeholder="Escribe un comentario..."
-                      style={{ flex: 1, padding: '9px 14px', borderRadius: 20, fontSize: 12.5, color: 'var(--text-dark)', border: '1.5px solid var(--border-input)', background: '#fff', outline: 'none' }}
+                      style={{ flex: 1, padding: '9px 14px', borderRadius: 20, fontSize: 16, color: 'var(--text-dark)', border: '1.5px solid var(--border-input)', background: '#fff', outline: 'none' }}
                     />
-                    <button aria-label="Enviar comentario" onClick={() => sendComment(p.id)} disabled={!(drafts[p.id] || '').trim() || sendingComment === p.id} style={{ width: 34, height: 34, borderRadius: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', background: (drafts[p.id] || '').trim() && sendingComment !== p.id ? 'var(--brand)' : 'var(--disabled)' }}>
+                    <button className="tap-44" aria-label="Enviar comentario" onClick={() => sendComment(p.id)} disabled={!(drafts[p.id] || '').trim() || sendingComment === p.id} style={{ width: 44, height: 44, borderRadius: 22, background: (drafts[p.id] || '').trim() && sendingComment !== p.id ? 'var(--brand)' : 'var(--disabled)' }}>
                       <Icon name="send" size={15} color="#fff" />
                     </button>
                   </div>
@@ -408,21 +446,22 @@ export default function Comunidad() {
       )}
 
       {/* FAB */}
-      <button onClick={() => setComposeOpen(true)} aria-label="Crear publicación"
-        style={{ position: 'fixed', bottom: 30, right: 30, width: 60, height: 60, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--brand-gradient)', boxShadow: '0 14px 30px -10px rgba(31,126,118,.7)', zIndex: 40 }}>
+      <button ref={composeFabRef} className="fab" onClick={() => setComposeOpen(true)} aria-label="Crear publicación"
+        style={{ width: 60, height: 60, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--brand-gradient)', boxShadow: '0 14px 30px -10px rgba(31,126,118,.7)', zIndex: 40 }}>
         <Icon name="plus" size={26} color="#fff" strokeWidth={2.4} />
       </button>
 
       {composeOpen ? (
-        <div className="modal-backdrop" onClick={() => setComposeOpen(false)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ padding: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 600, color: 'var(--text-dark)' }}>Crear publicación</h3>
-              <button onClick={() => setComposeOpen(false)} style={{ width: 30, height: 30, borderRadius: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F4EEE2' }}>
+        <div className="modal-backdrop" onClick={closeComposer}>
+          <div ref={composeDialogRef} className="modal-card" role="dialog" aria-modal="true" aria-labelledby="compose-title" onKeyDown={keepFocusInComposer} onClick={(e) => e.stopPropagation()} style={{ marginTop: 'env(safe-area-inset-top, 0px)', marginRight: 'env(safe-area-inset-right, 0px)', marginBottom: 'env(safe-area-inset-bottom, 0px)', marginLeft: 'env(safe-area-inset-left, 0px)', maxHeight: 'calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+              <h3 id="compose-title" style={{ fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 600, color: 'var(--text-dark)' }}>Crear publicación</h3>
+              <button className="tap-44" aria-label="Cerrar compositor" onClick={closeComposer} style={{ width: 44, height: 44, borderRadius: 22, background: '#F4EEE2' }}>
                 <Icon name="x" size={16} color="var(--text-muted)" />
               </button>
             </div>
 
+            <div className="modal-body" style={{ padding: 20 }}>
             <div style={{ marginBottom: 14, padding: 12, borderRadius: 12, background: 'var(--nav-bg)', border: '1px solid #DCEDEA' }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-dark)', marginBottom: 6 }}>Puedes compartir:</div>
               {SHARE_BULLETS.map((b) => (
@@ -436,17 +475,18 @@ export default function Comunidad() {
             <div style={{ display: 'flex', gap: 10 }}>
               <span style={{ width: 40, height: 40, borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(150deg,var(--clay),var(--clay-dark))', color: '#fff', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>{myInitials}</span>
               <textarea
+                ref={composeTextareaRef}
                 value={composeText}
                 onChange={(e) => setComposeText(e.target.value)}
                 placeholder="¿Qué quieres compartir con la comunidad?"
-                style={{ flex: 1, minHeight: 90, fontSize: 14, color: 'var(--text-dark)', lineHeight: 1.45, border: 'none', outline: 'none', resize: 'vertical', background: 'transparent' }}
+                style={{ flex: 1, minHeight: 90, fontSize: 16, color: 'var(--text-dark)', lineHeight: 1.45, border: 'none', outline: 'none', resize: 'vertical', background: 'transparent' }}
               />
             </div>
             {attachment ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, background: 'var(--nav-bg)', border: '1px solid #DCEDEA', margin: '10px 0' }}>
                 <Icon name={attachment.mimeType.startsWith('video') ? 'video' : 'image'} size={16} color="var(--brand-dark)" />
                 <span style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: 'var(--text-dark)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{attachment.title}</span>
-                <button onClick={() => setAttachment(null)} aria-label="Quitar adjunto" style={{ width: 26, height: 26, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
+                <button className="tap-44" onClick={() => setAttachment(null)} aria-label="Quitar adjunto" style={{ width: 44, height: 44, borderRadius: 12, background: '#fff' }}>
                   <Icon name="x" size={13} color="var(--danger)" />
                 </button>
               </div>
@@ -458,10 +498,10 @@ export default function Comunidad() {
               onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAttach(f); e.target.value = ''; }} />
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', margin: '12px 0' }}>
-              <button onClick={() => imageInputRef.current?.click()} disabled={attaching} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button className="tap-44" onClick={() => imageInputRef.current?.click()} disabled={attaching} style={{ gap: 6 }}>
                 <Icon name="image" size={18} color="var(--brand)" /><span style={{ fontSize: 12, fontWeight: 600, color: 'var(--brand-dark)' }}>Imagen</span>
               </button>
-              <button onClick={() => videoInputRef.current?.click()} disabled={attaching} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button className="tap-44" onClick={() => videoInputRef.current?.click()} disabled={attaching} style={{ gap: 6 }}>
                 <Icon name="video" size={18} color="var(--clay)" /><span style={{ fontSize: 12, fontWeight: 600, color: 'var(--clay-dark)' }}>Video</span>
               </button>
               {attaching ? <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Subiendo…</span> : null}
@@ -469,9 +509,12 @@ export default function Comunidad() {
             {composeError ? (
               <p style={{ margin: '0 0 10px', fontSize: 12, color: 'var(--danger)' }}>{composeError}</p>
             ) : null}
-            <button className="btn btn-primary" onClick={submitPost} disabled={!composeText.trim() || attaching || submitting} style={{ padding: 13 }}>
+            </div>
+            <div style={{ padding: '12px 20px 20px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+            <button className="btn btn-primary" onClick={submitPost} disabled={!composeText.trim() || attaching || submitting} style={{ padding: 13, width: '100%' }}>
               {submitting ? 'Publicando…' : 'Publicar'}
             </button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -486,7 +529,7 @@ function ActionBtn({ icon, value, active, activeColor, fill, disabled, pressed, 
   return (
     // Sin `aria-label` esto se leía como un número suelto: el icono no tiene
     // texto y el botón tampoco.
-    <button onClick={onClick} disabled={disabled} aria-label={label} aria-pressed={pressed} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: active ? 700 : 400, color }}>
+    <button className="tap-44" onClick={onClick} disabled={disabled} aria-label={label} aria-pressed={pressed} style={{ gap: 6, padding: '0 8px', fontSize: 13, fontWeight: active ? 700 : 400, color }}>
       <Icon name={icon} size={15} color={color} fill={fill ? color : 'none'} />
       <span>{value}</span>
     </button>

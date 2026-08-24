@@ -128,15 +128,9 @@ export const PANTALLAS: Pantalla[] = [
       {
         nombre: 'compositor abierto',
         activa: async (page) => {
-          // `dispatchEvent` y no `click()` porque HOY el FAB es inalcanzable en
-          // teléfono: va a `bottom: 30px` con `z-index: 40`, el mismo que la
-          // barra de tabs, que mide 62px y se pinta después en el DOM. Un clic
-          // de verdad lo intercepta la barra —Playwright lo dice literalmente— y
-          // es justo el bug que C4 arregla al pasarlo a `className="fab"`.
-          // Hasta entonces se entra al compositor por la puerta de atrás, que es
-          // lo que hay que medir aquí; la zona táctil del FAB es otro asunto y
-          // va en su propia lista.
-          await page.getByRole('button', { name: 'Crear publicación' }).dispatchEvent('click');
+          // El clic real también comprueba que la barra inferior no intercepta
+          // el FAB: disparar el evento por código ocultaría justo esa regresión.
+          await page.getByRole('button', { name: 'Crear publicación' }).click();
           await expect(page.getByPlaceholder('¿Qué quieres compartir con la comunidad?')).toBeVisible();
         },
       },

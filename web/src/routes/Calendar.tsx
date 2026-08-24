@@ -220,7 +220,7 @@ export default function CalendarScreen() {
 
   return (
     <div className="page">
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 18, gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 18, columnGap: 16, rowGap: 12 }}>
         <div className="page-head">
           <h1>Mi Calendario</h1>
           <p>Organiza tus sesiones y actividades</p>
@@ -232,7 +232,7 @@ export default function CalendarScreen() {
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 24, maxWidth: 360 }}>
         {(['día', 'semana', 'mes'] as ViewMode[]).map((v) => (
-          <button key={v} onClick={() => setView(v)} style={{ flex: 1, padding: 9, borderRadius: 10, background: view === v ? 'var(--brand)' : '#fff', color: view === v ? '#fff' : 'var(--text-body)', fontSize: 13, fontWeight: 700, border: view === v ? 'none' : '1.5px solid var(--border)' }}>
+          <button className="tap-44" key={v} aria-pressed={view === v} onClick={() => setView(v)} style={{ flex: 1, padding: 9, borderRadius: 10, background: view === v ? 'var(--brand)' : '#fff', color: view === v ? '#fff' : 'var(--text-body)', fontSize: 13, fontWeight: 700, border: view === v ? 'none' : '1.5px solid var(--border)' }}>
             {v === 'día' ? 'Día' : v === 'semana' ? 'Semana' : 'Mes'}
           </button>
         ))}
@@ -261,9 +261,9 @@ export default function CalendarScreen() {
               <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-dark)' }}>
                 {modal === 'create' ? 'Nuevo evento' : modal === 'edit' ? 'Editar evento' : modal === 'delete' ? 'Eliminar evento' : selEvent?.title}
               </h3>
-              <button onClick={closeModal} style={{ padding: 4 }}><Icon name="x" size={20} color="var(--text-muted)" /></button>
+              <button className="tap-44" aria-label="Cerrar modal" onClick={closeModal}><Icon name="x" size={20} color="var(--text-muted)" /></button>
             </div>
-            <div style={{ padding: 20, overflowY: 'auto', flex: 1, minHeight: 0 }}>
+            <div className="modal-body" style={{ padding: 20 }}>
               {modal === 'create' || modal === 'edit' ? (
                 <EventForm form={form} setForm={setForm} submitLabel={modal === 'edit' ? 'Guardar cambios' : 'Guardar evento'} onCancel={() => setModal(selEvent ? 'detail' : null)} onSubmit={submitForm} submitting={submitting} />
               ) : null}
@@ -297,12 +297,15 @@ function EventCard({ event, onEvent, onToggle, togglingId, pending }: { event: C
       <div style={{ flex: 1, display: 'flex', gap: 8 }}>
         {isTask ? (
           <button
+            className="tap-44"
             onClick={() => onToggle(event.id)}
             disabled={toggling}
             aria-label={`${event.completed ? 'Marcar como pendiente' : 'Marcar como completada'}: ${event.title}`}
             aria-pressed={!!event.completed}
-            style={{ width: 18, height: 18, marginTop: 1, borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', background: event.completed ? 'var(--brand)' : '#fff', border: `2px solid ${event.completed ? 'var(--brand)' : '#C0DEDC'}`, flexShrink: 0, opacity: toggling ? 0.5 : 1 }}>
-            {event.completed ? <Icon name="check" size={12} color="#fff" strokeWidth={3} /> : null}
+            style={{ width: 44, height: 44, flexShrink: 0, opacity: toggling ? 0.5 : 1 }}>
+            <span style={{ width: 18, height: 18, borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', background: event.completed ? 'var(--brand)' : '#fff', border: `2px solid ${event.completed ? 'var(--brand)' : '#C0DEDC'}` }}>
+              {event.completed ? <Icon name="check" size={12} color="#fff" strokeWidth={3} /> : null}
+            </span>
           </button>
         ) : null}
         <button onClick={() => onEvent(event)} style={{ flex: 1, textAlign: 'left' }}>
@@ -383,17 +386,22 @@ function MonthView({ selDate, setSelDate, events, isPending }: { selDate: Date; 
           const isToday = sameDay(day, TODAY);
           const isSel = sameDay(day, selDate);
           const evs = events.filter((e) => sameDay(fromISO(e.date), day));
+          const pendingCount = evs.filter((e) => isPending(e.id)).length;
+          const eventLabel = `${evs.length} ${evs.length === 1 ? 'evento' : 'eventos'}`;
+          const pendingLabel = pendingCount > 0
+            ? `, ${pendingCount} ${pendingCount === 1 ? 'pendiente de enviar' : 'pendientes de enviar'}`
+            : '';
           return (
-            <button key={day.toISOString()} onClick={() => setSelDate(day)} style={{ aspectRatio: '1', padding: 2 }}>
+            <button key={day.toISOString()} aria-label={`${DOW_LONG[day.getDay()]}, ${day.getDate()} de ${MONTHS[day.getMonth()]} de ${day.getFullYear()}. ${eventLabel}${pendingLabel}`} aria-pressed={isSel} aria-current={isToday ? 'date' : undefined} onClick={() => setSelDate(day)} style={{ aspectRatio: '1', padding: 2 }}>
               <div style={{ height: '100%', borderRadius: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: isToday || isSel ? 'var(--nav-bg)' : '#fff', border: `${isSel ? 2 : 1.5}px solid ${isSel || isToday ? 'var(--brand)' : 'var(--border)'}`, opacity: isCur ? 1 : 0.4 }}>
-                <span style={{ fontSize: 12, fontWeight: isToday || isSel ? 700 : 400, color: isToday || isSel ? 'var(--brand)' : 'var(--text-dark)' }}>{day.getDate()}</span>
+                <span aria-hidden="true" style={{ fontSize: 13, fontWeight: isToday || isSel ? 700 : 400, color: isToday || isSel ? 'var(--brand)' : 'var(--text-dark)' }}>{day.getDate()}</span>
                 {evs.length > 0 ? (
                   <div style={{ display: 'flex', gap: 2, marginTop: 3 }}>
                     {/* En una rejilla de mes no cabe texto, así que lo pendiente
                         se dice con el mismo ámbar que la insignia y un punto algo
                         mayor. Hueco no valía: un cuadrado de 4px sin relleno y con
                         un borde pastel es invisible a esta escala. */}
-                    {evs.slice(0, 3).map((e, i) => (<span key={i} style={{ width: isPending(e.id) ? 6 : 4, height: isPending(e.id) ? 6 : 4, borderRadius: 3, background: isPending(e.id) ? 'var(--pending-accent)' : EVENT_COLORS[e.type] }} />))}
+                    {evs.slice(0, 3).map((e, i) => (<span aria-hidden="true" key={i} style={{ width: isPending(e.id) ? 7 : 5, height: isPending(e.id) ? 7 : 5, borderRadius: 4, background: isPending(e.id) ? 'var(--pending-accent)' : EVENT_COLORS[e.type] }} />))}
                   </div>
                 ) : null}
               </div>
@@ -454,14 +462,14 @@ function EventDetail({ event, onEdit, onDelete, onClose }: { event: CalEvent; on
       <DetailRow icon="clock" label="Hora" value={`${fmtTime12(event.startTime)} - ${fmtTime12(event.endTime)}`} />
       {hasReminder ? <DetailRow icon="bell" label="Recordatorio" value={event.reminder} /> : null}
       <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={onEdit} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 11, borderRadius: 10, border: '1.5px solid var(--brand)', background: '#fff', color: 'var(--brand)', fontSize: 13, fontWeight: 700 }}>
+        <button className="tap-44" onClick={onEdit} style={{ flex: 1, gap: 6, padding: 11, borderRadius: 10, border: '1.5px solid var(--brand)', background: '#fff', color: 'var(--brand)', fontSize: 13, fontWeight: 700 }}>
           <Icon name="edit" size={14} color="var(--brand)" /> Editar
         </button>
-        <button onClick={onDelete} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 11, borderRadius: 10, background: 'var(--danger)', color: '#fff', fontSize: 13, fontWeight: 700 }}>
+        <button className="tap-44" onClick={onDelete} style={{ flex: 1, gap: 6, padding: 11, borderRadius: 10, background: 'var(--danger)', color: '#fff', fontSize: 13, fontWeight: 700 }}>
           <Icon name="trash" size={14} color="#fff" /> Eliminar
         </button>
       </div>
-      <button onClick={onClose} style={{ padding: 11, borderRadius: 10, border: '1.5px solid var(--border)', background: '#fff', color: 'var(--text-body)', fontSize: 13, fontWeight: 700 }}>Cerrar</button>
+      <button className="tap-44" onClick={onClose} style={{ padding: 11, borderRadius: 10, border: '1.5px solid var(--border)', background: '#fff', color: 'var(--text-body)', fontSize: 13, fontWeight: 700 }}>Cerrar</button>
     </div>
   );
 }
@@ -482,6 +490,6 @@ function ModalBtn({ label, onClick, primary, danger, outline, disabled }: { labe
   const bg = danger ? 'var(--danger)' : primary ? 'var(--brand)' : '#fff';
   const fg = outline ? 'var(--brand)' : '#fff';
   return (
-    <button onClick={onClick} disabled={disabled} style={{ flex: 1, padding: 11, borderRadius: 10, background: bg, color: fg, border: outline ? '1.5px solid var(--brand)' : 'none', fontSize: 13, fontWeight: 700, opacity: disabled ? 0.6 : 1 }}>{label}</button>
+    <button className="tap-44" onClick={onClick} disabled={disabled} style={{ flex: 1, padding: 11, borderRadius: 10, background: bg, color: fg, border: outline ? '1.5px solid var(--brand)' : 'none', fontSize: 13, fontWeight: 700, opacity: disabled ? 0.6 : 1 }}>{label}</button>
   );
 }

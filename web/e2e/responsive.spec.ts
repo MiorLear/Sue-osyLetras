@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { PANTALLAS, type Pantalla } from './fixtures/pantallas';
+import { crearEvento, PANTALLAS, type Pantalla } from './fixtures/pantallas';
 
 // La regla medible de "no desborda". Tres anchos que cubren el parque real de
 // teléfonos: el suelo (360, el Android barato del aula), el medio (390) y el
@@ -152,5 +152,59 @@ test.describe('legibilidad del contenido denso en teléfono', () => {
     const sangria = await cuerpo.evaluate((el) => parseFloat(getComputedStyle(el.parentElement!).paddingLeft));
     expect(sangria).toBeLessThan(58);
     expect(sangria).toBeGreaterThanOrEqual(18);
+  });
+
+  test('el compositor de Comunidad conserva cabecera y acción con el teclado abierto', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize({ width: 360, height: 360 });
+    await page.goto('/comunidad');
+    await expect(page.getByText('Maestra Ana').first()).toBeVisible();
+    await page.getByRole('button', { name: 'Crear publicación' }).click();
+
+    const dialogo = page.getByRole('dialog', { name: 'Crear publicación' });
+    const titulo = dialogo.getByRole('heading', { name: 'Crear publicación' });
+    const texto = dialogo.getByPlaceholder('¿Qué quieres compartir con la comunidad?');
+    const publicar = dialogo.getByRole('button', { name: 'Publicar' });
+    const cuerpo = dialogo.locator('.modal-body');
+    await expect(titulo).toBeInViewport();
+    await expect(texto).toHaveCSS('font-size', '16px');
+    await expect(publicar).toBeInViewport();
+
+    const pieAntes = await publicar.boundingBox();
+    await cuerpo.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+    const pieDespues = await publicar.boundingBox();
+    expect(pieAntes).not.toBeNull();
+    expect(pieDespues).not.toBeNull();
+    expect(Math.abs(pieDespues!.y - pieAntes!.y)).toBeLessThanOrEqual(0.5);
+
+    const contratoSafeArea = await dialogo.getAttribute('style');
+    expect(contratoSafeArea).toContain('safe-area-inset-top');
+    expect(contratoSafeArea).toContain('safe-area-inset-right');
+    expect(contratoSafeArea).toContain('safe-area-inset-bottom');
+    expect(contratoSafeArea).toContain('safe-area-inset-left');
+  });
+
+  test('cada día del mes publica la fecha completa', async ({ page }) => {
+    await page.goto('/calendar');
+    await expect(page.getByText(/^Hoy ·/)).toBeVisible();
+    const dia = page.getByRole('button', { name: 'Día', exact: true });
+    const mes = page.getByRole('button', { name: 'Mes', exact: true });
+    await expect(dia).toHaveAttribute('aria-pressed', 'true');
+    await crearEvento(page, 'Evento accesible del mes');
+    await mes.click();
+    await expect(dia).toHaveAttribute('aria-pressed', 'false');
+    await expect(mes).toHaveAttribute('aria-pressed', 'true');
+    const hoy = page.getByRole('button', { name: /\. 1 evento$/i });
+    await expect(hoy).toHaveAttribute('aria-current', 'date');
+    await expect(hoy).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('el nombre del día avisa cuando su evento sigue pendiente', async ({ page, context }) => {
+    await page.goto('/calendar');
+    await expect(page.getByText(/^Hoy ·/)).toBeVisible();
+    await context.setOffline(true);
+    await crearEvento(page, 'Evento mensual sin conexión');
+    await page.getByRole('button', { name: 'Mes', exact: true }).click();
+    await expect(page.getByRole('button', { name: /\. 1 evento, 1 pendiente de enviar$/i })).toHaveAttribute('aria-pressed', 'true');
   });
 });

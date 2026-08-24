@@ -1,6 +1,45 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { esquinasFallidas, LADO_MINIMO } from './fixtures/hit-area';
+import { crearEvento } from './fixtures/pantallas';
+
+async function abrirPrimerHilo(page: Page): Promise<void> {
+  await expect(page.getByText('Maestra Ana').first()).toBeVisible();
+  await page.getByRole('button', { name: /Comentarios \(/ }).first().click();
+  // `scrollIntoViewIfNeeded` considera visible lo que queda detrás de una
+  // barra fija; centrarlo hace que el hit-test mida el control, no la barra.
+  await page.getByRole('button', { name: 'Enviar comentario' }).evaluate((el) =>
+    el.scrollIntoView({ block: 'center' }),
+  );
+}
+
+async function abrirCompositor(page: Page): Promise<void> {
+  await expect(page.getByText('Maestra Ana').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Crear publicación' }).click();
+}
+
+async function adjuntarImagen(page: Page): Promise<void> {
+  await abrirCompositor(page);
+  await page.locator('input[type="file"][accept="image/*"]').setInputFiles({
+    name: 'aula.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('imagen de prueba'),
+  });
+  await expect(page.getByRole('button', { name: 'Quitar adjunto' })).toBeVisible();
+}
+
+async function crearTarea(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Nuevo evento' }).click();
+  await page.getByPlaceholder('Nombre del evento').fill('Tarea táctil');
+  await page.getByRole('combobox').first().selectOption('tarea');
+  await page.getByRole('button', { name: 'Guardar evento' }).click();
+  await expect(page.getByRole('button', { name: 'Marcar como completada: Tarea táctil' })).toBeVisible();
+}
+
+async function abrirDetalleEvento(page: Page): Promise<void> {
+  await crearEvento(page, 'Evento táctil');
+  await page.getByRole('button', { name: /Evento táctil/ }).click();
+}
 
 async function preparaSugerencia(page: Page): Promise<void> {
   await page.route('https://photon.komoot.io/api/**', (route) =>
@@ -41,6 +80,7 @@ const CONTROLES: {
   nombre: string;
   nota?: string;
   prepara?: (page: Page) => Promise<void>;
+  scope?: (page: Page) => Locator;
 }[] = [
   { ruta: '/', rol: 'button', nombre: 'Siguiente' },
   { ruta: '/', rol: 'button', nombre: 'Ir a la pantalla 1 de 3' },
@@ -72,6 +112,33 @@ const CONTROLES: {
   { ruta: '/main', rol: 'button', nombre: 'Más' },
   { ruta: '/main', rol: 'button', nombre: 'Ir a mi perfil', nota: 'avatar de la barra superior' },
   { ruta: '/descargas', rol: 'button', nombre: 'Descargar todo para usar sin conexión' },
+  { ruta: '/comunidad', rol: 'button', nombre: 'Crear publicación' },
+  {
+    ruta: '/comunidad', rol: 'button', nombre: 'Comentarios (2)',
+    // Hay una acción por publicación; se audita la tarjeta nombrada, no una
+    // coincidencia arbitraria de toda la página.
+    scope: (page) => page.getByRole('article').filter({ hasText: 'Maestra Ana' }),
+  },
+  {
+    ruta: '/comunidad', rol: 'button', nombre: 'Me gusta',
+    scope: (page) => page.getByRole('article').filter({ hasText: 'Maestra Ana' }),
+  },
+  { ruta: '/comunidad', rol: 'button', nombre: 'Enviar comentario', prepara: abrirPrimerHilo },
+  { ruta: '/comunidad', rol: 'button', nombre: 'Cerrar compositor', prepara: abrirCompositor },
+  { ruta: '/comunidad', rol: 'button', nombre: 'Imagen', prepara: abrirCompositor },
+  { ruta: '/comunidad', rol: 'button', nombre: 'Video', prepara: abrirCompositor },
+  { ruta: '/comunidad', rol: 'button', nombre: 'Quitar adjunto', prepara: adjuntarImagen },
+  { ruta: '/calendar', rol: 'button', nombre: 'Día' },
+  { ruta: '/calendar', rol: 'button', nombre: 'Semana' },
+  { ruta: '/calendar', rol: 'button', nombre: 'Mes' },
+  { ruta: '/calendar', rol: 'button', nombre: 'Cerrar modal', prepara: (page) => page.getByRole('button', { name: 'Nuevo evento' }).click() },
+  { ruta: '/calendar', rol: 'button', nombre: 'Cancelar', prepara: (page) => page.getByRole('button', { name: 'Nuevo evento' }).click() },
+  { ruta: '/calendar', rol: 'button', nombre: 'Guardar evento', prepara: (page) => page.getByRole('button', { name: 'Nuevo evento' }).click() },
+  { ruta: '/calendar', rol: 'button', nombre: 'Editar', prepara: abrirDetalleEvento },
+  { ruta: '/calendar', rol: 'button', nombre: 'Eliminar', prepara: abrirDetalleEvento },
+  { ruta: '/calendar', rol: 'button', nombre: 'Cerrar', prepara: abrirDetalleEvento },
+  { ruta: '/calendar', rol: 'button', nombre: 'Marcar como completada: Tarea táctil', prepara: crearTarea },
+  { ruta: '/profile', rol: 'button', nombre: 'Cambiar foto de perfil' },
 ];
 
 test.describe(`zonas táctiles de ${LADO_MINIMO}px`, () => {
@@ -86,7 +153,9 @@ test.describe(`zonas táctiles de ${LADO_MINIMO}px`, () => {
       await page.goto(control.ruta);
       await control.prepara?.(page);
 
-      const locator = page.getByRole(control.rol, { name: control.nombre, exact: true });
+      const raiz = control.scope?.(page) ?? page;
+      const locator = raiz.getByRole(control.rol, { name: control.nombre, exact: true });
+      await expect(locator).toHaveCount(1);
       await expect(locator).toBeVisible();
 
       const fallos = await esquinasFallidas(locator);
