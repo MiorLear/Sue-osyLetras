@@ -63,6 +63,7 @@ const CONTROLES: {
     },
   },
   { ruta: '/pendiente', rol: 'button', nombre: 'Volver al inicio de sesión' },
+  { ruta: '/emociones/alegria', rol: 'button', nombre: 'Volver' },
   // La barra de tabs del teléfono (PWA-1.4) ya nació con `min-height: 44px`.
   { ruta: '/main', rol: 'button', nombre: 'Inicio' },
   { ruta: '/main', rol: 'button', nombre: 'Explora' },

@@ -34,8 +34,8 @@ export default function Emociones() {
         lede="Recursos para comprender distintas emociones y guiar conversaciones significativas con tus estudiantes."
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.1fr .9fr', gap: 24, alignItems: 'stretch', marginBottom: 34 }}>
-        <div style={{ borderRadius: 24, padding: 32, background: '#fff', border: '1px solid var(--border)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, alignItems: 'stretch', marginBottom: 34 }}>
+        <div style={{ borderRadius: 24, padding: 'clamp(20px, 6vw, 32px)', background: '#fff', border: '1px solid var(--border)' }}>
           <p style={{ fontSize: 15.5, lineHeight: 1.7, color: 'var(--text-body)' }}>
             Las emociones forman parte de nuestra vida cotidiana. Reconocerlas, nombrarlas y comprenderlas es el primer
             paso para desarrollar bienestar emocional y construir relaciones saludables dentro del aula.
