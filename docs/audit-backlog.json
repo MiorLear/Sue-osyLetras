@@ -1249,7 +1249,7 @@
       "severity": "P1",
       "area": "pwa",
       "phase": 3,
-      "size": "M",
+      "size": "S",
       "files": ["web/src/lib/outbox.ts", "web/src/lib/outbox-errors.ts"],
       "problem": "Fixes BUG-03. Today any failure breaks the loop, so one permanently-invalid mutation blocks everything forever and a 401 is treated like a network blip. Chains also need to be independent: a stuck event edit must not block a profile update.",
       "acceptance": [
@@ -1353,7 +1353,7 @@
       "phase": 3,
       "size": "M",
       "files": ["web/src/lib/*.test.ts"],
-      "problem": "The outbox is the highest-risk code in the app: it holds a teacher's unsaved work, and its failure modes are silent. It cannot be verified by clicking through the UI.",
+      "problem": "The offline subsystem already has broad regression coverage. The remaining verified gap was BUG-04 on the web outbox: mutating IndexedDB while a replay request is in flight must neither swallow the new row nor delete a replacement in the same chain.",
       "acceptance": [
         "Tests cover coalescing, chain independence, poison-message dead-lettering, attempt caps, id remapping, quota eviction, cache-first reads, and conditional media revalidation.",
         "They run in CI on every PR.",

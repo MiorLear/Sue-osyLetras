@@ -434,6 +434,43 @@ describe('replay · dos pasadas a la vez', () => {
   });
 });
 
+describe('replay · la cola cambia durante la petición (BUG-04)', () => {
+  it('no se traga otra cadena encolada mientras una petición está en vuelo', async () => {
+    api.profile.update.mockImplementationOnce(async () => {
+      // Reproduce el hueco del bug antiguo: la docente crea más trabajo
+      // mientras el replay está suspendido dentro del await de red.
+      await enqueuePostComment(7, { text: 'llegó durante el replay' });
+      return { id: 1 };
+    });
+    await enqueueProfileUpdate({ name: 'Ana' });
+
+    const result = await replayPass();
+
+    expect(result.dispatched).toBe(2);
+    expect(api.profile.update).toHaveBeenCalledTimes(1);
+    expect(api.posts.addComment).toHaveBeenCalledTimes(1);
+    expect(api.posts.addComment).toHaveBeenCalledWith(7, { text: 'llegó durante el replay' });
+    await expect(rows()).resolves.toEqual([]);
+  });
+
+  it('conserva y despacha la versión nueva de la misma cadena', async () => {
+    api.profile.update.mockImplementationOnce(async () => {
+      // En la implementación antigua, reemplazar el array aquí hacía que el
+      // shift posterior borrara la edición nueva sin haberla enviado.
+      await enqueueProfileUpdate({ name: 'Ana María' });
+      return { id: 1 };
+    });
+    await enqueueProfileUpdate({ name: 'Ana' });
+
+    const result = await replayPass();
+
+    expect(result.dispatched).toBe(2);
+    expect(api.profile.update).toHaveBeenNthCalledWith(1, { name: 'Ana' });
+    expect(api.profile.update).toHaveBeenNthCalledWith(2, { name: 'Ana María' });
+    await expect(rows()).resolves.toEqual([]);
+  });
+});
+
 describe('replay · limpieza por antigüedad', () => {
   it('lo que lleva un mes sin poder salir pasa a la lista de fallidos', async () => {
     await seed({ kind: 'profile.update', input: { name: 'Ana' } }, {
