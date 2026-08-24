@@ -67,7 +67,7 @@ export default function Register() {
     <div className="auth-shell">
       <div className="auth-card wide">
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20 }}>
-        <button onClick={back} style={{ width: 36, height: 36, borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid var(--border-input)' }}>
+        <button aria-label="Volver" className="tap-44" onClick={back} style={{ borderRadius: 22, border: '1.5px solid var(--border-input)' }}>
           <Icon name="arrow-left" size={18} color="var(--text-body)" />
         </button>
         <div style={{ flex: 1 }} />

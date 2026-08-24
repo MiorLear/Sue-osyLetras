@@ -212,7 +212,7 @@ export default function Profile() {
                 {uploadingPhoto ? (
                   <div style={{ position: 'absolute', inset: 0, borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', fontSize: 10, fontWeight: 700, color: '#fff' }}>Subiendo…</div>
                 ) : null}
-                <button onClick={() => fileRef.current?.click()} disabled={uploadingPhoto} style={{ position: 'absolute', bottom: -4, right: -4, width: 30, height: 30, borderRadius: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', border: '1px solid var(--border)', boxShadow: '0 2px 6px rgba(0,0,0,0.12)', cursor: uploadingPhoto ? 'default' : 'pointer', opacity: uploadingPhoto ? 0.6 : 1 }}>
+                <button className="tap-44" aria-label="Cambiar foto de perfil" onClick={() => fileRef.current?.click()} disabled={uploadingPhoto} style={{ position: 'absolute', bottom: -8, right: -8, width: 44, height: 44, borderRadius: 22, background: '#fff', border: '1px solid var(--border)', boxShadow: '0 2px 6px rgba(0,0,0,0.12)', cursor: uploadingPhoto ? 'default' : 'pointer', opacity: uploadingPhoto ? 0.6 : 1 }}>
                   <Icon name="camera" size={14} color="var(--brand)" />
                 </button>
                 <input ref={fileRef} type="file" accept="image/*" hidden onChange={pickPhoto} />

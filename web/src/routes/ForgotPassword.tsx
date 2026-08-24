@@ -136,7 +136,7 @@ export default function ForgotPassword() {
               ) : null}
               {error ? <ErrorText text={error} /> : null}
               <PrimaryButton label={loading ? 'Verificando...' : 'Verificar código'} onClick={verifyCode} disabled={otp.length < 6 || loading} />
-              <button onClick={sendCode} className="center muted" style={{ fontSize: 12.5, padding: 8 }}>
+              <button onClick={sendCode} className="center muted tap-44" style={{ fontSize: 12.5, padding: 8 }}>
                 ¿No recibiste el código? <span style={{ color: 'var(--brand)', fontWeight: 700 }}>Reenviar</span>
               </button>
             </>
@@ -170,7 +170,7 @@ function ErrorText({ text }: { text: string }) {
 
 function TabBtn({ label, icon, active, onClick }: { label: string; icon: 'mail' | 'phone'; active: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 10, borderRadius: 12, background: active ? '#fff' : 'transparent', boxShadow: active ? '0 1px 4px rgba(0,0,0,0.08)' : undefined, fontSize: 12.5, fontWeight: active ? 700 : 500, color: active ? 'var(--text-dark)' : 'var(--text-muted)' }}>
+    <button aria-pressed={active} className="tap-44" onClick={onClick} style={{ flex: 1, gap: 8, padding: 10, borderRadius: 12, background: active ? '#fff' : 'transparent', boxShadow: active ? '0 1px 4px rgba(0,0,0,0.08)' : undefined, fontSize: 12.5, fontWeight: active ? 700 : 500, color: active ? 'var(--text-dark)' : 'var(--text-muted)' }}>
       <Icon name={icon} size={14} color={active ? 'var(--text-dark)' : 'var(--text-muted)'} />
       {label}
     </button>

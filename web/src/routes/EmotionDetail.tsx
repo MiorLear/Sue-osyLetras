@@ -68,7 +68,7 @@ export default function EmotionDetail() {
       <header
         className="gradient-header"
         style={{ background: emotion ? `linear-gradient(135deg, ${emotion.color} 0%, ${emotion.color}CC 100%)` : 'var(--brand-gradient)' }}>
-        <button onClick={() => navigate(-1)} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16, color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: 600 }}>
+        <button className="tap-44" onClick={() => navigate(-1)} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16, color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: 600 }}>
           <Icon name="arrow-left" size={18} color="rgba(255,255,255,0.9)" /> Volver
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>

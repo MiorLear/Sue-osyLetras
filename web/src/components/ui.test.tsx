@@ -137,13 +137,14 @@ describe('<LocationAutocomplete /> · el panel no se dibuja sobre lo de abajo', 
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: 'San Sal' } });
 
-    const opcion = await screen.findByRole('button', { name: 'San Salvador Volcano' });
-    const panel = opcion.parentElement as HTMLElement;
+    const panel = await screen.findByRole('group', { name: 'Sugerencias de ubicación' });
+    const opcion = screen.getByRole('button', { name: 'San Salvador Volcano' });
 
     expect(panel.style.position).not.toBe('absolute');
     expect(panel.style.position).not.toBe('fixed');
     // Y con muchas coincidencias no puede empujar el botón fuera de la pantalla.
     expect(panel.style.maxHeight).toBe('200px');
     expect(panel.style.overflowY).toBe('auto');
+    expect(opcion.style.minHeight).toBe('44px');
   });
 });
