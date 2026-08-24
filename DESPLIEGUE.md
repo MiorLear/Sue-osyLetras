@@ -10,10 +10,10 @@ que está mal es el otro archivo.
 | **Desarrollo / staging** | Render (`render.yaml`) + Supabase Postgres | Backend compartido del equipo, para que mobile no dependa de túneles ni de que la laptop de alguien esté prendida (ver [`COMO-EMPEZAR.md`](./COMO-EMPEZAR.md)). **Se mantiene al día a propósito.** No está abandonado ni es aspiracional. |
 | **Local** | `docker compose up` | Tu máquina. |
 
-> **Estado: nada de esto está desplegado todavía.** Este batch dejó el código portable y este
-> runbook verificado, pero no se creó ningún recurso en Google Cloud, no se movió ningún dato y no
-> se pidió ninguna credencial. Lo que sigue es el paso a paso para el día que se ejecute, con lo
-> que hay que hacer a mano marcado como tal.
+> **Estado actualizado:** existe el proyecto Blaze `explorarte-6335b` y su sitio Hosting
+> `https://explorarte-6335b.web.app`. Cloud Run, Cloud SQL, Storage y secretos deben verificarse
+> con `scripts/firebase-preflight.ps1` antes del primer deploy. La lista corta y parametrizada está
+> en [`docs/FIREBASE-PUESTA-EN-MARCHA.md`](./docs/FIREBASE-PUESTA-EN-MARCHA.md).
 
 ---
 
@@ -59,13 +59,12 @@ Lo que ya está en el código para que esto funcione sin tocar nada más:
 - Cuenta de Google con facturación habilitada. **Cloud Run y Cloud SQL no están en el plan Spark**
   de Firebase; hace falta Blaze (sigue teniendo capa gratuita, pero pide tarjeta).
 - `gcloud` CLI — [cloud.google.com/sdk](https://cloud.google.com/sdk)
-- `firebase-tools`: `npm install -g firebase-tools`
+- Firebase CLI vía `npx -y firebase-tools@latest` (no hace falta instalación global).
 - `psql` y `pg_dump` (para la migración de datos, §7).
-- Decidir: nombre del proyecto, región y presupuesto. Este runbook usa `explorarte-prod` y
-  `us-central1`; cámbialos de forma consistente.
+- Proyecto: `explorarte-6335b`. Región inicial: `us-central1`.
 
 ```bash
-export PROJECT_ID=explorarte-prod
+export PROJECT_ID=explorarte-6335b
 export REGION=us-central1
 export INSTANCE=explorarte-db
 export SERVICE=explorarte-api
@@ -76,8 +75,8 @@ export SERVICE=explorarte-api
 ## 3. Crear el proyecto, la base y el bucket
 
 ```bash
-firebase login
-firebase projects:create "$PROJECT_ID"
+npx -y firebase-tools@latest login
+npx -y firebase-tools@latest use "$PROJECT_ID"
 gcloud config set project "$PROJECT_ID"
 
 gcloud services enable run.googleapis.com sqladmin.googleapis.com \
@@ -347,7 +346,7 @@ Notas sobre esos flags:
 ```bash
 cd web
 npm run build            # genera web/dist
-firebase deploy --only hosting --project "$PROJECT_ID"
+npx -y firebase-tools@latest deploy --only hosting --project "$PROJECT_ID"
 ```
 
 El rewrite de `/api/**` (y el de `/media/**`, ver §5) hace que web y API compartan dominio y no

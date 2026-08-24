@@ -18,6 +18,32 @@ const headerOf = (source: string, key: string) =>
 
 const IMMUTABLE_GLOB = '**/*.@(js|css|svg|png|jpg|jpeg|woff2)';
 
+describe('contrato del proyecto de producción', () => {
+  const project = JSON.parse(
+    readFileSync(path.resolve(import.meta.dirname, '../../.firebaserc'), 'utf8'),
+  ) as { projects: Record<string, string> };
+  const productionEnv = readFileSync(
+    path.resolve(import.meta.dirname, '../../.env.production'),
+    'utf8',
+  );
+  const rewrites = (hosting as unknown as {
+    rewrites: { source: string; run?: { serviceId: string; region: string } }[];
+  }).rewrites;
+
+  it('apunta al proyecto Firebase real y usa el proxy del mismo origen', () => {
+    expect(project.projects.default).toBe('explorarte-6335b');
+    expect(project.projects.production).toBe('explorarte-6335b');
+    expect(productionEnv).toMatch(/^VITE_API_URL=\/api$/m);
+  });
+
+  it.each(['/api/**', '/media/**'])('%s llega al Cloud Run de producción', (source) => {
+    expect(rewrites.find((rewrite) => rewrite.source === source)?.run).toEqual({
+      serviceId: 'explorarte-api',
+      region: 'us-central1',
+    });
+  });
+});
+
 // El fallo que no tiene vuelta atrás: ese glob atrapa /sw.js. Si le cae
 // max-age=31536000,immutable, el navegador deja de pedir el archivo y la
 // usuaria queda clavada en un service worker viejo para siempre — no se

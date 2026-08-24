@@ -11,7 +11,9 @@
     "test:watch": "vitest",
     "typecheck:e2e": "tsc -p tsconfig.e2e.json",
     "e2e": "playwright test",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "firebase:serve": "npm run build && npx -y firebase-tools@latest emulators:start --only hosting --project explorarte-6335b",
+    "firebase:deploy": "npm run build && npx -y firebase-tools@latest deploy --only hosting --project explorarte-6335b"
   },
   "dependencies": {
     "@explorarte/shared": "file:../shared",

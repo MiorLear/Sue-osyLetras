@@ -78,6 +78,16 @@ class ApplicationStartsTest {
         mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
     }
 
+    @Test
+    void servesHealthThroughTheFirebaseHostingPrefix() throws Exception {
+        mockMvc.perform(get("/api/actuator/health")).andExpect(status().isOk());
+    }
+
+    @Test
+    void servesPublicControllersThroughTheFirebaseHostingPrefix() throws Exception {
+        mockMvc.perform(get("/api/schools")).andExpect(status().isOk());
+    }
+
     /** GCP-04: leer un medio no exige token (ver MediaAccessController), pero
      * subirlo sí. Sin esta distinción la migración habría cerrado las fotos de
      * perfil de toda la web sin que ningún test lo dijera. */
