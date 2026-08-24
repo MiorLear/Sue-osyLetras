@@ -25,6 +25,10 @@ export type ApiModuleKey =
 export interface CreateConfigurableApiClientOptions {
   /** required if any module resolves to 'http' */
   baseUrl?: string;
+  /** fetch credential mode forwarded to every HTTP module */
+  credentials?: RequestCredentials;
+  /** optional cancellation signal forwarded to every HTTP module */
+  signal?: AbortSignal;
   getToken?: () => string | null | undefined;
   /** called when any http request returns 401 (session expired/invalid) */
   onUnauthorized?: () => void;
@@ -39,7 +43,13 @@ export function createConfigurableApiClient(
 ): ApiClient {
   const mock = createMockClient();
   const http = opts.baseUrl
-    ? createHttpClient({ baseUrl: opts.baseUrl, getToken: opts.getToken, onUnauthorized: opts.onUnauthorized })
+    ? createHttpClient({
+        baseUrl: opts.baseUrl,
+        credentials: opts.credentials,
+        signal: opts.signal,
+        getToken: opts.getToken,
+        onUnauthorized: opts.onUnauthorized,
+      })
     : undefined;
   const defaultMode = opts.defaultMode ?? (opts.baseUrl ? 'http' : 'mock');
   const forcedMock = new Set(opts.mockModules ?? []);
