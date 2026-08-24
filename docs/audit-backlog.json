@@ -995,17 +995,19 @@
     },
     {
       "id": "PWA-1.8",
-      "title": "Bring the web calendar to parity with the richer RN implementation",
+      "title": "Record and protect calendar parity before retiring RN",
       "severity": "P1",
       "area": "pwa",
       "phase": 1,
-      "size": "L",
-      "files": ["web/src/routes/Calendar.tsx", "src/app/calendar.tsx"],
-      "problem": "The RN calendar is 856 lines; the web one is 381. This is the largest functional divergence between the two codebases and the main porting cost of consolidating. If it is not closed before the RN app is retired, features are silently lost.",
+      "size": "S",
+      "files": ["web/src/routes/Calendar.tsx", "web/src/routes/Calendar.test.tsx", "docs/calendario-web-vs-rn.md"],
+      "problem": "The original 856-vs-381-lines premise and the claim that RN was functionally richer are obsolete. The current feature diff in docs/calendario-web-vs-rn.md finds no substantial RN-only capability and identifies web-only offline safeguards that must survive consolidation. The remaining real gaps are form validation and regression coverage.",
       "acceptance": [
-        "A feature-by-feature diff of both implementations is recorded, and every RN-only behaviour is either ported or explicitly dropped with a reason.",
-        "Create, edit and delete work, including all-day and recurring cases if the RN version supports them.",
-        "Native date and time inputs are used (closes BUG-01 for web)."
+        "docs/calendario-web-vs-rn.md records the feature-by-feature decision, the web-only invariants and the owner/reason for every deferred capability.",
+        "The audit explicitly records that all-day and recurrence never existed in RN and require new data-model and API work rather than parity work.",
+        "Create, edit, delete, task toggling and optimistic reconciliation keep their existing online/offline behaviour.",
+        "Native date and time inputs ignore empty browser values, and submission rejects an empty title or an end time that is not later than the start time without calling the API or outbox.",
+        "Regression tests cover the native inputs, validation, day/week/month views, accessible month cells, empty state and the critical offline/session safeguards."
       ],
       "dependsOn": ["PWA-1.5c", "PWA-1.6"]
     },

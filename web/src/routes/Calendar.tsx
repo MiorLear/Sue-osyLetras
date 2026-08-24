@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { EVENT_COLORS, type CalEvent, type EventType } from '@explorarte/shared';
 import { CacheAgeNote, ContentState } from '@/components/ContentState';
 import { Icon } from '@/components/Icon';
 import { PendingBadge } from '@/components/PendingBadge';
 import { toast } from '@/components/toast-store';
-import { Select } from '@/components/ui';
 import { api } from '@/lib/api';
 import { cacheKeys } from '@/lib/cache-keys';
 import { isDeadSession } from '@/lib/offline-errors';
@@ -31,6 +30,14 @@ const startOfWeek = (date: Date) => addDays(date, -date.getDay());
 const toISO = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 const fromISO = (s: string) => { const [y, m, dd] = s.split('-').map(Number); return new Date(y, m - 1, dd); };
 const fmtTime12 = (hhmm: string) => { const [h, m] = hhmm.split(':').map(Number); const ap = h >= 12 ? 'PM' : 'AM'; const h12 = h % 12 === 0 ? 12 : h % 12; return `${h12}:${String(m).padStart(2, '0')} ${ap}`; };
+const normalizeTime = (hhmm: string) => {
+  const [hours, minutes] = hhmm.split(':');
+  return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
+};
+const timeToMinutes = (hhmm: string) => {
+  const [hours, minutes] = hhmm.split(':').map(Number);
+  return hours * 60 + minutes;
+};
 
 interface Form { title: string; type: EventType; dateStr: string; startTime: string; endTime: string; reminder: string; }
 const blankForm = (date: Date): Form => ({ title: '', type: 'sesión', dateStr: toISO(date), startTime: '10:00', endTime: '11:00', reminder: 'ninguno' });
@@ -50,6 +57,12 @@ export default function CalendarScreen() {
   const [form, setForm] = useState<Form>(blankForm(new Date()));
   const [submitting, setSubmitting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const newEventRef = useRef<HTMLButtonElement>(null);
+  const editRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (data) setServerEvents(data);
@@ -78,17 +91,76 @@ export default function CalendarScreen() {
 
   const isPending = (id: string) => pending.events.has(id) || pending.eventsRemoved.has(id);
 
-  const closeModal = () => { setModal(null); setSelEvent(null); };
-  const openCreate = () => { setForm(blankForm(selDate)); setSelEvent(null); setModal('create'); };
-  const openDetail = (ev: CalEvent) => { setSelEvent(ev); setModal('detail'); };
+  useEffect(() => {
+    if (!modal) return;
+    if (modal === 'create' || modal === 'edit') titleInputRef.current?.focus();
+    else closeButtonRef.current?.focus();
+  }, [modal]);
+
+  const closeModal = () => {
+    const trigger = triggerRef.current;
+    setModal(null);
+    setSelEvent(null);
+    // El disparador sigue montado al cerrar creación o detalle.
+    trigger?.focus();
+  };
+  const openCreate = () => {
+    triggerRef.current = newEventRef.current;
+    setForm(blankForm(selDate));
+    setSelEvent(null);
+    setModal('create');
+  };
+  const openDetail = (ev: CalEvent) => {
+    triggerRef.current = document.activeElement as HTMLElement | null;
+    setSelEvent(ev);
+    setModal('detail');
+  };
   const startEdit = () => {
     if (!selEvent) return;
-    setForm({ title: selEvent.title, type: selEvent.type, dateStr: selEvent.date, startTime: selEvent.startTime, endTime: selEvent.endTime, reminder: selEvent.reminder || 'ninguno' });
+    setForm({ title: selEvent.title, type: selEvent.type, dateStr: selEvent.date, startTime: normalizeTime(selEvent.startTime), endTime: normalizeTime(selEvent.endTime), reminder: selEvent.reminder || 'ninguno' });
     setModal('edit');
+  };
+
+  const dismissModal = () => {
+    if (modal === 'edit') {
+      setModal('detail');
+      // Editar se vuelve a montar al regresar al detalle.
+      setTimeout(() => editRef.current?.focus(), 0);
+      return;
+    }
+    closeModal();
+  };
+
+  const keepFocusInModal = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      dismissModal();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ));
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   };
 
   const submitForm = async () => {
     if (!form.title.trim()) { toast.error('Por favor ingresa un título'); return; }
+    if (timeToMinutes(form.endTime) <= timeToMinutes(form.startTime)) {
+      toast.error('La hora de fin debe ser posterior a la hora de inicio');
+      return;
+    }
     if (submitting) return;
     setSubmitting(true);
     const input = {
@@ -225,7 +297,7 @@ export default function CalendarScreen() {
           <h1>Mi Calendario</h1>
           <p>Organiza tus sesiones y actividades</p>
         </div>
-        <button onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 18px', borderRadius: 12, background: 'var(--brand)', color: '#fff', fontSize: 14, fontWeight: 700, flexShrink: 0 }}>
+        <button ref={newEventRef} onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 18px', borderRadius: 12, background: 'var(--brand)', color: '#fff', fontSize: 14, fontWeight: 700, flexShrink: 0 }}>
           <Icon name="plus" size={18} color="#fff" strokeWidth={2.4} /> Nuevo evento
         </button>
       </div>
@@ -255,20 +327,20 @@ export default function CalendarScreen() {
       </div>
 
       {modal ? (
-        <div className="modal-backdrop" onClick={closeModal}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop" onClick={dismissModal}>
+          <div ref={dialogRef} className="modal-card" role="dialog" aria-modal="true" aria-labelledby="calendar-modal-title" onKeyDown={keepFocusInModal} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 20px 16px', borderBottom: '1px solid var(--border)' }}>
-              <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-dark)' }}>
+              <h3 id="calendar-modal-title" style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-dark)' }}>
                 {modal === 'create' ? 'Nuevo evento' : modal === 'edit' ? 'Editar evento' : modal === 'delete' ? 'Eliminar evento' : selEvent?.title}
               </h3>
-              <button className="tap-44" aria-label="Cerrar modal" onClick={closeModal}><Icon name="x" size={20} color="var(--text-muted)" /></button>
+              <button ref={closeButtonRef} className="tap-44" aria-label="Cerrar modal" onClick={dismissModal}><Icon name="x" size={20} color="var(--text-muted)" /></button>
             </div>
             <div className="modal-body" style={{ padding: 20 }}>
               {modal === 'create' || modal === 'edit' ? (
-                <EventForm form={form} setForm={setForm} submitLabel={modal === 'edit' ? 'Guardar cambios' : 'Guardar evento'} onCancel={() => setModal(selEvent ? 'detail' : null)} onSubmit={submitForm} submitting={submitting} />
+                <EventForm form={form} setForm={setForm} submitLabel={modal === 'edit' ? 'Guardar cambios' : 'Guardar evento'} onCancel={dismissModal} onSubmit={submitForm} submitting={submitting} titleInputRef={titleInputRef} />
               ) : null}
               {modal === 'detail' && selEvent ? (
-                <EventDetail event={selEvent} onEdit={startEdit} onDelete={() => setModal('delete')} onClose={closeModal} />
+                <EventDetail event={selEvent} onEdit={startEdit} onDelete={() => setModal('delete')} onClose={closeModal} editRef={editRef} />
               ) : null}
               {modal === 'delete' ? (
                 <div>
@@ -413,37 +485,45 @@ function MonthView({ selDate, setSelDate, events, isPending }: { selDate: Date; 
   );
 }
 
-function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+function FormField({ label, htmlFor, children }: { label: string; htmlFor?: string; children: React.ReactNode }) {
   return (
     <div>
-      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-dark)', marginBottom: 6 }}>{label}</label>
+      <label htmlFor={htmlFor} style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-dark)', marginBottom: 6 }}>{label}</label>
       {children}
     </div>
   );
 }
 
-function EventForm({ form, setForm, submitLabel, onCancel, onSubmit, submitting }: { form: Form; setForm: (f: Form) => void; submitLabel: string; onCancel: () => void; onSubmit: () => void; submitting: boolean }) {
+function EventSelect({ id, value, options, onChange }: { id: string; value: string; options: readonly string[]; onChange: (value: string) => void }) {
+  return (
+    <select id={id} className="select-native" value={value} onChange={(event) => onChange(event.target.value)} style={{ paddingLeft: 16, color: 'var(--text-dark)' }}>
+      {options.map((option) => <option key={option} value={option}>{option}</option>)}
+    </select>
+  );
+}
+
+function EventForm({ form, setForm, submitLabel, onCancel, onSubmit, submitting, titleInputRef }: { form: Form; setForm: (f: Form) => void; submitLabel: string; onCancel: () => void; onSubmit: () => void; submitting: boolean; titleInputRef: React.RefObject<HTMLInputElement | null> }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <FormField label="Título">
-        <input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Nombre del evento" />
+      <FormField label="Título" htmlFor="event-title">
+        <input ref={titleInputRef} id="event-title" className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Nombre del evento" />
       </FormField>
-      <FormField label="Tipo">
-        <Select value={form.type} options={TYPES} onChange={(v) => setForm({ ...form, type: v as EventType })} />
+      <FormField label="Tipo" htmlFor="event-type">
+        <EventSelect id="event-type" value={form.type} options={TYPES} onChange={(v) => setForm({ ...form, type: v as EventType })} />
       </FormField>
-      <FormField label="Fecha">
-        <input className="input" type="date" value={form.dateStr} onChange={(e) => setForm({ ...form, dateStr: e.target.value })} />
+      <FormField label="Fecha" htmlFor="event-date">
+        <input id="event-date" className="input" type="date" value={form.dateStr} onChange={(e) => { if (e.target.value) setForm({ ...form, dateStr: e.target.value }); }} />
       </FormField>
       <div style={{ display: 'flex', gap: 12 }}>
         <div style={{ flex: 1 }}>
-          <FormField label="Inicio"><input className="input" type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} /></FormField>
+          <FormField label="Inicio" htmlFor="event-start"><input id="event-start" className="input" type="time" value={form.startTime} onChange={(e) => { if (e.target.value) setForm({ ...form, startTime: e.target.value }); }} /></FormField>
         </div>
         <div style={{ flex: 1 }}>
-          <FormField label="Fin"><input className="input" type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} /></FormField>
+          <FormField label="Fin" htmlFor="event-end"><input id="event-end" className="input" type="time" value={form.endTime} onChange={(e) => { if (e.target.value) setForm({ ...form, endTime: e.target.value }); }} /></FormField>
         </div>
       </div>
-      <FormField label="Recordatorio">
-        <Select value={form.reminder} options={REMINDERS} onChange={(v) => setForm({ ...form, reminder: v })} />
+      <FormField label="Recordatorio" htmlFor="event-reminder">
+        <EventSelect id="event-reminder" value={form.reminder} options={REMINDERS} onChange={(v) => setForm({ ...form, reminder: v })} />
       </FormField>
       <div style={{ display: 'flex', gap: 8 }}>
         <ModalBtn label="Cancelar" outline onClick={onCancel} disabled={submitting} />
@@ -453,7 +533,7 @@ function EventForm({ form, setForm, submitLabel, onCancel, onSubmit, submitting 
   );
 }
 
-function EventDetail({ event, onEdit, onDelete, onClose }: { event: CalEvent; onEdit: () => void; onDelete: () => void; onClose: () => void }) {
+function EventDetail({ event, onEdit, onDelete, onClose, editRef }: { event: CalEvent; onEdit: () => void; onDelete: () => void; onClose: () => void; editRef: React.RefObject<HTMLButtonElement | null> }) {
   const dt = fromISO(event.date);
   const hasReminder = !!(event.reminder && event.reminder !== 'ninguno');
   return (
@@ -462,7 +542,7 @@ function EventDetail({ event, onEdit, onDelete, onClose }: { event: CalEvent; on
       <DetailRow icon="clock" label="Hora" value={`${fmtTime12(event.startTime)} - ${fmtTime12(event.endTime)}`} />
       {hasReminder ? <DetailRow icon="bell" label="Recordatorio" value={event.reminder} /> : null}
       <div style={{ display: 'flex', gap: 8 }}>
-        <button className="tap-44" onClick={onEdit} style={{ flex: 1, gap: 6, padding: 11, borderRadius: 10, border: '1.5px solid var(--brand)', background: '#fff', color: 'var(--brand)', fontSize: 13, fontWeight: 700 }}>
+        <button ref={editRef} className="tap-44" onClick={onEdit} style={{ flex: 1, gap: 6, padding: 11, borderRadius: 10, border: '1.5px solid var(--brand)', background: '#fff', color: 'var(--brand)', fontSize: 13, fontWeight: 700 }}>
           <Icon name="edit" size={14} color="var(--brand)" /> Editar
         </button>
         <button className="tap-44" onClick={onDelete} style={{ flex: 1, gap: 6, padding: 11, borderRadius: 10, background: 'var(--danger)', color: '#fff', fontSize: 13, fontWeight: 700 }}>
