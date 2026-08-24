@@ -305,6 +305,7 @@ export function createMockClient(): ApiClient {
     media: {
       async upload(file: Blob, filename: string, _category: MediaCategory): Promise<MediaItem> {
         await delay(60);
+        const uploadedAt = new Date().toISOString();
         // Mock mode has no real file storage — createObjectURL lets the file
         // still render locally (works on web; falls back to a fake URL where
         // it's unavailable, e.g. Hermes/React Native).
@@ -320,6 +321,8 @@ export function createMockClient(): ApiClient {
           url,
           mimeType: file.type || 'application/octet-stream',
           sizeBytes: file.size,
+          updatedAt: uploadedAt,
+          etag: `"mock-upload-${file.size}-${Date.parse(uploadedAt)}"`,
         };
       },
     },

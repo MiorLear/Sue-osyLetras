@@ -499,6 +499,17 @@ paths:
 
 components:
   schemas:
+    MediaItem:
+      type: object
+      required: [id, title, url, mimeType, sizeBytes]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        url: { type: string, format: uri }
+        mimeType: { type: string }
+        sizeBytes: { type: integer, minimum: 0 }
+        updatedAt: { type: string, format: date-time }
+        etag: { type: string }
     Emotion:
       type: object
       required: [id, name, emoji, color, bg]
@@ -516,7 +527,7 @@ components:
         classroom: { type: string }
         questions: { type: array, items: { type: string } }
         activities: { type: array, items: { type: string } }
-        stories: { type: array, items: { type: string } }
+        stories: { type: array, items: { $ref: '#/components/schemas/MediaItem' } }
     EmotionDetail:
       allOf:
         - $ref: '#/components/schemas/Emotion'
@@ -551,12 +562,18 @@ components:
         comments:
           type: array
           items: { $ref: '#/components/schemas/Comment' }
+        attachments:
+          type: array
+          items: { $ref: '#/components/schemas/MediaItem' }
     CreatePostInput:
       type: object
       required: [text]
       properties:
         text: { type: string }
         module: { type: string, nullable: true }
+        attachments:
+          type: array
+          items: { $ref: '#/components/schemas/MediaItem' }
     CreateCommentInput:
       type: object
       required: [text]
@@ -601,6 +618,9 @@ components:
       properties:
         title: { type: string }
         body: { type: string }
+        pdfs: { type: array, items: { $ref: '#/components/schemas/MediaItem' } }
+        videos: { type: array, items: { $ref: '#/components/schemas/MediaItem' } }
+        audios: { type: array, items: { $ref: '#/components/schemas/MediaItem' } }
     Topic:
       type: object
       required: [id, emoji, title, subtopics]
@@ -632,8 +652,19 @@ components:
       type: object
       required: [downloadables, bibliography]
       properties:
-        downloadables: { type: array, items: { type: string } }
+        downloadables: { type: array, items: { $ref: '#/components/schemas/MediaItem' } }
         bibliography: { type: array, items: { type: string } }
+        manualDocument:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/MediaItem'
+        activityGuides: { type: array, items: { $ref: '#/components/schemas/MediaItem' } }
+    ScreenIntroVideo:
+      type: object
+      required: [screenKey, video]
+      properties:
+        screenKey: { type: string }
+        video: { $ref: '#/components/schemas/MediaItem' }
     UserProfile:
       type: object
       required: [id, name, lastname, email, phone, institucion, ubicacion, role, status]

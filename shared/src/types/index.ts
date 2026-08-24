@@ -16,6 +16,10 @@ export interface MediaItem {
   url: string;
   mimeType: string;
   sizeBytes: number;
+  /** Last known server-side modification time, used for cache validation. */
+  updatedAt?: string;
+  /** Entity tag supplied by storage, used for cache validation. */
+  etag?: string;
 }
 
 // ── Emotions ────────────────────────────────────────────────────────────────
