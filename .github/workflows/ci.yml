@@ -51,7 +51,10 @@ jobs:
 
       - name: Build web
         working-directory: web
-        run: npm run build
+        # El build de producción usa /api (web/.env.production). El navegador
+        # E2E prueba la UI contra el mock determinista, no contra infraestructura
+        # externa, así que se compila en modo test.
+        run: npm run build:e2e
 
       - name: Typecheck E2E
         working-directory: web
