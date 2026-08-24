@@ -1,8 +1,9 @@
 $ErrorActionPreference = 'Stop'
 
 $projectId = 'explorarte-6335b'
-$region = 'us-central1'
+$region = 'us-east4'
 $service = 'explorarte-api'
+$instance = 'explorarte-6335b-instance'
 
 Write-Host "Proyecto esperado: $projectId"
 
@@ -24,7 +25,7 @@ if (-not $gcloud) {
     exit 2
 }
 
-$gcloudCommand = $gcloud.Source
+$gcloudCommand = if ($gcloud.Source) { $gcloud.Source } else { $gcloud.FullName }
 $activeAccount = & $gcloudCommand auth list --filter=status:ACTIVE --format='value(account)'
 if (-not $activeAccount) {
     Write-Warning 'No hay una cuenta activa en gcloud. Ejecuta: gcloud auth login'
@@ -44,7 +45,7 @@ Write-Host 'Cloud Run:'
 if ($LASTEXITCODE -ne 0) { Write-Warning "Falta Cloud Run '$service' en $region." }
 
 Write-Host 'Cloud SQL:'
-& $gcloudCommand sql instances list --project $projectId --format='table(name,region,databaseVersion,state)'
+& $gcloudCommand sql instances describe $instance --project $projectId --format='table(name,region,databaseVersion,state)'
 
 Write-Host 'Buckets:'
 & $gcloudCommand storage buckets list --project $projectId --format='table(name,location,storage_class)'
