@@ -774,11 +774,18 @@ a {
   background: #fff;
   border-radius: 20px;
   max-height: 88vh;
+  max-height: 88dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   animation: pop-in 0.18s ease;
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+}
+.modal-body {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  overscroll-behavior: contain;
 }
 /* Admin CRUD forms are far longer than the read-only modals the base class was
    sized for (string lists, colour pickers, upload slots), so they get their own
@@ -786,6 +793,7 @@ a {
 .modal-card--admin {
   max-width: 760px;
   max-height: 92vh;
+  max-height: 92dvh;
 }
 @keyframes pop-in {
   from {
@@ -821,14 +829,45 @@ a {
   font-family: var(--font-serif);
 }
 
+/* Posicionamiento compartido para acciones flotantes: deja libres la barra
+   inferior y el indicador de inicio en una PWA instalada. */
+.fab {
+  position: fixed;
+  bottom: calc(30px + var(--bottom-nav-height, 0px) + env(safe-area-inset-bottom, 0px));
+  right: 30px;
+}
+
+/* hit-44 solo sirve para controles aislados y que no usen ya ::after; no usar dos a menos de 44px. */
+.hit-44 {
+  position: relative;
+}
+.hit-44::after {
+  content: '';
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+.tap-44 {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+}
+
 /* ════════════════════════════════════════════════════════════════════
    AUTH / ONBOARDING — centered card on a soft branded background
    ════════════════════════════════════════════════════════════════════ */
 .auth-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow-y: auto;
   padding: 32px 20px;
   background: radial-gradient(120% 120% at 0% 0%, #eaf5f3 0%, #faf6ef 60%);
 }
@@ -1080,6 +1119,20 @@ a {
     padding-left: calc(18px + env(safe-area-inset-left, 0px));
     padding-right: calc(18px + env(safe-area-inset-right, 0px));
   }
+  /* Con teclado o poca altura, el formulario queda anclado arriba y puede
+     desplazarse; cuando cabe, el margen automático conserva el centrado. */
+  .auth-shell {
+    align-items: flex-start;
+  }
+  .auth-card {
+    margin-block: auto;
+  }
+  /* iOS amplía los campos menores de 16px al enfocarlos. El escritorio con
+     ratón conserva la densidad original de 14px. */
+  .input,
+  .select-native {
+    font-size: 16px;
+  }
   .masthead {
     flex-direction: column;
     align-items: flex-start;
@@ -1134,6 +1187,9 @@ a {
   }
   .masthead h1 {
     font-size: clamp(28px, 8vw, 34px);
+  }
+  .page-head h1 {
+    font-size: clamp(24px, 7vw, 34px);
   }
   .masthead .lede {
     font-size: 14px;
@@ -1327,6 +1383,10 @@ a {
   .sidebar-user,
   .btn {
     min-height: 44px;
+  }
+  .input,
+  .select-native {
+    font-size: 16px;
   }
 }
 
@@ -1597,6 +1657,7 @@ a {
 
 .media-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   width: 100%;
@@ -1620,7 +1681,7 @@ a {
   flex-shrink: 0;
 }
 .media-row__body {
-  flex: 1;
+  flex: 1 1 130px;
   min-width: 0;
 }
 .media-row__title {
