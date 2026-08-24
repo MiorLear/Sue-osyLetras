@@ -8,7 +8,7 @@ import {
   type MediaIndexRecord,
 } from '@/lib/idb';
 import type { MediaItem } from '@explorarte/shared';
-import { MEDIA_CACHE, isMediaUrl, isSameOriginMedia } from '@/lib/media-origins';
+import { MEDIA_CACHE, isMediaUrl } from '@/lib/media-origins';
 
 // Caché de archivos (PDF, video, audio, imágenes) para verlos sin conexión.
 // Es el puerto web de src/lib/offlineStorage.ts, con la misma API pública para
@@ -191,12 +191,10 @@ export async function getLocalBlob(id: string): Promise<Blob | null> {
  *   - MISMO ORIGEN (producción, vía el rewrite `/media/**`): GET condicional
  *     con `If-None-Match` / `If-Modified-Since`. Un 304 confirma la copia, un
  *     200 dice que cambió. Es la comprobación de verdad.
- *   - OTRO ORIGEN (Render, las URLs viejas de Supabase): `ETag` no es una
- *     cabecera de respuesta segura para CORS, así que el navegador se la oculta
- *     a JavaScript salvo que el servidor la exponga, y mandar `If-None-Match`
- *     dispara un preflight. Queda `Last-Modified`, que sí es legible, y si
- *     tampoco viene se compara el tamaño — que es exactamente el defecto que
- *     BUG-05 describe: un archivo corregido del mismo tamaño no se detecta.
+ *   - FILAS ANTIGUAS SIN VERSIÓN: se reutilizan los validadores HTTP guardados.
+ *     En producción los medios pasan por el rewrite del mismo origen. Para una
+ *     URL histórica entre orígenes se intenta igualmente y cualquier bloqueo
+ *     CORS conserva la copia local.
  *
  * `updatedAt`/`etag` en MediaItem hacen innecesaria la petición por archivo.
  * Las filas antiguas sin versión conservan la revalidación condicional.
@@ -211,15 +209,9 @@ export async function needsUpdate(id: string, remoteVersion: string | undefined)
   // no hace falta una petición condicional por cada archivo.
   if (remoteVersion !== undefined) return meta.version !== remoteVersion;
 
-  // Otro origen, o ningún validador guardado: no hay nada mejor que la versión
-  // del llamador, que ya coincidió. Entre orígenes la condicional dispara un
-  // preflight que el bucket no responde, así que no se gasta esa petición.
-  const validators = isSameOriginMedia(meta.url) ? { etag: meta.etag, lm: meta.lastModified } : {};
-  if (!validators.etag && !validators.lm) return false;
-
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
 
-  return revalidate(meta, validators);
+  return revalidate(meta, { etag: meta.etag, lm: meta.lastModified });
 }
 
 /** GET condicional. Ante cualquier duda responde "no hace falta actualizar":
