@@ -1,5 +1,7 @@
 package com.explorarte.api.media;
 
+import java.time.Instant;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
@@ -17,4 +19,11 @@ public record MediaItem(
         @NotBlank @Size(max = 255) String title,
         @NotBlank @Size(max = 2048) String url,
         @NotBlank @Size(max = 128) String mimeType,
-        @PositiveOrZero long sizeBytes) {}
+        @PositiveOrZero long sizeBytes,
+        Instant updatedAt,
+        @Size(max = 512) String etag) {
+
+    public MediaItem(String id, String title, String url, String mimeType, long sizeBytes) {
+        this(id, title, url, mimeType, sizeBytes, null, null);
+    }
+}

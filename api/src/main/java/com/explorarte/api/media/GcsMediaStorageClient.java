@@ -70,7 +70,7 @@ public class GcsMediaStorageClient implements MediaStorageClient {
     }
 
     @Override
-    public void upload(String objectPath, byte[] bytes, String contentType) {
+    public UploadResult upload(String objectPath, byte[] bytes, String contentType) {
         BlobInfo blobInfo = BlobInfo.newBuilder(BlobId.of(requireBucket(), objectPath))
                 .setContentType(contentType == null || contentType.isBlank()
                         ? "application/octet-stream" : contentType)
@@ -80,7 +80,8 @@ public class GcsMediaStorageClient implements MediaStorageClient {
                 .setCacheControl("public, max-age=31536000, immutable")
                 .build();
         try {
-            storage().create(blobInfo, bytes, Storage.BlobTargetOption.doesNotExist());
+            Blob blob = storage().create(blobInfo, bytes, Storage.BlobTargetOption.doesNotExist());
+            return new UploadResult(blob.getEtag());
         } catch (StorageException e) {
             throw new StorageUnavailableException("Could not store the uploaded file", e);
         }
