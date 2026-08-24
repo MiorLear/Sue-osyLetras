@@ -16,7 +16,7 @@ const indexOfSource = (source: string) => rules.findIndex((r) => r.source === so
 const headerOf = (source: string, key: string) =>
   rules.find((r) => r.source === source)?.headers.find((h) => h.key === key)?.value;
 
-const IMMUTABLE_GLOB = '**/*.@(js|css|svg|png|jpg|jpeg|woff2)';
+const IMMUTABLE_GLOB = '/assets/**';
 
 describe('contrato del proyecto de producción', () => {
   const project = JSON.parse(
@@ -39,31 +39,24 @@ describe('contrato del proyecto de producción', () => {
   it.each(['/api/**', '/media/**'])('%s llega al Cloud Run de producción', (source) => {
     expect(rewrites.find((rewrite) => rewrite.source === source)?.run).toEqual({
       serviceId: 'explorarte-api',
-      region: 'us-central1',
+      region: 'us-east4',
     });
   });
 });
 
-// El fallo que no tiene vuelta atrás: ese glob atrapa /sw.js. Si le cae
-// max-age=31536000,immutable, el navegador deja de pedir el archivo y la
-// usuaria queda clavada en un service worker viejo para siempre — no se
-// arregla con un deploy, porque el deploy nunca se descarga.
 describe('firebase.json no puede convertirse en una bomba de caché', () => {
-  it('el glob immutable sigue ahí y sigue atrapando /sw.js', () => {
+  it('solo los assets con hash reciben cache immutable', () => {
     const glob = rules.find((r) => r.source === IMMUTABLE_GLOB);
     expect(glob).toBeDefined();
     expect(glob!.headers[0].value).toContain('immutable');
-    // La alternancia incluye `js`, así que /sw.js encaja: por eso las reglas
-    // no-cache tienen que ir antes.
-    expect(IMMUTABLE_GLOB).toContain('js|');
+    expect(IMMUTABLE_GLOB).not.toContain('sw.js');
   });
 
-  it.each(['/sw.js', '/manifest.webmanifest', '/index.html'])(
-    '%s va antes del glob immutable y con no-cache',
+  it.each(['/', '/sw.js', '/manifest.webmanifest', '/index.html'])(
+    '%s se sirve con no-cache',
     (source) => {
       const at = indexOfSource(source);
       expect(at, `falta la regla de ${source}`).toBeGreaterThanOrEqual(0);
-      expect(at).toBeLessThan(indexOfSource(IMMUTABLE_GLOB));
       expect(headerOf(source, 'Cache-Control')).toContain('no-cache');
     },
   );

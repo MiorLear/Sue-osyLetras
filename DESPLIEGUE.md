@@ -61,12 +61,12 @@ Lo que ya está en el código para que esto funcione sin tocar nada más:
 - `gcloud` CLI — [cloud.google.com/sdk](https://cloud.google.com/sdk)
 - Firebase CLI vía `npx -y firebase-tools@latest` (no hace falta instalación global).
 - `psql` y `pg_dump` (para la migración de datos, §7).
-- Proyecto: `explorarte-6335b`. Región inicial: `us-central1`.
+- Proyecto: `explorarte-6335b`. Región de producción: `us-east4`.
 
 ```bash
 export PROJECT_ID=explorarte-6335b
-export REGION=us-central1
-export INSTANCE=explorarte-db
+export REGION=us-east4
+export INSTANCE=explorarte-6335b-instance
 export SERVICE=explorarte-api
 ```
 
@@ -102,11 +102,11 @@ gcloud sql users set-password postgres --instance="$INSTANCE" --password=<contra
 
 ### Bucket de medios
 
-Cloud Storage for Firebase es un bucket de GCS normal. Se crea desde la consola de Firebase
-(Storage → Comenzar), lo que deja un bucket llamado `explorarte-prod.firebasestorage.app`.
+Cloud Storage for Firebase usa un bucket de GCS normal. En este proyecto ya existe el bucket
+privado regional `explorarte-6335b-media`.
 
 ```bash
-export GCS_BUCKET="$PROJECT_ID.firebasestorage.app"
+export GCS_BUCKET="explorarte-6335b-media"
 ```
 
 **El bucket queda privado y así se queda.** No le agregues un binding de `allUsers`. Ese binding
@@ -208,13 +208,13 @@ Hay **dos** URLs y **solo una se guarda**:
 
 ```
 CANÓNICA — se persiste, es permanente, no tiene query string, no caduca
-  https://explorarte-prod.web.app/media/posts/9f1c8e2a-...-ficha.pdf
+  https://explorarte-6335b.web.app/media/posts/9f1c8e2a-...-ficha.pdf
   └── APP_MEDIA_PUBLIC_BASE_URL ──┘└──── ruta del objeto en el bucket ────┘
 
     GET → 302 Found, Location:
 
 FIRMADA — efímera, no se guarda nunca, no es clave de caché de nadie
-  https://storage.googleapis.com/explorarte-prod.firebasestorage.app/posts/9f1c8e2a-...-ficha.pdf
+  https://storage.googleapis.com/explorarte-6335b-media/posts/9f1c8e2a-...-ficha.pdf
     ?X-Goog-Algorithm=GOOG4-RSA-SHA256
     &X-Goog-Credential=<sa>%2F20260807%2Fauto%2Fstorage%2Fgoog4_request
     &X-Goog-Date=20260807T090000Z
@@ -281,7 +281,7 @@ mismo servicio de Cloud Run que `/api/**` — **los dos, no uno en lugar del otr
 
 ```jsonc
 // web/firebase.json → hosting.rewrites, junto al de /api/**
-{ "source": "/media/**", "run": { "serviceId": "explorarte-api", "region": "us-central1" } }
+{ "source": "/media/**", "run": { "serviceId": "explorarte-api", "region": "us-east4" } }
 ```
 
 ✅ **Y su CSP ya lleva `https://storage.googleapis.com` en `img-src`, `media-src` y `connect-src`**,

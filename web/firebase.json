@@ -7,14 +7,14 @@
         "source": "/api/**",
         "run": {
           "serviceId": "explorarte-api",
-          "region": "us-central1"
+          "region": "us-east4"
         }
       },
       {
         "source": "/media/**",
         "run": {
           "serviceId": "explorarte-api",
-          "region": "us-central1"
+          "region": "us-east4"
         }
       },
       {
@@ -39,8 +39,12 @@
         "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
       },
       {
-        "source": "**/*.@(js|css|svg|png|jpg|jpeg|woff2)",
+        "source": "/assets/**",
         "headers": [{ "key": "Cache-Control", "value": "max-age=31536000,immutable" }]
+      },
+      {
+        "source": "/",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
       },
       {
         "source": "**",

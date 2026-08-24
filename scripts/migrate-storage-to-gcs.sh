@@ -12,7 +12,7 @@
 # Uso:
 #   export SUPABASE_URL=https://<ref>.supabase.co
 #   export SUPABASE_KEY=<service_role key>     # solo para leer, y solo hoy
-#   export GCS_BUCKET=explorarte-prod.firebasestorage.app
+#   export GCS_BUCKET=explorarte-6335b-media
 #   ./scripts/migrate-storage-to-gcs.sh              # copia de verdad
 #   DRY_RUN=1 ./scripts/migrate-storage-to-gcs.sh    # solo lista que haria
 #
