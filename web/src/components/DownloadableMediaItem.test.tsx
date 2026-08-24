@@ -131,6 +131,7 @@ describe('<DownloadableMediaItem />', () => {
 
     await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
     expect(media.download).not.toHaveBeenCalled();
+    expect(media.needsUpdate).not.toHaveBeenCalled();
   });
 
   it('una copia descargada pero obsoleta vuelve a ofrecer descarga sin bajarla sola', async () => {

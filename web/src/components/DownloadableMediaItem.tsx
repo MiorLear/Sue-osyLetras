@@ -36,7 +36,11 @@ export function DownloadableMediaItem({ item }: { item: MediaItem }) {
     let active = true;
     void (async () => {
       const has = await isDownloaded(item.id);
-      const stale = has && online ? await needsUpdate(item.id, mediaVersion(item)) : false;
+      const version = mediaVersion(item);
+      // Rendering a legacy list must not fetch every file. Rows carrying the
+      // new metadata can be checked locally; legacy HTTP revalidation remains
+      // available to explicit sync and user-initiated open/save actions.
+      const stale = has && online && version ? await needsUpdate(item.id, version) : false;
       if (active) setState(has && !stale ? 'ready' : 'absent');
     })();
     return () => {
