@@ -1,7 +1,13 @@
 import type { MediaItem } from '@explorarte/shared';
 
 import { toast } from '@/components/toast-store';
-import { MediaDownloadError, download, getLocalBlob, getLocalUrl } from '@/lib/media-cache';
+import {
+  MediaDownloadError,
+  download,
+  getLocalBlob,
+  getLocalUrl,
+  mediaVersion,
+} from '@/lib/media-cache';
 
 // Abrir, guardar y compartir un archivo en un navegador.
 //
@@ -41,7 +47,7 @@ async function ensureLocal(item: MediaItem, online: boolean): Promise<Blob | nul
   if (cached) return cached;
   if (!online) return null;
   try {
-    await download(item.id, item.url, { version: String(item.sizeBytes ?? '') });
+    await download(item.id, item.url, { version: mediaVersion(item) });
   } catch {
     return null;
   }

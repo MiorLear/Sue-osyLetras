@@ -9,6 +9,7 @@ import {
   isCacheStorageAvailable,
   isDownloaded,
   listDownloaded,
+  mediaVersion,
   needsUpdate,
   remove,
   totalDownloadedBytes,
@@ -150,6 +151,27 @@ describe('media-cache · progreso y tamaño (BUG-12)', () => {
 });
 
 describe('media-cache · frescura (BUG-05)', () => {
+  it('deriva una versión del listado sin confundirla con el tamaño', () => {
+    expect(mediaVersion({ etag: '"api-v2"', updatedAt: '2026-08-23T01:02:03Z' })).toBe(
+      'etag:"api-v2"',
+    );
+    expect(mediaVersion({ updatedAt: '2026-08-23T01:02:03Z' })).toBe(
+      'updatedAt:2026-08-23T01:02:03Z',
+    );
+    expect(mediaVersion({})).toBeUndefined();
+  });
+
+  it('una versión estable del listado evita una petición por archivo', async () => {
+    fetchMock.mockResolvedValueOnce(fileResponse(100, { etag: '"storage-v1"' }));
+    await download('manual', URL_PDF, { version: 'updatedAt:2026-08-23T01:02:03Z' });
+
+    fetchMock.mockClear();
+    await expect(
+      needsUpdate('manual', 'updatedAt:2026-08-23T01:02:03Z'),
+    ).resolves.toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('lo que no está descargado siempre necesita actualizarse', async () => {
     await expect(needsUpdate('fantasma', '123')).resolves.toBe(true);
   });

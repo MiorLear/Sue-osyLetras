@@ -111,7 +111,7 @@ export interface ApiCacheRecord {
 export interface MediaIndexRecord {
   id: string;
   url: string;
-  /** Opaque version the CALLER supplied (today the MediaItem's sizeBytes).
+  /** Opaque version the caller supplied (the MediaItem's etag or updatedAt).
    *  Kept apart from the HTTP validators below: mixing them would compare an
    *  ETag against a byte count and re-download the file on every check. */
   version?: string;

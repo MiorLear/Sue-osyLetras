@@ -5,7 +5,7 @@ import type { MediaItem } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { MediaViewer } from '@/components/MediaViewer';
 import { toast } from '@/components/toast-store';
-import { download, isDownloaded } from '@/lib/media-cache';
+import { download, isDownloaded, mediaVersion } from '@/lib/media-cache';
 import { formatBytes, iconFor } from '@/lib/media-format';
 import { reportDownloadError } from '@/lib/open-file';
 import { useIsOnline } from '@/lib/useNetworkStatus';
@@ -54,7 +54,7 @@ export function DownloadableMediaItem({ item }: { item: MediaItem }) {
     setRatio(undefined);
     try {
       await download(item.id, item.url, {
-        version: String(item.sizeBytes ?? ''),
+        version: mediaVersion(item),
         onProgress: (p) => setRatio(p.ratio),
       });
       setState('ready');
