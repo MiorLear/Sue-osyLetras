@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && tsc -p tsconfig.worker.json && vite build",
+    "build:e2e": "tsc -b && tsc -p tsconfig.worker.json && vite build --mode test",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
