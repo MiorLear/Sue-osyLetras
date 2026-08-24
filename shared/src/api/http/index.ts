@@ -44,6 +44,10 @@ export class ApiError extends Error {
 
 export interface HttpClientOptions {
   baseUrl: string;
+  /** fetch credential mode; omitted to preserve the platform default */
+  credentials?: RequestCredentials;
+  /** optional shared cancellation signal for this client instance */
+  signal?: AbortSignal;
   /** optional bearer token supplier for authenticated requests */
   getToken?: () => string | null | undefined;
   /** called once whenever a request comes back 401, so the app can clear the
@@ -68,6 +72,8 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
+      credentials: opts.credentials,
+      signal: opts.signal,
     });
     if (!res.ok) fail(method, path, res.status, await res.text().catch(() => ''));
     if (res.status === 204) return undefined as T;
@@ -84,7 +90,13 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
     const form = new FormData();
     form.append('file', file, filename);
 
-    const res = await fetch(base + path, { method: 'POST', headers, body: form });
+    const res = await fetch(base + path, {
+      method: 'POST',
+      headers,
+      body: form,
+      credentials: opts.credentials,
+      signal: opts.signal,
+    });
     if (!res.ok) fail('POST', path, res.status, await res.text().catch(() => ''));
     return (await res.json()) as MediaItem;
   }

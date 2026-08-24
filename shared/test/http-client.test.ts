@@ -59,6 +59,41 @@ describe('createHttpClient · request', () => {
     expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/json');
   });
 
+  it('propaga credentials y signal sin alterar las opciones omitidas', async () => {
+    const fetchSpy = mockFetch([json([]), json([])]);
+    const controller = new AbortController();
+    const configured = createHttpClient({
+      baseUrl: 'https://api.test',
+      credentials: 'include',
+      signal: controller.signal,
+    });
+    await configured.emotions.list();
+
+    const configuredInit = fetchSpy.mock.calls[0][1] as RequestInit;
+    expect(configuredInit.credentials).toBe('include');
+    expect(configuredInit.signal).toBe(controller.signal);
+
+    await createHttpClient({ baseUrl: 'https://api.test' }).emotions.list();
+    const defaultInit = fetchSpy.mock.calls[1][1] as RequestInit;
+    expect(defaultInit.credentials).toBeUndefined();
+    expect(defaultInit.signal).toBeUndefined();
+  });
+
+  it('propaga credentials y signal también a las subidas multipart', async () => {
+    const fetchSpy = mockFetch(json({ id: 'm-1' }));
+    const controller = new AbortController();
+    const client = createHttpClient({
+      baseUrl: 'https://api.test',
+      credentials: 'same-origin',
+      signal: controller.signal,
+    });
+    await client.media.upload(new Blob(['hola']), 'nota.txt', 'tools');
+
+    const init = fetchSpy.mock.calls[0][1] as RequestInit;
+    expect(init.credentials).toBe('same-origin');
+    expect(init.signal).toBe(controller.signal);
+  });
+
   it('trata el 204 como respuesta vacia', async () => {
     mockFetch(new Response(null, { status: 204 }));
     const client = createHttpClient({ baseUrl: 'https://api.test' });

@@ -63,4 +63,21 @@ describe('createConfigurableApiClient', () => {
     const init = fetchSpy.mock.calls[0][1] as RequestInit;
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer tok-1');
   });
+
+  it('propaga credentials y signal al adaptador http', async () => {
+    const fetchSpy = vi.fn(async () => new Response('[]', { status: 200 }));
+    vi.stubGlobal('fetch', fetchSpy);
+    const controller = new AbortController();
+
+    const client = createConfigurableApiClient({
+      baseUrl: 'https://api.test',
+      credentials: 'include',
+      signal: controller.signal,
+    });
+    await client.emotions.list();
+
+    const init = fetchSpy.mock.calls[0][1] as RequestInit;
+    expect(init.credentials).toBe('include');
+    expect(init.signal).toBe(controller.signal);
+  });
 });
