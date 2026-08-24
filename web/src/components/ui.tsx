@@ -299,11 +299,14 @@ export function LocationAutocomplete({
         // a cambio el formulario crece mientras la lista está abierta, que es
         // un movimiento que se entiende porque lo provocó ella al escribir.
         <div
+          role="group"
+          aria-label="Sugerencias de ubicación"
           style={{
             marginTop: 4,
-            // Con muchas coincidencias, la lista no puede empujar el botón
-            // fuera de la pantalla.
+            // Con muchas coincidencias, la lista conserva su inserción en el
+            // flujo sin consumir el alto que deja libre el teclado móvil.
             maxHeight: 200,
+            maxBlockSize: '30dvh',
             overflowY: 'auto',
             overflowX: 'hidden',
             background: '#fff',
@@ -322,6 +325,7 @@ export function LocationAutocomplete({
                 alignItems: 'center',
                 gap: 8,
                 width: '100%',
+                minHeight: 44,
                 textAlign: 'left',
                 padding: '10px 14px',
                 fontSize: 13,

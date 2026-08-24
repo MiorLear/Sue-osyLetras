@@ -122,7 +122,7 @@ export default function Login() {
               <Field label="Correo electrónico" icon="mail" placeholder="correo@ejemplo.com" type="email" autoCapitalize="none" value={email} onChangeText={setEmail} />
               <Field label="Contraseña" password placeholder="Tu contraseña" value={password} onChangeText={setPassword} />
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button onClick={() => toast.info('La recuperación de contraseña estará disponible muy pronto. Por ahora, si olvidaste tu contraseña, contacta al administrador.', { title: 'Próximamente' })} style={{ fontSize: 12, color: 'var(--brand)', fontWeight: 600 }}>
+                <button className="tap-44" onClick={() => toast.info('La recuperación de contraseña estará disponible muy pronto. Por ahora, si olvidaste tu contraseña, contacta al administrador.', { title: 'Próximamente' })} style={{ fontSize: 12, color: 'var(--brand)', fontWeight: 600 }}>
                   ¿Olvidaste tu contraseña?
                 </button>
               </div>
@@ -134,7 +134,7 @@ export default function Login() {
                   <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--brand-dark)', marginBottom: 8 }}>
                     Cuentas de demostración
                   </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     {DEMO_ACCOUNTS.map((a) => (
                       <button
                         key={a.email}
@@ -187,7 +187,7 @@ export default function Login() {
           <div style={{ padding: '24px 0 0', textAlign: 'center' }}>
             <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
               ¿No tienes cuenta?{' '}
-              <button onClick={() => navigate('/register')} style={{ color: 'var(--brand)', fontWeight: 700, fontSize: 12.5 }}>
+              <button className="tap-44" onClick={() => navigate('/register')} style={{ color: 'var(--brand)', fontWeight: 700, fontSize: 12.5 }}>
                 Registrarse
               </button>
             </span>

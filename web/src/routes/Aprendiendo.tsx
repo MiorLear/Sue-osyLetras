@@ -90,7 +90,7 @@ export default function Aprendiendo() {
                       <span style={{ fontSize: 18, color: isOpen ? 'var(--brand)' : 'var(--gold-label)', transform: `rotate(${isOpen ? 180 : 0}deg)`, transition: 'transform .2s', display: 'inline-block' }}>⌄</span>
                     </button>
                     {isOpen ? (
-                      <div style={{ padding: '0 18px 16px 58px' }}>
+                      <div style={{ padding: '0 18px 16px clamp(18px, 10vw, 58px)' }}>
                         <p style={{ fontSize: 13.5, lineHeight: 1.65, color: 'var(--text-body)' }}>{sub.body}</p>
                         <div style={{ marginTop: 12 }}>
                           <MediaList items={[...sub.pdfs, ...sub.videos, ...sub.audios]} />

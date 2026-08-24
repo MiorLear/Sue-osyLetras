@@ -132,3 +132,25 @@ for (const ancho of ANCHOS) {
     }
   });
 }
+
+test.describe('legibilidad del contenido denso en teléfono', () => {
+  test.use({ viewport: { width: 360, height: 740 }, hasTouch: true });
+
+  test('Herramientas deja ancho legible a cada tarjeta', async ({ page }) => {
+    await page.goto('/herramientas');
+    const titulo = page.getByText('Manual ExplorArte').first();
+    await expect(titulo).toBeVisible();
+    const ancho = await titulo.evaluate((el) => el.parentElement?.parentElement?.getBoundingClientRect().width ?? 0);
+    expect(ancho).toBeGreaterThanOrEqual(260);
+  });
+
+  test('Aprendiendo reduce la sangría del cuerpo abierto', async ({ page }) => {
+    await page.goto('/aprendiendo');
+    await page.getByRole('button', { name: /Cuidando mis emociones/ }).click();
+    const cuerpo = page.getByText(/Reconocer lo que sentimos como docentes/i).first();
+    await expect(cuerpo).toBeVisible();
+    const sangria = await cuerpo.evaluate((el) => parseFloat(getComputedStyle(el.parentElement!).paddingLeft));
+    expect(sangria).toBeLessThan(58);
+    expect(sangria).toBeGreaterThanOrEqual(18);
+  });
+});

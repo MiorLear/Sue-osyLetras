@@ -54,7 +54,7 @@ export default function Herramientas() {
       {tools ? (
         <>
           {/* feature cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginBottom: 16 }}>
             <div style={{ borderRadius: 20, padding: 24, background: 'linear-gradient(150deg,#FBF1DA,#F8E8DE)', border: '1px solid #F0DEC8', display: 'flex', flexDirection: 'column', gap: 14 }}>
               <span style={{ width: 52, height: 52, borderRadius: 15, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>📖</span>
               <span>

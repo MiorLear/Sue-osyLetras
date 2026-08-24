@@ -16,8 +16,8 @@ import { expect, test } from '@playwright/test';
  *   - con `aria-label="Ir a la pantalla N de 3"` (N empezando en 1);
  *   - y el que corresponde a la vista actual lleva `aria-current="true"`.
  *
- * Va con `test.fail()` hasta que C2 los convierta. No hay test de swipe porque
- * no hay swipe: la ausencia de gesto es la decisión, no un olvido.
+ * No hay test de swipe porque no hay swipe: la ausencia de gesto es la
+ * decisión, no un olvido.
  */
 
 const TOTAL = 3;
@@ -33,8 +33,6 @@ test.describe('carrusel del onboarding', () => {
   });
 
   test('cada punto es un botón que lleva a su pantalla', async ({ page }) => {
-    test.fail();
-
     for (let n = 1; n <= TOTAL; n++) {
       await expect(page.getByRole('button', { name: punto(n) })).toBeVisible();
     }
@@ -47,8 +45,6 @@ test.describe('carrusel del onboarding', () => {
   });
 
   test('el punto de la pantalla visible se anuncia como el actual', async ({ page }) => {
-    test.fail();
-
     await expect(page.getByRole('button', { name: punto(1) })).toHaveAttribute('aria-current', 'true');
     await page.getByRole('button', { name: 'Siguiente' }).click();
     await expect(page.getByRole('button', { name: punto(2) })).toHaveAttribute('aria-current', 'true');

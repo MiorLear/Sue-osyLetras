@@ -45,7 +45,7 @@ export default function Onboarding() {
         </button>
       </div>
 
-      <div style={{ minHeight: 380 }}>
+      <div style={{ minHeight: 'min(380px, 55dvh)' }}>
         {index === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, paddingTop: 16 }}>
             <Logo size={64} />
@@ -111,7 +111,18 @@ export default function Onboarding() {
       <div style={{ paddingTop: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
           {Array.from({ length: SLIDES }).map((_, i) => (
-            <span key={i} style={{ width: i === index ? 22 : 8, height: 8, borderRadius: 9, background: i === index ? 'var(--brand)' : 'var(--border-input)', transition: 'width .2s' }} />
+            <button
+              key={i}
+              type="button"
+              className="tap-44"
+              aria-label={`Ir a la pantalla ${i + 1} de ${SLIDES}`}
+              aria-current={i === index ? 'true' : undefined}
+              onClick={() => setIndex(i)}>
+              <span
+                aria-hidden="true"
+                style={{ width: i === index ? 22 : 8, height: 8, borderRadius: 9, background: i === index ? 'var(--brand)' : 'var(--border-input)', transition: 'width .2s' }}
+              />
+            </button>
           ))}
         </div>
         <button className="btn btn-primary" onClick={next} style={{ padding: 15, borderRadius: 14 }}>

@@ -41,7 +41,7 @@ describe('contrato responsive compartido', () => {
     expect(ruleFrom(css, '.select-native {')).toContain('font-size: 14px');
   });
 
-  it('centra auth de forma segura y conserva los fallbacks de viewport', () => {
+  it('alinea auth arriba en móvil y conserva el centrado de escritorio', () => {
     const authShell = ruleFrom(css, '.auth-shell {');
     const mobile = mediaBlock('(max-width: 760px)');
     const mobileAuthShell = ruleFrom(mobile, '.auth-shell {');
@@ -51,8 +51,22 @@ describe('contrato responsive compartido', () => {
     expect(authShell).toContain('min-height: 100dvh');
     expect(authShell).toContain('overflow-y: auto');
     expect(mobileAuthShell).toContain('align-items: flex-start');
+    expect(mobileAuthShell).toContain('overflow-anchor: none');
     expect(mobileAuthShell).not.toContain('align-items: center');
-    expect(mobileAuthCard).toContain('margin-block: auto');
+    expect(authShell).toContain('align-items: center');
+    expect(mobileAuthCard).toContain('margin-block: 0');
+    expect(mobileAuthCard).not.toContain('margin-block: auto');
+    expect(mobileAuthCard).not.toContain('position: fixed');
+
+    const narrow = mediaBlock('(max-width: 520px)');
+    const narrowAuthCard = ruleFrom(narrow, '.auth-card {');
+    expect(narrowAuthCard).toContain('position: fixed');
+    expect(narrowAuthCard).toContain('inset: 0');
+    expect(narrowAuthCard).toContain('overflow-y: auto');
+    expect(narrowAuthCard).toContain('height: 100dvh');
+    expect(narrowAuthCard).toContain(
+      'padding: calc(36px + env(safe-area-inset-top, 0px)) calc(32px + env(safe-area-inset-right, 0px)) calc(36px + env(safe-area-inset-bottom, 0px)) calc(32px + env(safe-area-inset-left, 0px))',
+    );
   });
 
   it('permite que las filas de medios se adapten sin desbordar', () => {

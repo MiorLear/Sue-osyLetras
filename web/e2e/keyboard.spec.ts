@@ -54,16 +54,6 @@ const PANTALLAS_AUTH: PantallaAuth[] = [
   { nombre: 'Cuenta sin acceso', ruta: '/pendiente', envio: 'Volver al inicio de sesión', conCampos: false },
 ];
 
-/**
- * Solo Registro reproduce hoy el recorte con 360px de alto. Las cinco carecen
- * de media query, pero una auditoría no convierte una sospecha en un fallo: las
- * otras cuatro empiezan dentro del viewport en Chromium y WebKit. C1 conserva
- * la mejora transversal de centrado seguro sin falsear esta línea base.
- */
-const SE_RECORTAN_HOY = new Set(['/register']);
-/** `.input` va a 14px en todas partes. Lo arregla C1 (y C4 los dos inline). */
-const AMPLIAN_HOY = new Set(['/login', '/register', '/forgot-password']);
-
 async function abrir(page: Page, pantalla: PantallaAuth): Promise<void> {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto(pantalla.ruta);
@@ -79,14 +69,18 @@ test.describe('con el alto de un teclado abierto', { tag: '@ios' }, () => {
 
   for (const pantalla of PANTALLAS_AUTH) {
     test(`${pantalla.nombre}: la tarjeta no se recorta por arriba`, async ({ page }) => {
-      if (SE_RECORTAN_HOY.has(pantalla.ruta)) test.fail();
-
       await abrir(page, pantalla);
       const caja = await page.locator('.auth-card').boundingBox();
+      const layout = await page.locator('.auth-card').evaluate((card) => ({
+        viewport: window.innerWidth,
+        shellAlign: getComputedStyle(card.parentElement!).alignItems,
+        marginBlock: getComputedStyle(card).marginBlock,
+      }));
       expect(caja).not.toBeNull();
       expect(
         caja!.y,
         `${pantalla.nombre}: la tarjeta empieza en y=${Math.round(caja!.y)}. ` +
+          `Viewport ${layout.viewport}px, align-items ${layout.shellAlign}, margen ${layout.marginBlock}. ` +
           'Todo lo que quede por encima de 0 es inalcanzable: hacia arriba no hay scroll.',
       ).toBeGreaterThanOrEqual(0);
     });
@@ -100,8 +94,6 @@ test.describe('con el alto de un teclado abierto', { tag: '@ios' }, () => {
 
     if (pantalla.conCampos) {
       test(`${pantalla.nombre}: los campos miden 16px o más`, async ({ page }) => {
-        if (AMPLIAN_HOY.has(pantalla.ruta)) test.fail();
-
         await abrir(page, pantalla);
         const tamanos = await page
           .locator('.input')
@@ -116,4 +108,29 @@ test.describe('con el alto de un teclado abierto', { tag: '@ios' }, () => {
       });
     }
   }
+
+  test('Registro: las sugerencias de ubicación no consumen más de 30dvh', async ({ page }) => {
+    await page.route('https://photon.komoot.io/api/**', (route) =>
+      route.fulfill({
+        json: {
+          features: Array.from({ length: 6 }, (_, i) => ({
+            properties: { name: `Lugar ${i + 1}`, city: 'San Salvador', countrycode: 'sv' },
+          })),
+        },
+      }),
+    );
+    await page.goto('/register');
+    await page.getByRole('button', { name: /Correo y contraseña/ }).click();
+    await page.getByPlaceholder('correo@ejemplo.com').fill('nueva@ejemplo.com');
+    await page.getByPlaceholder('Mínimo 8 caracteres').fill('segura123');
+    await page.getByPlaceholder('Repite tu contraseña').fill('segura123');
+    await page.getByRole('button', { name: 'Siguiente' }).click();
+    await page.getByPlaceholder('Busca tu ubicación').fill('San');
+
+    const panel = page.getByRole('group', { name: 'Sugerencias de ubicación' });
+    await expect(panel.getByRole('button', { name: 'Lugar 1, San Salvador' })).toBeVisible();
+    const caja = await panel.boundingBox();
+    expect(caja).not.toBeNull();
+    expect(caja!.height).toBeLessThanOrEqual(108);
+  });
 });

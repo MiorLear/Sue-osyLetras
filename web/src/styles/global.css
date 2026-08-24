@@ -1119,13 +1119,15 @@ a {
     padding-left: calc(18px + env(safe-area-inset-left, 0px));
     padding-right: calc(18px + env(safe-area-inset-right, 0px));
   }
-  /* Con teclado o poca altura, el formulario queda anclado arriba y puede
-     desplazarse; cuando cabe, el margen automático conserva el centrado. */
+  /* En móvil se prioriza que el inicio del formulario siempre sea alcanzable.
+     Un margen automático vuelve a centrar tarjetas más altas que el viewport
+     y reparte el sobrante hacia arriba, donde ya no se puede desplazar. */
   .auth-shell {
     align-items: flex-start;
+    overflow-anchor: none;
   }
   .auth-card {
-    margin-block: auto;
+    margin-block: 0;
   }
   /* iOS amplía los campos menores de 16px al enfocarlos. El escritorio con
      ratón conserva la densidad original de 14px. */
@@ -1173,6 +1175,17 @@ a {
 
 /* responsive: teléfonos estrechos */
 @media (max-width: 520px) {
+  .auth-card {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    max-width: none;
+    height: 100vh;
+    height: 100dvh;
+    overflow-y: auto;
+    border-radius: 0;
+    padding: calc(36px + env(safe-area-inset-top, 0px)) calc(32px + env(safe-area-inset-right, 0px)) calc(36px + env(safe-area-inset-bottom, 0px)) calc(32px + env(safe-area-inset-left, 0px));
+  }
   .main-hero__visual {
     min-height: 190px;
   }
