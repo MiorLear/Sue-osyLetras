@@ -7,7 +7,15 @@ import tseslint from 'typescript-eslint';
 import { defineConfig, globalIgnores } from 'eslint/config';
 
 export default defineConfig([
-  globalIgnores(['node_modules/**', 'dist/**', 'public/**', 'Desktop web app redesign/**']),
+  globalIgnores([
+    'node_modules/**',
+    'dist/**',
+    'public/**',
+    'Desktop web app redesign/**',
+    // Salidas de Playwright: HTML generado y trazas, no código nuestro.
+    'playwright-report/**',
+    'test-results/**',
+  ]),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended, reactHooks.configs['recommended-latest'], reactRefresh.configs.vite],
@@ -36,6 +44,16 @@ export default defineConfig([
     files: ['vite.config.ts', 'vitest.config.ts', 'eslint.config.mjs'],
     languageOptions: {
       globals: globals.node,
+    },
+  },
+  {
+    // El arnés de Playwright corre en Node, no en el navegador: sin esto el
+    // primer `process.env` del config es un `no-undef` y el lint se cae.
+    // El código que se inyecta en la página (page.evaluate) sí es de navegador,
+    // de ahí los dos conjuntos de globales.
+    files: ['e2e/**/*.ts', 'playwright.config.ts'],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.browser },
     },
   },
   {

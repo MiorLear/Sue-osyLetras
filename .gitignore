@@ -44,6 +44,12 @@ firebase-debug.log
 # typescript
 *.tsbuildinfo
 
+# Playwright: la sesion guardada es una credencial (aunque sea la del mock) y
+# el informe y las trazas se regeneran en cada pasada.
+web/e2e/.auth/
+web/playwright-report/
+web/test-results/
+
 example
 
 # generated native folders
