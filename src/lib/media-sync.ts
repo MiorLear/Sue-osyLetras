@@ -31,7 +31,7 @@ export const SYNC_WINDOW_MS = 15 * 60_000;
 
 async function cacheMedia(item: MediaItem | null | undefined): Promise<void> {
   if (!item?.url || !item.id) return;
-  const version = String(item.sizeBytes ?? '');
+  const version = item.etag || item.updatedAt || String(item.sizeBytes ?? '');
   try {
     if (await needsUpdate(item.id, version)) {
       await download(item.id, item.url, { version });

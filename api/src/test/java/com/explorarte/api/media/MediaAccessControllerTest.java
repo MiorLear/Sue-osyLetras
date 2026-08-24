@@ -36,7 +36,7 @@ class MediaAccessControllerTest {
         boolean objectExists = true;
 
         @Override
-        public void upload(String objectPath, byte[] bytes, String contentType) {
+        public UploadResult upload(String objectPath, byte[] bytes, String contentType) {
             throw new UnsupportedOperationException("not used by the read path");
         }
 

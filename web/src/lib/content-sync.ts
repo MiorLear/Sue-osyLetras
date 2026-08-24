@@ -3,7 +3,7 @@ import type { MediaItem } from '@explorarte/shared';
 import { api } from '@/lib/api';
 import { readMetaValue, writeMetaValue } from '@/lib/app-meta';
 import { cacheKeys, type IntroScreen } from '@/lib/cache-keys';
-import { download, listDownloaded, needsUpdate, remove } from '@/lib/media-cache';
+import { download, listDownloaded, mediaVersion, needsUpdate, remove } from '@/lib/media-cache';
 import { isMediaUrl } from '@/lib/media-origins';
 import { readAllCached, writeCache } from '@/lib/offline-cache';
 import { withSync } from '@/lib/sync-status';
@@ -248,7 +248,7 @@ async function downloadAll(
     }
 
     try {
-      const version = String(item.sizeBytes ?? '');
+      const version = mediaVersion(item);
       if (await needsUpdate(item.id, version)) {
         await download(item.id, item.url, { version });
         result.downloaded.push(item.id);

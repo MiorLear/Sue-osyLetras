@@ -30,7 +30,7 @@ beforeEach(async () => {
   await clearEverything();
   clearToasts();
 
-  fetchMock = vi.fn().mockResolvedValue(
+  fetchMock = vi.fn().mockImplementation(async () =>
     new Response(new Uint8Array(1024), {
       status: 200,
       headers: { 'Content-Type': 'application/pdf', 'Content-Length': '1024' },

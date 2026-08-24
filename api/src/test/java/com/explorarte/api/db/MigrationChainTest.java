@@ -90,7 +90,7 @@ class MigrationChainTest {
                     .as("migration %s state", info.getVersion())
                     .isFalse();
         }
-        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6", "7");
+        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6", "7", "8");
 
         // validate() vuelve a leer los checksums: si alguien editó una migración
         // ya aplicada en vez de agregar una nueva, esto es lo que lo dice — y en
@@ -119,6 +119,30 @@ class MigrationChainTest {
         assertColumnExists("topic_subtopics", "audios");
         assertColumnExists("screen_intro_videos", "video");
         assertColumnExists("posts", "attachments");
+    }
+
+    @Test
+    void backfillsUpdatedAtInEveryMediaItemJsonbShapeWithoutAddingColumns() throws SQLException {
+        Flyway throughV7 = Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/migration")
+                .target("7")
+                .cleanDisabled(false)
+                .load();
+        throughV7.clean();
+        throughV7.migrate();
+        seedRowsWithSupabaseUrls();
+
+        flyway().migrate();
+
+        assertThat(scalar("SELECT attachments->0->>'updatedAt' FROM posts WHERE id = 1")).isNotBlank();
+        assertThat(scalar("SELECT video->>'updatedAt' FROM screen_intro_videos WHERE screen_key = 'home'")).isNotBlank();
+        assertThat(scalar("SELECT stories->0->>'updatedAt' FROM emotion_content WHERE emotion_id = 'e-1'")).isNotBlank();
+        assertThat(scalar("SELECT pdfs->0->>'updatedAt' FROM topic_subtopics WHERE id = 1")).isNotBlank();
+        assertThat(scalar("SELECT manual_document->>'updatedAt' FROM tools_content WHERE id = 1")).isNotBlank();
+        assertThat(scalar("SELECT attachments->0->>'etag' FROM posts WHERE id = 1")).isNull();
+        assertThat(scalar("SELECT count(*) FROM information_schema.columns WHERE column_name IN ('updated_at', 'etag')"))
+                .isEqualTo("0");
     }
 
     /**

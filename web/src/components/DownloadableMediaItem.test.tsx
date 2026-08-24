@@ -26,12 +26,14 @@ type DownloadFn = (
 
 const media = vi.hoisted(() => ({
   isDownloaded: vi.fn<(id: string) => Promise<boolean>>(),
+  needsUpdate: vi.fn<(id: string, version?: string) => Promise<boolean>>(),
   download: vi.fn<DownloadFn>(),
 }));
 
 vi.mock('@/lib/media-cache', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/media-cache')>()),
   isDownloaded: media.isDownloaded,
+  needsUpdate: media.needsUpdate,
   download: media.download,
 }));
 
@@ -62,6 +64,7 @@ beforeEach(() => {
   clearToasts();
   online = true;
   media.isDownloaded.mockResolvedValue(false);
+  media.needsUpdate.mockResolvedValue(false);
   media.download.mockResolvedValue(PDF.url);
 });
 
@@ -127,6 +130,25 @@ describe('<DownloadableMediaItem />', () => {
     });
 
     await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
+    expect(media.download).not.toHaveBeenCalled();
+    expect(media.needsUpdate).not.toHaveBeenCalled();
+  });
+
+  it('una copia descargada pero obsoleta vuelve a ofrecer descarga sin bajarla sola', async () => {
+    media.isDownloaded.mockResolvedValue(true);
+    media.needsUpdate.mockResolvedValue(true);
+
+    render(
+      <DownloadableMediaItem
+        item={{ ...PDF, updatedAt: '2026-08-23T01:02:03Z' }}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByText('Descargar')).toBeTruthy());
+    expect(media.needsUpdate).toHaveBeenCalledWith(
+      PDF.id,
+      'updatedAt:2026-08-23T01:02:03Z',
+    );
     expect(media.download).not.toHaveBeenCalled();
   });
 

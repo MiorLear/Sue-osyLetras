@@ -24,7 +24,9 @@ public interface MediaStorageClient {
      * Implementations must fail if the path is taken; replacing a file is a
      * delete followed by an upload, which is an explicit act.
      */
-    void upload(String objectPath, byte[] bytes, String contentType);
+    UploadResult upload(String objectPath, byte[] bytes, String contentType);
+
+    record UploadResult(String etag) {}
 
     /**
      * A time-limited, signed URL that reads {@code objectPath} straight from the

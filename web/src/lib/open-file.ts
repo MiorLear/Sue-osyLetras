@@ -1,7 +1,14 @@
 import type { MediaItem } from '@explorarte/shared';
 
 import { toast } from '@/components/toast-store';
-import { MediaDownloadError, download, getLocalBlob, getLocalUrl } from '@/lib/media-cache';
+import {
+  MediaDownloadError,
+  download,
+  getLocalBlob,
+  getLocalUrl,
+  mediaVersion,
+  needsUpdate,
+} from '@/lib/media-cache';
 
 // Abrir, guardar y compartir un archivo en un navegador.
 //
@@ -38,10 +45,10 @@ function fileNameFor(item: MediaItem): string {
  */
 async function ensureLocal(item: MediaItem, online: boolean): Promise<Blob | null> {
   const cached = await getLocalBlob(item.id);
-  if (cached) return cached;
+  if (cached && (!online || !(await needsUpdate(item.id, mediaVersion(item))))) return cached;
   if (!online) return null;
   try {
-    await download(item.id, item.url, { version: String(item.sizeBytes ?? '') });
+    await download(item.id, item.url, { version: mediaVersion(item) });
   } catch {
     return null;
   }
@@ -140,7 +147,8 @@ export async function shareFile(item: MediaItem, online: boolean): Promise<boole
  */
 export async function openFile(item: MediaItem, online: boolean): Promise<boolean> {
   const local = await getLocalUrl(item.id);
-  const target = local ?? (online ? item.url : null);
+  const stale = local && online ? await needsUpdate(item.id, mediaVersion(item)) : false;
+  const target = local && !stale ? local : online ? item.url : null;
 
   if (!target) {
     noticeUnavailable();

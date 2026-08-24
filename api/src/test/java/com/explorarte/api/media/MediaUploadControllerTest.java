@@ -31,10 +31,11 @@ class MediaUploadControllerTest {
         int uploadCount;
 
         @Override
-        public void upload(String path, byte[] bytes, String contentType) {
+        public UploadResult upload(String path, byte[] bytes, String contentType) {
             this.lastPath = path;
             this.lastContentType = contentType;
             this.uploadCount++;
+            return new UploadResult("gcs-etag-123");
         }
 
         @Override
@@ -91,6 +92,8 @@ class MediaUploadControllerTest {
         assertThat(storageClient.lastContentType).isEqualTo("image/png");
         assertThat(item.mimeType()).isEqualTo("image/png");
         assertThat(storageClient.lastPath).startsWith("profile/").endsWith("-foto.png");
+        assertThat(item.updatedAt()).isNotNull();
+        assertThat(item.etag()).isEqualTo("gcs-etag-123");
     }
 
     @Test

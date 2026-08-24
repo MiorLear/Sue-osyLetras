@@ -110,9 +110,8 @@ describe('media-sync · claves de cache', () => {
     ]);
   });
 });
-
 describe('media-sync · descarga de ficheros', () => {
-  it('baja todos los medios referenciados, con el tamano como version', async () => {
+  it('baja todos los medios referenciados, conservando el tamano para elementos legacy', async () => {
     const s = await load();
     await s.syncAllContent();
 
@@ -121,6 +120,55 @@ describe('media-sync · descarga de ficheros', () => {
       ['dl-1', 'guide-1', 'intro-emotions', 'intro-home', 'intro-learning', 'intro-tools', 'manual', 'pdf-1', 'story-alegria', 'vid-1'].sort(),
     );
     expect(byId['manual']).toEqual({ version: '50' });
+  });
+
+  it('usa etag antes que updatedAt y updatedAt antes que el tamano', async () => {
+    apiMock.tools.get.mockResolvedValueOnce({
+      downloadables: [
+        { ...media('con-etag', 30), updatedAt: '2026-08-22T10:00:00.000Z', etag: '"revision-2"' },
+        { ...media('con-fecha', 40), updatedAt: '2026-08-22T11:00:00.000Z' },
+      ],
+      activityGuides: [media('legacy', 50)],
+      manualDocument: null,
+    } as never);
+
+    const s = await load();
+    await s.syncAllContent();
+
+    const versions = Object.fromEntries(offlineStorage.needsUpdate.mock.calls.map(([id, version]) => [id, version]));
+    expect(versions['con-etag']).toBe('"revision-2"');
+    expect(versions['con-fecha']).toBe('2026-08-22T11:00:00.000Z');
+    expect(versions['legacy']).toBe('50');
+  });
+
+  it('detecta un reemplazo del mismo tamano cuando cambia el etag', async () => {
+    const cachedVersions = new Map<string, string>();
+    offlineStorage.needsUpdate.mockImplementation(async (id, version) => cachedVersions.get(id) !== version);
+    offlineStorage.download.mockImplementation(async (id, _url, options) => {
+      cachedVersions.set(id, options?.version ?? '');
+      return 'file:///downloads/x';
+    });
+    apiMock.tools.get
+      .mockResolvedValueOnce({
+        downloadables: [],
+        activityGuides: [],
+        manualDocument: { ...media('manual-versionado', 50), etag: '"revision-1"' },
+      } as never)
+      .mockResolvedValueOnce({
+        downloadables: [],
+        activityGuides: [],
+        manualDocument: { ...media('manual-versionado', 50), etag: '"revision-2"' },
+      } as never);
+
+    const s = await load();
+    await s.syncAllContent();
+    await s.syncAllContent();
+
+    const downloads = offlineStorage.download.mock.calls.filter(([id]) => id === 'manual-versionado');
+    expect(downloads.map(([, , options]) => options)).toEqual([
+      { version: '"revision-1"' },
+      { version: '"revision-2"' },
+    ]);
   });
 
   it('no vuelve a bajar lo que ya esta fresco', async () => {
@@ -248,21 +296,3 @@ describe('media-sync · pasada automatica acotada (SCALE-03)', () => {
   });
 });
 
-describe('media-sync · deuda conocida', () => {
-  // Ver AUDIT.md §6. No se arregla aqui (este PR es de guardrails); el test
-  // queda escrito para que el fix tenga con que verificarse.
-  it.skip('BUG-05: un fichero corregido del mismo tamano deberia re-descargarse', async () => {
-    // La version de cache es String(item.sizeBytes) — MediaItem no tiene
-    // updatedAt ni etag, asi que un PDF corregido con el mismo numero de bytes
-    // nunca se vuelve a bajar.
-    const s = await load();
-    await s.syncAllContent();
-    offlineStorage.download.mockClear();
-
-    // Mismo id y mismo tamano, contenido distinto en el servidor.
-    offlineStorage.needsUpdate.mockResolvedValue(false);
-    await s.syncAllContent();
-
-    expect(offlineStorage.download.mock.calls.map((c) => c[0])).toContain('manual');
-  });
-});

@@ -5,7 +5,7 @@ import type { MediaItem } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { MediaViewer } from '@/components/MediaViewer';
 import { toast } from '@/components/toast-store';
-import { download, isDownloaded } from '@/lib/media-cache';
+import { download, isDownloaded, mediaVersion, needsUpdate } from '@/lib/media-cache';
 import { formatBytes, iconFor } from '@/lib/media-format';
 import { reportDownloadError } from '@/lib/open-file';
 import { useIsOnline } from '@/lib/useNetworkStatus';
@@ -34,13 +34,19 @@ export function DownloadableMediaItem({ item }: { item: MediaItem }) {
 
   useEffect(() => {
     let active = true;
-    void isDownloaded(item.id).then((has) => {
-      if (active) setState(has ? 'ready' : 'absent');
-    });
+    void (async () => {
+      const has = await isDownloaded(item.id);
+      const version = mediaVersion(item);
+      // Rendering a legacy list must not fetch every file. Rows carrying the
+      // new metadata can be checked locally; legacy HTTP revalidation remains
+      // available to explicit sync and user-initiated open/save actions.
+      const stale = has && online && version ? await needsUpdate(item.id, version) : false;
+      if (active) setState(has && !stale ? 'ready' : 'absent');
+    })();
     return () => {
       active = false;
     };
-  }, [item.id]);
+  }, [item.etag, item.id, item.updatedAt, online]);
 
   const startDownload = async () => {
     if (!online) {
@@ -54,7 +60,7 @@ export function DownloadableMediaItem({ item }: { item: MediaItem }) {
     setRatio(undefined);
     try {
       await download(item.id, item.url, {
-        version: String(item.sizeBytes ?? ''),
+        version: mediaVersion(item),
         onProgress: (p) => setRatio(p.ratio),
       });
       setState('ready');

@@ -24,6 +24,9 @@ vi.mock('@/lib/api', () => ({ api }));
 const mediaCache = vi.hoisted(() => ({
   download: vi.fn<(id: string, url: string, opts?: { version?: string }) => Promise<string>>(),
   needsUpdate: vi.fn<(id: string, version: string | undefined) => Promise<boolean>>(),
+  mediaVersion: vi.fn<(item: { etag?: string; updatedAt?: string }) => string | undefined>(
+    (item) => item.etag ? `etag:${item.etag}` : item.updatedAt ? `updatedAt:${item.updatedAt}` : undefined,
+  ),
   listDownloaded: vi.fn<() => Promise<{ id: string }[]>>(),
   remove: vi.fn<(id: string) => Promise<void>>(),
 }));

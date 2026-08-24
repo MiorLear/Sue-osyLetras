@@ -2,6 +2,7 @@ package com.explorarte.api.media;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.Instant;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -88,9 +89,9 @@ public class MediaUploadController {
         }
 
         String objectPath = mediaCategory.storagePrefix() + "/" + id + "-" + sanitizedFilename;
-        storageClient.upload(objectPath, bytes, detectedType);
+        MediaStorageClient.UploadResult stored = storageClient.upload(objectPath, bytes, detectedType);
         return new MediaItem(id, sanitizedFilename, mediaUrlPolicy.canonicalUrl(objectPath),
-                detectedType, bytes.length);
+                detectedType, bytes.length, Instant.now(), stored.etag());
     }
 
     private static long megabytes(long bytes) {

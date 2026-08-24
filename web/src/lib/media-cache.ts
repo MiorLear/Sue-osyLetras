@@ -7,7 +7,8 @@ import {
   putRecord,
   type MediaIndexRecord,
 } from '@/lib/idb';
-import { MEDIA_CACHE, isMediaUrl, isSameOriginMedia } from '@/lib/media-origins';
+import type { MediaItem } from '@explorarte/shared';
+import { MEDIA_CACHE, isMediaUrl } from '@/lib/media-origins';
 
 // Caché de archivos (PDF, video, audio, imágenes) para verlos sin conexión.
 // Es el puerto web de src/lib/offlineStorage.ts, con la misma API pública para
@@ -52,10 +53,24 @@ export interface DownloadProgress {
 }
 
 export interface DownloadOptions {
-  /** Versión opaca del llamador (hoy `sizeBytes` del MediaItem). */
+  /** Versión opaca publicada por el MediaItem (`etag` o `updatedAt`). */
   version?: string;
   onProgress?: (p: DownloadProgress) => void;
   signal?: AbortSignal;
+}
+
+/**
+ * Version known from the content-list response. Prefer the storage validator
+ * when the API can expose it; otherwise the upload timestamp is enough to
+ * detect replacement without one conditional request per file. Older rows
+ * return undefined and retain the HTTP conditional fallback.
+ */
+export function mediaVersion(
+  item: Pick<MediaItem, 'etag' | 'updatedAt'>,
+): string | undefined {
+  if (item.etag) return `etag:${item.etag}`;
+  if (item.updatedAt) return `updatedAt:${item.updatedAt}`;
+  return undefined;
 }
 
 /** True cuando el navegador trae Cache Storage (Firefox en privado no). */
@@ -176,15 +191,13 @@ export async function getLocalBlob(id: string): Promise<Blob | null> {
  *   - MISMO ORIGEN (producción, vía el rewrite `/media/**`): GET condicional
  *     con `If-None-Match` / `If-Modified-Since`. Un 304 confirma la copia, un
  *     200 dice que cambió. Es la comprobación de verdad.
- *   - OTRO ORIGEN (Render, las URLs viejas de Supabase): `ETag` no es una
- *     cabecera de respuesta segura para CORS, así que el navegador se la oculta
- *     a JavaScript salvo que el servidor la exponga, y mandar `If-None-Match`
- *     dispara un preflight. Queda `Last-Modified`, que sí es legible, y si
- *     tampoco viene se compara el tamaño — que es exactamente el defecto que
- *     BUG-05 describe: un archivo corregido del mismo tamaño no se detecta.
+ *   - FILAS ANTIGUAS SIN VERSIÓN: se reutilizan los validadores HTTP guardados.
+ *     En producción los medios pasan por el rewrite del mismo origen. Para una
+ *     URL histórica entre orígenes se intenta igualmente y cualquier bloqueo
+ *     CORS conserva la copia local.
  *
- * PWA-4.2 (`updatedAt`/`etag` en MediaItem) hace innecesaria la petición por
- * archivo; hasta entonces esto solo toca la red si `remoteVersion` no basta.
+ * `updatedAt`/`etag` en MediaItem hacen innecesaria la petición por archivo.
+ * Las filas antiguas sin versión conservan la revalidación condicional.
  */
 export async function needsUpdate(id: string, remoteVersion: string | undefined): Promise<boolean> {
   if (!usable()) return true;
@@ -192,20 +205,13 @@ export async function needsUpdate(id: string, remoteVersion: string | undefined)
   if (!meta) return true;
   if (!(await isDownloaded(id))) return true;
 
-  // El llamador ya sabe que cambió: no hace falta preguntarle al servidor.
-  if (remoteVersion !== undefined && meta.version !== remoteVersion) return true;
-
-  // Otro origen, o ningún validador guardado: no hay nada mejor que la versión
-  // del llamador, que ya coincidió. Es el hueco que BUG-05 describe y que
-  // PWA-4.2 cierra trayendo el validador dentro del propio MediaItem. No se
-  // pide nada por red: entre orígenes la condicional dispara un preflight que
-  // el bucket no responde, y gastar datos para no aprender nada es peor.
-  const validators = isSameOriginMedia(meta.url) ? { etag: meta.etag, lm: meta.lastModified } : {};
-  if (!validators.etag && !validators.lm) return false;
+  // Con una versión publicada por el listado, la igualdad decide por completo:
+  // no hace falta una petición condicional por cada archivo.
+  if (remoteVersion !== undefined) return meta.version !== remoteVersion;
 
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
 
-  return revalidate(meta, validators);
+  return revalidate(meta, { etag: meta.etag, lm: meta.lastModified });
 }
 
 /** GET condicional. Ante cualquier duda responde "no hace falta actualizar":
