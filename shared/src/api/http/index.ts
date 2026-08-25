@@ -55,6 +55,17 @@ export interface HttpClientOptions {
   onUnauthorized?: () => void;
 }
 
+interface PageEnvelope<T> {
+  items: T[];
+  page: number;
+  size: number;
+  total: number;
+  pages: number;
+  hasMore: boolean;
+}
+
+const EVENTS_PAGE_SIZE = 100;
+
 export function createHttpClient(opts: HttpClientOptions): ApiClient {
   const base = opts.baseUrl.replace(/\/$/, '');
 
@@ -116,6 +127,22 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
     return s ? `?${s}` : '';
   };
 
+  // The legacy bare-array response is capped at 200 rows. The calendar is a
+  // complete local/offline view, so walk the explicit paginated contract and
+  // only return once every page has arrived. Callers and the cache therefore
+  // never mistake a partial page for the whole calendar.
+  async function listAllEvents(): Promise<CalEvent[]> {
+    const events: CalEvent[] = [];
+    for (let page = 0; ; page += 1) {
+      const response = await request<PageEnvelope<CalEvent>>(
+        'GET',
+        `/events${q({ page: String(page), size: String(EVENTS_PAGE_SIZE) })}`,
+      );
+      events.push(...response.items);
+      if (!response.hasMore) return events;
+    }
+  }
+
   return {
     auth: {
       login: (input: LoginInput) => request<AuthResult>('POST', '/auth/login', input),
@@ -146,7 +173,7 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
         request<Comment>('POST', `/posts/${id}/comments`, input),
     },
     events: {
-      list: () => request<CalEvent[]>('GET', '/events'),
+      list: listAllEvents,
       create: (input: CreateEventInput) => request<CalEvent>('POST', '/events', input),
       update: (id: string, input: UpdateEventInput) => request<CalEvent>('PUT', `/events/${id}`, input),
       remove: (id: string) => request<void>('DELETE', `/events/${id}`),

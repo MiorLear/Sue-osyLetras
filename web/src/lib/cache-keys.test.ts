@@ -31,7 +31,7 @@ describe('claves de caché', () => {
     expect(cacheKeys.emotion('42')).toBe('emotion:42');
     expect(cacheKeys.tools()).toBe('tools');
     expect(cacheKeys.learningTopics()).toBe('learning:topics');
-    expect(cacheKeys.events()).toBe('events');
+    expect(cacheKeys.events()).toBe('events:all');
     expect(cacheKeys.profile()).toBe('profile:me');
     expect(cacheKeys.screenIntro('home')).toBe('screen-intro:home');
   });
