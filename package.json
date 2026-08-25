@@ -2,6 +2,9 @@
   "name": "suenosyletras",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "engines": {
+    "node": "20.x"
+  },
   "dependencies": {
     "@explorarte/shared": "file:./shared",
     "@expo/ui": "~0.2.0-beta.9",

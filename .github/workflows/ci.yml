@@ -30,7 +30,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: '.nvmrc'
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -93,20 +93,14 @@ jobs:
           retention-days: 14
 
   js:
-    name: JS/TS (node ${{ matrix.node }})
+    name: JS/TS (Node 20)
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # 20 es el que pinea Render (render.yaml: NODE_VERSION); 24 es el que
-        # usa el equipo en local. Los dos tienen que pasar.
-        node: ['20', '24']
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node }}
+          node-version-file: '.nvmrc'
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -119,7 +113,7 @@ jobs:
           path: |
             node_modules
             web/node_modules
-          key: node-modules-${{ runner.os }}-node${{ matrix.node }}-${{ hashFiles('package-lock.json', 'web/package-lock.json') }}
+          key: node-modules-${{ runner.os }}-node20-${{ hashFiles('package-lock.json', 'web/package-lock.json') }}
 
       - name: Install (raiz)
         if: steps.node-modules-cache.outputs.cache-hit != 'true'
