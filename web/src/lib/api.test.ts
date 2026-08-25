@@ -38,15 +38,19 @@ function mockFetch(status = 200, body = '[]') {
 const headersOf = (init: RequestInit | undefined) => (init?.headers ?? {}) as Record<string, string>;
 
 describe('api · modo', () => {
-  it('sin VITE_API_URL trabaja contra el mock', async () => {
+  it('el mock requiere VITE_API_MOCK=true', async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal('fetch', fetchSpy);
 
-    const { api, usingMock } = await loadApi();
+    const { api, usingMock } = await loadApi({ VITE_API_MOCK: 'true' });
     expect(usingMock).toBe(true);
 
     await api.emotions.list();
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('sin URL ni opt-in rechaza arrancar', async () => {
+    await expect(loadApi({ VITE_API_MOCK: '' })).rejects.toThrow(/API configuration missing/);
   });
 
   it('con VITE_API_URL habla con el backend real', async () => {

@@ -2,7 +2,7 @@ import { expect, test as setup } from '@playwright/test';
 
 import { ARCHIVO_SESION } from '../playwright.config';
 
-// Sin `VITE_API_URL` la app arranca contra el cliente simulado
+// `.env.test` activa el cliente simulado explícitamente para esta suite.
 // (`shared/src/api/mock/index.ts`), que resuelve la cuenta por correo y acepta
 // cualquier contraseña para un correo del seed. Por eso el login va por la UI y
 // no inyectando el token a mano: si algún día el flujo de entrada se rompe, el

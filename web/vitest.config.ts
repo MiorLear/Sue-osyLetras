@@ -7,6 +7,9 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'jsdom',
+    // Tests that import the application API opt into demo data explicitly.
+    // Production builds do not read this Vitest-only environment.
+    env: { VITE_API_MOCK: 'true' },
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     restoreMocks: true,

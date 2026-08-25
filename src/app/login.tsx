@@ -7,7 +7,7 @@ import { GoogleIcon, Icon } from '@/components/icon';
 import { Logo } from '@/components/logo';
 import { Field, PrimaryButton } from '@/components/ui';
 import { colors } from '@/constants/theme';
-import { api, setAuthToken } from '@/lib/api';
+import { api, setAuthToken, usingMock } from '@/lib/api';
 import { showNotice } from '@/lib/notice';
 
 type View_ = 'main' | 'phone-number' | 'phone-otp';
@@ -121,6 +121,15 @@ export default function LoginScreen() {
         </View>
 
         <View style={{ gap: 12 }}>
+          {usingMock && view === 'main' ? (
+            <View
+              accessibilityRole="alert"
+              style={{ padding: 12, borderRadius: 12, backgroundColor: '#FFF4CC' }}>
+              <Text style={{ color: '#76520B', fontSize: 12.5, fontWeight: '700', textAlign: 'center' }}>
+                Modo demostración activo · los datos y accesos no son reales
+              </Text>
+            </View>
+          ) : null}
           {view === 'main' ? (
             <>
               <SocialButton

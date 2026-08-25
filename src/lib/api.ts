@@ -41,6 +41,12 @@ export async function setAuthToken(token: string | null) {
 }
 
 const baseUrl = process.env.EXPO_PUBLIC_API_URL;
+const mockOptIn = !baseUrl && process.env.EXPO_PUBLIC_API_MOCK === 'true';
+if (!baseUrl && !mockOptIn) {
+  throw new Error(
+    'API configuration missing: set EXPO_PUBLIC_API_URL or explicitly set EXPO_PUBLIC_API_MOCK=true',
+  );
+}
 // `process.env.*` is typed `any` by expo-modules-core's ExpoProcess index
 // signature, so the split/map chain needs an explicit annotation to stay
 // noImplicitAny-clean.
@@ -53,6 +59,7 @@ let sessionExpiredRedirecting = false;
 
 export const api = createConfigurableApiClient({
   baseUrl,
+  defaultMode: mockOptIn ? 'mock' : 'http',
   mockModules,
   getToken: () => cachedToken,
   // On any 401 the session is gone/expired — clear it and bounce to login so
@@ -69,4 +76,4 @@ export const api = createConfigurableApiClient({
   },
 });
 
-export const usingMock = !baseUrl;
+export const usingMock = mockOptIn;

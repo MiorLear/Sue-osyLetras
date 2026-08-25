@@ -10,7 +10,8 @@ Framework-agnostic core shared by the ExplorArte **web** and **mobile** apps:
 - **`src/api`** — the `ApiClient` interface plus two adapters:
   - `mock/` — serves the app's seed data in memory (default during development).
   - `http/` — fetch-based client for the real REST backend.
-  - `createApiClient({ mode: 'mock' | 'http', baseUrl })` picks one.
+  - `createApiClient({ mode: 'mock' | 'http', baseUrl })` picks one. The mode is
+    mandatory so a missing URL can never enable the passwordless demo client.
 - **`openapi.yaml`** — the REST contract a Python (FastAPI) or Java (Spring Boot)
   team implements. The HTTP adapter and the mock both conform to it.
 
