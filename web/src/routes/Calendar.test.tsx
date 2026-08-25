@@ -309,6 +309,19 @@ describe('<Calendar /> · diálogo accesible', () => {
 });
 
 describe('<Calendar /> · vistas y estados', () => {
+  it('revalida una colección completa de más de 200 eventos sin truncarla', async () => {
+    const events = Array.from({ length: 201 }, (_, index) => ({
+      ...EVENTO,
+      id: `e-${index}`,
+      title: `Evento ${index}`,
+    }));
+    api.events.list.mockResolvedValueOnce(events);
+    view();
+
+    expect(await screen.findByText('Evento 200')).toBeTruthy();
+    expect(api.events.list).toHaveBeenCalledTimes(1);
+  });
+
   it('cambia entre día, semana y mes', async () => {
     view();
     await screen.findByText('Sesión con 3.º');

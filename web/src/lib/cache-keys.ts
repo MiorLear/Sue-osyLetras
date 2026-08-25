@@ -35,8 +35,8 @@ export const cacheKeys = {
   tools: () => 'tools',
   /** Temas de Aprendiendo. */
   learningTopics: () => 'learning:topics',
-  /** Calendario. */
-  events: () => 'events',
+  /** Calendario completo. Una página o rango nunca debe usar esta clave. */
+  events: () => 'events:all',
   /** Feed de Comunidad, una entrada por filtro. */
   posts: (filter: PostFilter) => `posts:${filter ?? 'todos'}`,
   /** Perfil de la usuaria conectada. */

@@ -99,6 +99,28 @@ describe('createHttpClient · request', () => {
     const client = createHttpClient({ baseUrl: 'https://api.test' });
     await expect(client.events.remove('e-1')).resolves.toBeUndefined();
   });
+
+  it('carga todas las paginas del calendario, incluso cuando supera 200 eventos', async () => {
+    const event = (id: number) => ({ id: `e-${id}`, title: `Evento ${id}` });
+    const first = Array.from({ length: 100 }, (_, index) => event(index));
+    const second = Array.from({ length: 100 }, (_, index) => event(index + 100));
+    const third = [event(200)];
+    const fetchSpy = mockFetch([
+      json({ items: first, page: 0, size: 100, total: 201, pages: 3, hasMore: true }),
+      json({ items: second, page: 1, size: 100, total: 201, pages: 3, hasMore: true }),
+      json({ items: third, page: 2, size: 100, total: 201, pages: 3, hasMore: false }),
+    ]);
+
+    const events = await createHttpClient({ baseUrl: 'https://api.test' }).events.list();
+
+    expect(events).toHaveLength(201);
+    expect(events.at(-1)).toMatchObject({ id: 'e-200' });
+    expect(fetchSpy.mock.calls.map(([url]) => url)).toEqual([
+      'https://api.test/events?page=0&size=100',
+      'https://api.test/events?page=1&size=100',
+      'https://api.test/events?page=2&size=100',
+    ]);
+  });
 });
 
 describe('createHttpClient · errores', () => {

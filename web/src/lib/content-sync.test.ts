@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { clearEverything } from '@/lib/idb';
 import { readAllCached, setCacheUser } from '@/lib/offline-cache';
+import { cacheKeys } from '@/lib/cache-keys';
 
 // La pasada que llena la caché sin que nadie abra pantalla por pantalla.
 //
@@ -109,7 +110,7 @@ describe('content-sync · la pasada automática', () => {
         // Las tres pantallas donde se escribe: sin ellas cacheadas, escribir
         // sin conexion es inalcanzable para quien no las abrio antes con red.
         'posts:todos',
-        'events',
+        cacheKeys.events(),
         'profile:me',
       ]),
     );
