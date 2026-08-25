@@ -1,6 +1,9 @@
 {
   "name": "@explorarte/shared",
   "version": "1.0.0",
+  "engines": {
+    "node": "20.x"
+  },
   "description": "Shared domain types, design tokens and the swappable API client (mock + http) used by the ExplorArte web and mobile apps.",
   "type": "module",
   "main": "./dist/index.js",

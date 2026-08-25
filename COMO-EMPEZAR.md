@@ -13,7 +13,7 @@ Solo estas tres cosas (todas gratis, para Windows/Mac/Linux):
 |---|---|---|
 | **Git** | Descargar el código del repositorio | [git-scm.com](https://git-scm.com) |
 | **Docker Desktop** | Correr el backend (Java) + la web, sin instalar Java ni Postgres | [docker.com](https://www.docker.com/products/docker-desktop/) |
-| **Node.js** (versión 20 o más nueva) | Correr la app mobile (Expo) | [nodejs.org](https://nodejs.org) |
+| **Node.js 20** (ver `.nvmrc`) | Correr la app mobile (Expo) | [nodejs.org](https://nodejs.org) |
 
 Instala los tres, reinicia la computadora si el instalador lo pide, y ya puedes seguir.
 
