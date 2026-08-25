@@ -8,14 +8,15 @@ import { createHttpClient } from './http/index.js';
 export type ApiMode = 'mock' | 'http';
 
 export interface CreateApiClientOptions {
-  mode?: ApiMode;
+  mode: ApiMode;
   /** required when mode === 'http' */
   baseUrl?: string;
   getToken?: () => string | null | undefined;
 }
 
-export function createApiClient(opts: CreateApiClientOptions = {}): ApiClient {
-  const mode = opts.mode ?? 'mock';
+export function createApiClient(opts: CreateApiClientOptions): ApiClient {
+  if (!opts?.mode) throw new Error("createApiClient: mode must be explicitly 'http' or 'mock'");
+  const mode = opts.mode;
   if (mode === 'http') {
     if (!opts.baseUrl) throw new Error("createApiClient: baseUrl is required when mode is 'http'");
     return createHttpClient({ baseUrl: opts.baseUrl, getToken: opts.getToken });
