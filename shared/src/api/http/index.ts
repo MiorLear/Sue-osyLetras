@@ -147,6 +147,7 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
     auth: {
       login: (input: LoginInput) => request<AuthResult>('POST', '/auth/login', input),
       register: (input: RegisterInput) => request<AuthResult>('POST', '/auth/register', input),
+      firebase: (input) => request<AuthResult>('POST', '/auth/firebase', input),
       requestOtp: (phone: string) => request<{ sent: true }>('POST', '/auth/otp/request', { phone }),
       verifyOtp: (phone: string, code: string) =>
         request<AuthResult>('POST', '/auth/otp/verify', { phone, code }),

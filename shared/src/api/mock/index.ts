@@ -86,6 +86,10 @@ export function createMockClient(): ApiClient {
         currentUser = clone(newUser);
         return authResult();
       },
+      async firebase() {
+        await delay();
+        return authResult();
+      },
       async requestOtp(_phone: string) {
         await delay();
         return { sent: true as const };

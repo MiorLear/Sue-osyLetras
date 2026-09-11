@@ -8,6 +8,8 @@ import { toast } from '@/components/toast-store';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { OtpInput } from './Login';
+import { confirmPhoneCode, googleIdToken, requestPhoneCode } from '@/lib/firebase-auth';
+import type { ConfirmationResult } from 'firebase/auth';
 
 type Method = 'google' | 'phone' | 'email' | null;
 const TITLES = ['Crear cuenta', 'Verificar identidad', 'Tu información'];
@@ -30,11 +32,15 @@ export default function Register() {
   const [lastname, setLastname] = useState('');
   const [institucion, setInstitucion] = useState('');
   const [ubicacion, setUbicacion] = useState('');
+  const [firebaseToken, setFirebaseToken] = useState<string | null>(null);
+  const [phoneConfirmation, setPhoneConfirmation] = useState<ConfirmationResult | null>(null);
 
   // Los registros ya no necesitan aprobación: la cuenta queda activa y entra
   // directo a la app.
   const finishRegister = async () => {
-    const result = await api.auth.register({ name, lastname, institucion, ubicacion, email, password, phone });
+    const result = firebaseToken
+      ? await api.auth.firebase({ idToken: firebaseToken, name, lastname, institucion, ubicacion })
+      : await api.auth.register({ name, lastname, institucion, ubicacion, email, password, phone });
     await signIn(result);
     navigate('/main', { replace: true });
   };
@@ -45,11 +51,15 @@ export default function Register() {
     else setStep(1);
   };
 
-  const choose = (m: Method) => {
+  const choose = async (m: Method) => {
     if (m === 'google') {
-      // No real Google OAuth yet — don't fake success / create an empty-credential
-      // account. Honest "coming soon", matching the login screen.
-      toast.info('El registro con Google estará disponible muy pronto. Por ahora usa tu correo o teléfono.', { title: 'Próximamente' });
+      try {
+        setFirebaseToken(await googleIdToken());
+        setMethod('google');
+        setStep(2);
+      } catch {
+        toast.error('No pudimos conectar con Google. Intenta de nuevo.');
+      }
       return;
     }
     setMethod(m);
@@ -105,7 +115,18 @@ export default function Register() {
         {step === 1 && method === 'phone' && phoneStep === 'number' ? (
           <>
             <Field label="Número de teléfono" icon="phone" placeholder="+502 1234 5678" value={phone} onChangeText={setPhone} />
-            <PrimaryButton label="Enviar código" onClick={() => api.auth.requestOtp(phone).then(() => setPhoneStep('otp'))} disabled={phone.length < 8} />
+            <PrimaryButton
+              label="Enviar código"
+              onClick={async () => {
+                try {
+                  setPhoneConfirmation(await requestPhoneCode(phone));
+                  setPhoneStep('otp');
+                } catch {
+                  toast.error('No pudimos enviar el SMS. Revisa el número e intenta de nuevo.');
+                }
+              }}
+              disabled={phone.length < 8}
+            />
           </>
         ) : null}
 
@@ -124,13 +145,14 @@ export default function Register() {
               label="Verificar código"
               onClick={async () => {
                 try {
-                  await api.auth.checkOtp(phone, otp);
+                  if (!phoneConfirmation) throw new Error('No confirmation');
+                  setFirebaseToken(await confirmPhoneCode(phoneConfirmation, otp));
                   setStep(2);
                 } catch {
                   toast.error('Código incorrecto. Verifica e intenta de nuevo.');
                 }
               }}
-              disabled={otp.length < 6}
+              disabled={otp.length < 6 || !phoneConfirmation}
             />
             <button onClick={() => setPhoneStep('number')} className="center muted" style={{ fontSize: 12.5, padding: 8 }}>
               ¿No recibiste el código? <span style={{ color: 'var(--brand)', fontWeight: 700 }}>Reenviar</span>
@@ -159,6 +181,7 @@ export default function Register() {
         </span>
       </div>
       </div>
+      <div id="recaptcha-container" />
     </div>
   );
 }

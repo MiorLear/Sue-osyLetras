@@ -6,6 +6,7 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,6 +23,9 @@ import com.explorarte.api.user.User;
 import com.explorarte.api.user.UserRepository;
 import com.explorarte.api.user.UserRole;
 import com.explorarte.api.user.UserStatus;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseAuthException;
+import com.google.firebase.auth.FirebaseToken;
 
 import jakarta.validation.Valid;
 
@@ -45,7 +49,9 @@ public class AuthController {
     private final SchoolService schoolService;
     private final AuthRateLimiter rateLimiter;
     private final AuthenticatedUserCache userCache;
+    private final FirebaseAuth firebaseAuth;
 
+    @Autowired
     public AuthController(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
@@ -54,7 +60,8 @@ public class AuthController {
             EmailService emailService,
             SchoolService schoolService,
             AuthRateLimiter rateLimiter,
-            AuthenticatedUserCache userCache) {
+            AuthenticatedUserCache userCache,
+            FirebaseAuth firebaseAuth) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -63,6 +70,77 @@ public class AuthController {
         this.schoolService = schoolService;
         this.rateLimiter = rateLimiter;
         this.userCache = userCache;
+        this.firebaseAuth = firebaseAuth;
+    }
+
+    /** Kept for focused unit tests that do not exercise Firebase authentication. */
+    AuthController(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            JwtService jwtService,
+            VerificationCodeService verificationCodeService,
+            EmailService emailService,
+            SchoolService schoolService,
+            AuthRateLimiter rateLimiter,
+            AuthenticatedUserCache userCache) {
+        this(userRepository, passwordEncoder, jwtService, verificationCodeService, emailService,
+                schoolService, rateLimiter, userCache, null);
+    }
+
+    /** Exchanges a verified Firebase Google/phone identity for the normal app session. */
+    @PostMapping("/auth/firebase")
+    public AuthResultDto firebaseLogin(@Valid @RequestBody FirebaseAuthInput input) {
+        final FirebaseToken token;
+        try {
+            token = firebaseAuth.verifyIdToken(input.idToken(), true);
+        } catch (FirebaseAuthException | IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Firebase token");
+        }
+
+        String email = clean(token.getEmail());
+        String phone = clean((String) token.getClaims().get("phone_number"));
+        if (email.isBlank() && phone.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Firebase identity has no email or phone");
+        }
+
+        Optional<User> existing = !email.isBlank()
+                ? userRepository.findByEmailIgnoreCase(email)
+                : findByPhone(phone);
+        User user = existing.orElseGet(() -> createFirebaseUser(token, email, phone, input));
+
+        // Registration can enrich a just-created account; login never overwrites profile data.
+        if (existing.isEmpty()) {
+            schoolService.addIfNew(user.getInstitucion());
+        }
+        return authResult(user);
+    }
+
+    private User createFirebaseUser(FirebaseToken token, String email, String phone, FirebaseAuthInput input) {
+        User user = new User();
+        user.setId("u-" + UUID.randomUUID());
+        String displayName = clean(token.getName());
+        String suppliedName = clean(input.name());
+        String suppliedLastname = clean(input.lastname());
+        if (suppliedName.isBlank() && !displayName.isBlank()) {
+            int split = displayName.indexOf(' ');
+            suppliedName = split < 0 ? displayName : displayName.substring(0, split);
+            suppliedLastname = split < 0 ? "" : displayName.substring(split + 1);
+        }
+        user.setName(suppliedName.isBlank() ? "Usuario" : suppliedName);
+        user.setLastname(suppliedLastname);
+        user.setEmail(email.isBlank() ? "tel-" + phone.replaceAll("[^0-9]", "") + "@sinemail.explorarte" : email.toLowerCase());
+        user.setPhone(phone.isBlank() ? null : phone);
+        user.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
+        user.setInstitucion(clean(input.institucion()));
+        user.setUbicacion(clean(input.ubicacion()));
+        user.setPhoto(clean(token.getPicture()));
+        user.setRole(UserRole.TEACHER);
+        user.setStatus(UserStatus.APPROVED);
+        return userRepository.save(user);
+    }
+
+    private static String clean(String value) {
+        return value == null ? "" : value.trim();
     }
 
     @PostMapping("/auth/login")
