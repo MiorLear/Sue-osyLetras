@@ -8,6 +8,11 @@ const swSource = readFileSync(path.join(root, 'src/sw.ts'), 'utf8');
 const viteConfig = readFileSync(path.join(root, 'vite.config.ts'), 'utf8');
 
 describe('navegación del service worker', () => {
+  it('deja que Firebase responda sus páginas de autenticación', () => {
+    for (const route of ['/__/auth/handler', '/__/auth/handler?authType=signInViaPopup', '/__/auth/iframe', '/__/firebase/init.json']) {
+      expect(isDeniedNavigation(route)).toBe(true);
+    }
+  });
   it('devuelve el shell para las rutas de la app', () => {
     for (const route of ['/', '/main', '/emociones/12', '/comunidad', '/admin/usuarios']) {
       expect(isDeniedNavigation(route)).toBe(false);
