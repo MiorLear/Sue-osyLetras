@@ -31,7 +31,10 @@ export function UpdateToast() {
       </div>
       <div className="update-banner__actions">
         {/* `true` posts SKIP_WAITING to the waiting worker and reloads once it
-            takes control — the only place in the app allowed to do that. */}
+            takes control. The only other place allowed to force that swap is
+            `sw-activate`, on the login and register screens: there is nothing
+            unsaved there, and a worker predating the `/__/` denylist answers
+            Firebase's sign-in popup with the app shell. */}
         <button
           type="button"
           className="update-banner__cta"

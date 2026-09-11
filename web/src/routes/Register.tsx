@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSchools } from '@/lib/useSchools';
 import { GoogleIcon, Icon, type IconName } from '@/components/Icon';
@@ -8,7 +8,9 @@ import { toast } from '@/components/toast-store';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { OtpInput } from './Login';
+import { describeAuthError } from '@/lib/auth-errors';
 import { confirmPhoneCode, requestPhoneCode, startGoogleSignIn } from '@/lib/firebase-auth';
+import { activateWaitingServiceWorker, refreshServiceWorkerForAuthScreen } from '@/lib/sw-activate';
 import type { ConfirmationResult } from 'firebase/auth';
 
 type Method = 'google' | 'phone' | 'email' | null;
@@ -35,6 +37,12 @@ export default function Register() {
   const [firebaseToken, setFirebaseToken] = useState<string | null>(null);
   const [phoneConfirmation, setPhoneConfirmation] = useState<ConfirmationResult | null>(null);
 
+  // Igual que en Login: un service worker anterior al denylist de `/__/` rompe
+  // el popup de Google, y aquí tampoco hay trabajo que se pueda perder.
+  useEffect(() => {
+    void refreshServiceWorkerForAuthScreen();
+  }, []);
+
   // Los registros ya no necesitan aprobación: la cuenta queda activa y entra
   // directo a la app.
   const finishRegister = async () => {
@@ -54,11 +62,17 @@ export default function Register() {
   const choose = async (m: Method) => {
     if (m === 'google') {
       try {
+        // Corto y sin red: el permiso para abrir el popup sobrevive a la espera.
+        await activateWaitingServiceWorker({ timeoutMs: 400 });
         setFirebaseToken(await startGoogleSignIn());
         setMethod('google');
         setStep(2);
-      } catch {
-        toast.error('No pudimos conectar con Google. Intenta de nuevo.');
+      } catch (err) {
+        console.error('[registro] google', err);
+        const display = describeAuthError(err);
+        // Cerrar la ventana de Google es una decisión, no un fallo que anunciar.
+        if (display?.kind === 'silent') return;
+        toast.error(display?.message ?? 'No pudimos conectar con Google. Intenta de nuevo.');
       }
       return;
     }

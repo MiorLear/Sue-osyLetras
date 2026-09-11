@@ -7,6 +7,8 @@
 
 /** URLs that must NOT be answered with the precached app shell. */
 export const NAVIGATION_DENYLIST: RegExp[] = [
+  // Firebase's reserved authentication pages must reach Hosting, never React.
+  /^\/__\//,
   // The API is proxied to Cloud Run and is never cached by the worker: every
   // GET is Bearer-scoped and the backend sends no `Vary: Authorization`.
   /^\/api\//,

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError, type AuthResult, type UserStatus } from '@explorarte/shared';
 import { GoogleIcon, Icon } from '@/components/Icon';
@@ -6,7 +6,9 @@ import { Logo } from '@/components/Logo';
 import { Field, PrimaryButton } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 import { api, usingMock } from '@/lib/api';
+import { describeAuthError } from '@/lib/auth-errors';
 import { confirmPhoneCode, requestPhoneCode, startGoogleSignIn } from '@/lib/firebase-auth';
+import { activateWaitingServiceWorker, refreshServiceWorkerForAuthScreen } from '@/lib/sw-activate';
 import type { ConfirmationResult } from 'firebase/auth';
 
 type ViewKind = 'main' | 'phone-number' | 'phone-otp';
@@ -86,18 +88,38 @@ export default function Login() {
 
   /** Una cuenta no aprobada va a su pantalla; el resto de errores se muestran. */
   const failed = useCallback((err: unknown) => {
+    // El código crudo es lo único que permite diagnosticar un fallo desde el
+    // teléfono de una docente sin reproducir su navegador.
+    console.error('[login]', err);
     const blockedStatus = accountStatusFrom403(err);
     if (blockedStatus) {
       showPendingScreen(blockedStatus);
       return;
     }
+    // Un fallo de Firebase (popup bloqueado, ventana cerrada...) no es un fallo
+    // del servidor, y decir lo contrario manda a la usuaria a revisar su wifi.
+    const authDisplay = describeAuthError(err);
+    if (authDisplay) {
+      if (authDisplay.kind === 'message') setError(authDisplay.message);
+      return;
+    }
     setError(messageFor(err));
   }, [showPendingScreen]);
+
+  // Un service worker anterior al denylist de `/__/` responde el popup de
+  // Firebase con el shell de la app y rompe el login con Google. Aquí no hay
+  // trabajo sin guardar, así que se puede forzar el relevo sin preguntar; el
+  // resto de la app sigue esperando a que la usuaria pulse "Actualizar".
+  useEffect(() => {
+    void refreshServiceWorkerForAuthScreen();
+  }, []);
 
   const signInWithGoogle = async () => {
     setError(null);
     setGoogleLoading(true);
     try {
+      // Corto y sin red: el permiso para abrir el popup sobrevive a la espera.
+      await activateWaitingServiceWorker({ timeoutMs: 400 });
       const idToken = await startGoogleSignIn();
       await enter(await api.auth.firebase({ idToken }));
     } catch (err) {
