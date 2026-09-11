@@ -33,6 +33,8 @@ export interface AuthApi {
   login(input: LoginInput): Promise<AuthResult>;
   /** POST /auth/register */
   register(input: RegisterInput): Promise<AuthResult>;
+  /** POST /auth/firebase — exchange a verified Google/phone Firebase ID token. */
+  firebase(input: FirebaseAuthInput): Promise<AuthResult>;
   /** POST /auth/otp/request */
   requestOtp(phone: string): Promise<{ sent: true }>;
   /** POST /auth/otp/verify */
@@ -43,6 +45,14 @@ export interface AuthApi {
   forgotPassword(emailOrPhone: string): Promise<{ sent: true }>;
   /** POST /auth/reset-password — set a new password after OTP verification */
   resetPassword(emailOrPhone: string, code: string, newPassword: string): Promise<{ sent: true }>;
+}
+
+export interface FirebaseAuthInput {
+  idToken: string;
+  name?: string;
+  lastname?: string;
+  institucion?: string;
+  ubicacion?: string;
 }
 
 export interface EmotionsApi {

@@ -148,6 +148,14 @@
       </exclusions>
     </dependency>
 
+    <!-- Verifies Firebase ID tokens produced by Google Sign-In and phone/SMS
+         before the API exchanges them for the application's own session JWT. -->
+    <dependency>
+      <groupId>com.google.firebase</groupId>
+      <artifactId>firebase-admin</artifactId>
+      <version>9.6.0</version>
+    </dependency>
+
     <dependency>
       <groupId>org.flywaydb</groupId>
       <artifactId>flyway-core</artifactId>

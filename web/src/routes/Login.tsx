@@ -7,6 +7,8 @@ import { Field, PrimaryButton } from '@/components/ui';
 import { toast } from '@/components/toast-store';
 import { useAuth } from '@/context/AuthContext';
 import { api, usingMock } from '@/lib/api';
+import { confirmPhoneCode, googleIdToken, requestPhoneCode } from '@/lib/firebase-auth';
+import type { ConfirmationResult } from 'firebase/auth';
 
 type ViewKind = 'main' | 'phone-number' | 'phone-otp';
 
@@ -63,6 +65,7 @@ export default function Login() {
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [phoneConfirmation, setPhoneConfirmation] = useState<ConfirmationResult | null>(null);
 
   const showPendingScreen = (status: UserStatus) =>
     navigate('/pendiente', { replace: true, state: { status } });
@@ -91,6 +94,37 @@ export default function Login() {
     setError(messageFor(err));
   };
 
+  const signInWithGoogle = async () => {
+    setError(null);
+    try {
+      const idToken = await googleIdToken();
+      await enter(await api.auth.firebase({ idToken }));
+    } catch (err) {
+      failed(err);
+    }
+  };
+
+  const sendPhoneCode = async () => {
+    setError(null);
+    try {
+      setPhoneConfirmation(await requestPhoneCode(phone));
+      setView('phone-otp');
+    } catch {
+      setError('No pudimos enviar el SMS. Revisa el número y vuelve a intentarlo.');
+    }
+  };
+
+  const signInWithPhone = async () => {
+    if (!phoneConfirmation) return;
+    setError(null);
+    try {
+      const idToken = await confirmPhoneCode(phoneConfirmation, otp);
+      await enter(await api.auth.firebase({ idToken }));
+    } catch (err) {
+      failed(err);
+    }
+  };
+
   const subtitle =
     view === 'main'
       ? 'Sueños y Letras · más letras, más libres'
@@ -116,7 +150,7 @@ export default function Login() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {view === 'main' ? (
             <>
-              <SocialButton kind="google" label="Continuar con Google" onClick={() => toast.info('El inicio de sesión con Google estará disponible muy pronto. Por ahora usa tu correo.', { title: 'Próximamente' })} />
+              <SocialButton kind="google" label="Continuar con Google" onClick={signInWithGoogle} />
               <SocialButton kind="phone" label="Continuar con teléfono" onClick={() => setView('phone-number')} />
               <Divider />
               <Field label="Correo electrónico" icon="mail" placeholder="correo@ejemplo.com" type="email" autoCapitalize="none" value={email} onChangeText={setEmail} />
@@ -161,7 +195,7 @@ export default function Login() {
           {view === 'phone-number' ? (
             <>
               <Field label="Número de teléfono" icon="phone" placeholder="+502 1234 5678" value={phone} onChangeText={setPhone} />
-              <PrimaryButton label="Enviar código" onClick={() => api.auth.requestOtp(phone).then(() => { setError(null); setView('phone-otp'); }).catch(failed)} disabled={phone.length < 8} />
+              <PrimaryButton label="Enviar código" onClick={sendPhoneCode} disabled={phone.length < 8} />
               <ErrorNote message={error} />
             </>
           ) : null}
@@ -174,7 +208,7 @@ export default function Login() {
               </div>
               <label className="field-label">Código de 6 dígitos</label>
               <OtpInput value={otp} onChange={setOtp} />
-              <PrimaryButton label="Verificar e iniciar sesión" onClick={() => api.auth.verifyOtp(phone, otp).then(enter).catch(failed)} disabled={otp.length < 6} />
+              <PrimaryButton label="Verificar e iniciar sesión" onClick={signInWithPhone} disabled={otp.length < 6 || !phoneConfirmation} />
               <ErrorNote message={error} />
               <button onClick={() => setView('phone-number')} className="center muted" style={{ fontSize: 12.5, padding: 8 }}>
                 ¿No recibiste el código? <span style={{ color: 'var(--brand)', fontWeight: 700 }}>Reenviar</span>
@@ -194,6 +228,7 @@ export default function Login() {
           </div>
         ) : null}
       </div>
+      <div id="recaptcha-container" />
     </div>
   );
 }
