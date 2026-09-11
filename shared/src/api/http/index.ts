@@ -202,6 +202,8 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
         list: (status?: UserStatus) => request<UserProfile[]>('GET', `/admin/users${q({ status })}`),
         approve: (id: string) => request<UserProfile>('POST', `/admin/users/${encodeURIComponent(id)}/approve`),
         reject: (id: string) => request<UserProfile>('POST', `/admin/users/${encodeURIComponent(id)}/reject`),
+        invite: (email: string) => request<{ sent: true }>('POST', '/admin/users/invite', { email }),
+        remove: (id: string) => request<void>('DELETE', `/admin/users/${encodeURIComponent(id)}`),
       },
     },
     media: {

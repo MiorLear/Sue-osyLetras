@@ -115,6 +115,10 @@ export interface AdminUsersApi {
   approve(id: string): Promise<UserProfile>;
   /** POST /admin/users/:id/reject */
   reject(id: string): Promise<UserProfile>;
+  /** POST /admin/users/invite */
+  invite(email: string): Promise<{ sent: true }>;
+  /** DELETE /admin/users/:id */
+  remove(id: string): Promise<void>;
 }
 
 export interface AdminApi {

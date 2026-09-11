@@ -13,6 +13,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.HtmlUtils;
 
@@ -38,20 +39,60 @@ public class EmailService {
     private final String apiKey;
     private final String from;
     private final String passwordResetUrl;
+    private final String registrationUrl;
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .build();
 
+    @Autowired
     public EmailService(
             @Value("${app.resend.api-key:}") String apiKey,
             @Value("${app.resend.from:Sueños y Letras <onboarding@resend.dev>}") String from,
             @Value("${app.auth.password-reset-url:https://explorarte.app/forgot-password}") String passwordResetUrl,
+            @Value("${app.auth.registration-url:https://explorarte.app/register}") String registrationUrl,
             ObjectMapper objectMapper) {
         this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.from = from;
         this.passwordResetUrl = passwordResetUrl;
+        this.registrationUrl = registrationUrl;
         this.objectMapper = objectMapper;
+    }
+
+    EmailService(String apiKey, String from, String passwordResetUrl, ObjectMapper objectMapper) {
+        this(apiKey, from, passwordResetUrl, "https://explorarte.app/register", objectMapper);
+    }
+
+    /** Sends an administrator-issued invitation to join ExplorArte. */
+    public boolean sendInvitation(String toEmail) {
+        return sendHtml(toEmail, "Te invitaron a ExplorArte", invitationHtml(registrationUrl));
+    }
+
+    private boolean sendHtml(String toEmail, String subject, String html) {
+        if (!isEnabled()) {
+            log.warn("[email] RESEND_API_KEY not set — email to {} was NOT sent", toEmail);
+            return false;
+        }
+        try {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("from", from);
+            payload.put("to", new String[] { toEmail });
+            payload.put("subject", subject);
+            payload.put("html", html);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(RESEND_ENDPOINT))
+                    .header("Authorization", "Bearer " + apiKey)
+                    .header("Content-Type", "application/json")
+                    .timeout(Duration.ofSeconds(15))
+                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
+                    .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() >= 200 && response.statusCode() < 300) return true;
+            log.error("[email] Resend rejected send to {}: HTTP {}", toEmail, response.statusCode());
+        } catch (Exception ex) {
+            log.error("[email] failed to send email to {}: {}", toEmail, ex.getClass().getName());
+        }
+        return false;
     }
 
     public boolean isEnabled() {
@@ -113,5 +154,15 @@ public class EmailService {
                   <p>Este enlace vence en 15 minutos y solo puede utilizarse una vez. Si no solicitaste el cambio, puedes ignorar este correo.</p>
                   <p style="color: #888; font-size: 12px; margin-top: 24px;">Sueños y Letras · ExplorArte</p>
                 </div>""".formatted(resetLink);
+    }
+
+    static String invitationHtml(String registrationUrl) {
+        return """
+                <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+                  <h2 style="color:#2b2b2b;">Te damos la bienvenida a ExplorArte</h2>
+                  <p>El equipo de Sueños y Letras te invitó a crear una cuenta en ExplorArte.</p>
+                  <p style="margin:28px 0;"><a href="%s" style="display:inline-block;background:#3DBFB8;color:#fff;text-decoration:none;font-weight:bold;padding:14px 22px;border-radius:10px;">Aceptar invitación</a></p>
+                  <p style="color:#888;font-size:12px;margin-top:24px;">Si no esperabas esta invitación, puedes ignorar este correo.</p>
+                </div>""".formatted(HtmlUtils.htmlEscape(registrationUrl));
     }
 }

@@ -3,6 +3,8 @@ import type { UserProfile, UserStatus } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
 import { AdminBtn } from '@/components/admin/ui';
+import { confirmDialog } from '@/components/confirm-store';
+import { toast } from '@/components/toast-store';
 import { api } from '@/lib/api';
 
 type FilterId = 'approved' | 'rejected' | 'all';
@@ -27,14 +29,20 @@ const sinAcceso = (u: UserProfile) => u.status === 'rejected';
 export default function AdminUsuarios() {
   const [filter, setFilter] = useState<FilterId>('approved');
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviting, setInviting] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Fetch every teacher once and narrow in memory. Passing ?status= would 400:
   // the API binds the param with Enum.valueOf, which is case-sensitive, and the
   // wire format is lowercase. Filtering locally also makes the tabs instant.
   const load = () => {
-    api.admin.users.list().then((list) => setUsers(list.filter((u) => u.role === 'teacher')));
+    setLoading(true);
+    api.admin.users.list()
+      .then((list) => setUsers(list.filter((u) => u.role === 'teacher')))
+      .catch(() => toast.error('No se pudo cargar la lista de usuarios. Intenta de nuevo.'))
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => {
@@ -46,17 +54,52 @@ export default function AdminUsuarios() {
     return filter === 'rejected' ? sinAcceso(u) : !sinAcceso(u);
   });
 
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2400);
-  };
-
   const decide = async (u: UserProfile, action: 'approve' | 'reject') => {
     setBusy(u.id);
     try {
       await api.admin.users[action](u.id);
-      showToast(action === 'approve' ? `Diste acceso a ${u.name}` : `Quitaste el acceso a ${u.name}`);
-      load();
+      toast.success(action === 'approve' ? `Diste acceso a ${u.name}` : `Quitaste el acceso a ${u.name}`);
+      await load();
+    } catch {
+      toast.error('No se pudo actualizar el acceso. Intenta de nuevo.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const invite = async () => {
+    const email = inviteEmail.trim();
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      toast.error('Ingresa un correo electrónico válido.');
+      return;
+    }
+    setInviting(true);
+    try {
+      await api.admin.users.invite(email);
+      setInviteEmail('');
+      toast.success(`Invitación enviada a ${email}.`);
+    } catch {
+      toast.error('No se pudo enviar la invitación. Revisa el correo e intenta de nuevo.');
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const remove = async (u: UserProfile) => {
+    const accepted = await confirmDialog({
+      title: `Eliminar a ${u.name}`,
+      message: 'Se borrará su cuenta y perderá el acceso a ExplorArte. Esta acción no se puede deshacer.',
+      confirmLabel: 'Eliminar usuario',
+      tone: 'danger',
+    });
+    if (!accepted) return;
+    setBusy(u.id);
+    try {
+      await api.admin.users.remove(u.id);
+      setUsers((current) => current.filter((item) => item.id !== u.id));
+      toast.success(`Eliminaste a ${u.name}.`);
+    } catch {
+      toast.error('No se pudo eliminar el usuario. Intenta de nuevo.');
     } finally {
       setBusy(null);
     }
@@ -70,6 +113,33 @@ export default function AdminUsuarios() {
         accent="docentes"
         lede="Consulta a las docentes registradas y gestiona quién tiene acceso a ExplorArte."
       />
+
+      <section style={{ marginBottom: 22, padding: 18, borderRadius: 18, background: '#fff', border: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <span style={{ width: 36, height: 36, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#E8F8F7' }}>
+            <Icon name="mail" size={18} color="var(--brand-dark)" />
+          </span>
+          <div>
+            <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-dark)' }}>Invitar docente</h2>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Recibirá un correo con el enlace para crear su cuenta.</p>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <input
+            className="input"
+            type="email"
+            value={inviteEmail}
+            onChange={(event) => setInviteEmail(event.target.value)}
+            onKeyDown={(event) => { if (event.key === 'Enter') void invite(); }}
+            placeholder="docente@colegio.edu"
+            aria-label="Correo de la docente"
+            style={{ flex: '1 1 260px' }}
+          />
+          <button onClick={() => void invite()} disabled={inviting} style={{ padding: '10px 18px', borderRadius: 11, background: 'var(--brand-dark)', color: '#fff', fontSize: 13, fontWeight: 700, opacity: inviting ? 0.6 : 1 }}>
+            {inviting ? 'Enviando…' : 'Enviar invitación'}
+          </button>
+        </div>
+      </section>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 22, flexWrap: 'wrap' }}>
         {FILTERS.map((f) => {
@@ -85,7 +155,9 @@ export default function AdminUsuarios() {
         })}
       </div>
 
-      {shown.length === 0 ? (
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '50px 20px', color: 'var(--text-muted)' }}>Cargando usuarios…</div>
+      ) : shown.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
           <div style={{ fontSize: 44, marginBottom: 12 }}>🌿</div>
           <p style={{ fontSize: 14 }}>No hay docentes en esta categoría.</p>
@@ -111,25 +183,28 @@ export default function AdminUsuarios() {
                     <span>{u.email}</span>
                   </div>
                 </div>
-                <div style={{ flexShrink: 0, width: 130 }}>
+                <div style={{ flexShrink: 0, display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div style={{ width: 130 }}>
                   {sinAcceso(u) ? (
                     <AdminBtn label="Dar acceso" onClick={() => decide(u, 'approve')} disabled={busy === u.id} />
                   ) : (
                     <AdminBtn label="Quitar acceso" variant="outline" onClick={() => decide(u, 'reject')} disabled={busy === u.id} />
                   )}
+                  </div>
+                  <button
+                    onClick={() => void remove(u)}
+                    disabled={busy === u.id}
+                    aria-label={`Eliminar a ${u.name}`}
+                    title="Eliminar usuario"
+                    style={{ width: 42, height: 42, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FFF5F3', border: '1px solid #F1CFC6', opacity: busy === u.id ? 0.5 : 1 }}>
+                    <Icon name="trash" size={17} color="var(--danger)" />
+                  </button>
                 </div>
               </div>
             );
           })}
         </div>
       )}
-
-      {toast ? (
-        <div className="toast">
-          <Icon name="check-circle" size={16} color="#fff" />
-          {toast}
-        </div>
-      ) : null}
     </div>
   );
 }

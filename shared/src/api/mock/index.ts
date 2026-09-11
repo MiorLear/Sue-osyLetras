@@ -303,6 +303,16 @@ export function createMockClient(): ApiClient {
           u.status = 'rejected';
           return clone(u);
         },
+        async invite(_email: string): Promise<{ sent: true }> {
+          await delay(40);
+          return { sent: true };
+        },
+        async remove(id: string): Promise<void> {
+          await delay(40);
+          const index = users.findIndex((x) => x.id === id);
+          if (index < 0) throw new Error('User not found');
+          users.splice(index, 1);
+        },
       },
     },
 
