@@ -5,9 +5,8 @@ import {
   GoogleAuthProvider,
   RecaptchaVerifier,
   getAuth,
-  getRedirectResult,
   signInWithPhoneNumber,
-  signInWithRedirect,
+  signInWithPopup,
 } from 'firebase/auth';
 
 let authInstance: Auth | null = null;
@@ -34,16 +33,9 @@ function googleProvider(): GoogleAuthProvider {
   return provider;
 }
 
-/** Starts a full-page flow so PWA/in-app browsers do not strand a popup tab. */
-export async function startGoogleSignIn(): Promise<void> {
-  const auth = firebaseAuth();
-  await signInWithRedirect(auth, googleProvider());
-}
-
-/** Returns the Google ID token after Firebase redirects back, or null otherwise. */
-export async function googleRedirectIdToken(): Promise<string | null> {
-  const result = await getRedirectResult(firebaseAuth());
-  if (!result) return null;
+/** Completes Google sign-in and returns its token directly to the current page. */
+export async function startGoogleSignIn(): Promise<string> {
+  const result = await signInWithPopup(firebaseAuth(), googleProvider());
   return result.user.getIdToken();
 }
 

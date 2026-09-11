@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSchools } from '@/lib/useSchools';
 import { GoogleIcon, Icon, type IconName } from '@/components/Icon';
@@ -8,7 +8,7 @@ import { toast } from '@/components/toast-store';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { OtpInput } from './Login';
-import { confirmPhoneCode, googleRedirectIdToken, requestPhoneCode, startGoogleSignIn } from '@/lib/firebase-auth';
+import { confirmPhoneCode, requestPhoneCode, startGoogleSignIn } from '@/lib/firebase-auth';
 import type { ConfirmationResult } from 'firebase/auth';
 
 type Method = 'google' | 'phone' | 'email' | null;
@@ -35,23 +35,6 @@ export default function Register() {
   const [firebaseToken, setFirebaseToken] = useState<string | null>(null);
   const [phoneConfirmation, setPhoneConfirmation] = useState<ConfirmationResult | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    googleRedirectIdToken()
-      .then((idToken) => {
-        if (!active || !idToken) return;
-        setFirebaseToken(idToken);
-        setMethod('google');
-        setStep(2);
-      })
-      .catch(() => {
-        if (active) toast.error('No pudimos conectar con Google. Intenta de nuevo.');
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
   // Los registros ya no necesitan aprobación: la cuenta queda activa y entra
   // directo a la app.
   const finishRegister = async () => {
@@ -71,7 +54,9 @@ export default function Register() {
   const choose = async (m: Method) => {
     if (m === 'google') {
       try {
-        await startGoogleSignIn();
+        setFirebaseToken(await startGoogleSignIn());
+        setMethod('google');
+        setStep(2);
       } catch {
         toast.error('No pudimos conectar con Google. Intenta de nuevo.');
       }

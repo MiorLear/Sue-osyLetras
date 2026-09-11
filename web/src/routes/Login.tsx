@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError, type AuthResult, type UserStatus } from '@explorarte/shared';
 import { GoogleIcon, Icon } from '@/components/Icon';
@@ -6,7 +6,7 @@ import { Logo } from '@/components/Logo';
 import { Field, PrimaryButton } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 import { api, usingMock } from '@/lib/api';
-import { confirmPhoneCode, googleRedirectIdToken, requestPhoneCode, startGoogleSignIn } from '@/lib/firebase-auth';
+import { confirmPhoneCode, requestPhoneCode, startGoogleSignIn } from '@/lib/firebase-auth';
 import type { ConfirmationResult } from 'firebase/auth';
 
 type ViewKind = 'main' | 'phone-number' | 'phone-otp';
@@ -94,32 +94,16 @@ export default function Login() {
     setError(messageFor(err));
   }, [showPendingScreen]);
 
-  useEffect(() => {
-    let active = true;
-    googleRedirectIdToken()
-      .then((idToken) => idToken ? api.auth.firebase({ idToken }) : null)
-      .then((result) => {
-        if (active && result) return enter(result);
-      })
-      .catch((err) => {
-        if (active) failed(err);
-      })
-      .finally(() => {
-        if (active) setGoogleLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [enter, failed]);
-
   const signInWithGoogle = async () => {
     setError(null);
     setGoogleLoading(true);
     try {
-      await startGoogleSignIn();
+      const idToken = await startGoogleSignIn();
+      await enter(await api.auth.firebase({ idToken }));
     } catch (err) {
-      setGoogleLoading(false);
       failed(err);
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
