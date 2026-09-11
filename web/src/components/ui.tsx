@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type InputHTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type InputHTMLAttributes, type ReactNode } from 'react';
 import { searchPlaces } from '@explorarte/shared';
 import { Icon, type IconName } from './Icon';
 
@@ -47,11 +47,13 @@ interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'onChan
   onChangeText?: (v: string) => void;
 }
 
-export function Field({ label, icon, password, onChangeText, ...rest }: FieldProps) {
+export function Field({ label, icon, password, onChangeText, id, ...rest }: FieldProps) {
   const [hidden, setHidden] = useState(true);
+  const generatedId = useId();
+  const inputId = id ?? generatedId;
   return (
     <div>
-      {label ? <label className="field-label">{label}</label> : null}
+      {label ? <label className="field-label" htmlFor={inputId}>{label}</label> : null}
       <div className="field-wrap">
         {icon ? (
           <span className="field-icon">
@@ -59,6 +61,7 @@ export function Field({ label, icon, password, onChangeText, ...rest }: FieldPro
           </span>
         ) : null}
         <input
+          id={inputId}
           className={'input' + (icon ? ' has-icon' : '')}
           style={password ? { paddingRight: 44 } : undefined}
           type={password ? (hidden ? 'password' : 'text') : rest.type ?? 'text'}

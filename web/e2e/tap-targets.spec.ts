@@ -90,16 +90,14 @@ const CONTROLES: {
   { ruta: '/login', rol: 'button', nombre: 'Registrarse' },
   { ruta: '/register', rol: 'button', nombre: 'Volver' },
   { ruta: '/register', rol: 'button', nombre: 'Lugar 1, San Salvador', prepara: preparaSugerencia },
-  { ruta: '/forgot-password', rol: 'button', nombre: 'Por correo' },
-  { ruta: '/forgot-password', rol: 'button', nombre: 'Por teléfono' },
   {
     ruta: '/forgot-password',
     rol: 'button',
-    nombre: '¿No recibiste el código? Reenviar',
+    nombre: '¿No recibiste el correo? Reenviar enlace',
     prepara: async (page) => {
       await page.getByPlaceholder('correo@ejemplo.com').fill('maria@ejemplo.com');
-      await page.getByRole('button', { name: 'Enviar código' }).click();
-      await expect(page.getByText('Código enviado a')).toBeVisible();
+      await page.getByRole('button', { name: 'Enviar enlace' }).click();
+      await expect(page.getByText('Revisa tu correo')).toBeVisible();
     },
   },
   { ruta: '/pendiente', rol: 'button', nombre: 'Volver al inicio de sesión' },

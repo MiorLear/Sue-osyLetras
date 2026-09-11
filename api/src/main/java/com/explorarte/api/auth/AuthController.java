@@ -247,7 +247,7 @@ public class AuthController {
             String code = verificationCodeService.issue(input.emailOrPhone());
             String email = user.get().getEmail();
             if (isDeliverableEmail(email)) {
-                boolean sent = emailService.sendPasswordResetCode(email, code);
+                boolean sent = emailService.sendPasswordResetLink(email, input.emailOrPhone(), code);
                 if (!sent) {
                     // A delivery failure logs WHO and WHAT FAILED, never the code itself
                     // (SEC-10). Render retains these logs and shows them in the dashboard.

@@ -50,7 +50,7 @@ const PANTALLAS_AUTH: PantallaAuth[] = [
       await expect(page.getByPlaceholder('Mínimo 8 caracteres')).toBeVisible();
     },
   },
-  { nombre: 'Recuperar contraseña', ruta: '/forgot-password', envio: 'Enviar código', conCampos: true },
+  { nombre: 'Recuperar contraseña', ruta: '/forgot-password', envio: 'Enviar enlace', conCampos: true },
   { nombre: 'Cuenta sin acceso', ruta: '/pendiente', envio: 'Volver al inicio de sesión', conCampos: false },
 ];
 
