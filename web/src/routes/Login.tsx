@@ -1,13 +1,12 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError, type AuthResult, type UserStatus } from '@explorarte/shared';
 import { GoogleIcon, Icon } from '@/components/Icon';
 import { Logo } from '@/components/Logo';
 import { Field, PrimaryButton } from '@/components/ui';
-import { toast } from '@/components/toast-store';
 import { useAuth } from '@/context/AuthContext';
 import { api, usingMock } from '@/lib/api';
-import { confirmPhoneCode, googleIdToken, requestPhoneCode } from '@/lib/firebase-auth';
+import { confirmPhoneCode, googleRedirectIdToken, requestPhoneCode, startGoogleSignIn } from '@/lib/firebase-auth';
 import type { ConfirmationResult } from 'firebase/auth';
 
 type ViewKind = 'main' | 'phone-number' | 'phone-otp';
@@ -65,15 +64,16 @@ export default function Login() {
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [phoneConfirmation, setPhoneConfirmation] = useState<ConfirmationResult | null>(null);
 
-  const showPendingScreen = (status: UserStatus) =>
-    navigate('/pendiente', { replace: true, state: { status } });
+  const showPendingScreen = useCallback((status: UserStatus) =>
+    navigate('/pendiente', { replace: true, state: { status } }), [navigate]);
 
   // La comprobación de estado se conserva para el modo mock, que resuelve la
   // cuenta en memoria y devuelve 200 con el status dentro. Contra la API real
   // esta rama ya no se alcanza: el servidor responde 403 (ver failed()).
-  const enter = async (result: AuthResult) => {
+  const enter = useCallback(async (result: AuthResult) => {
     setError(null);
     const u = result.user;
     if (u.status === 'rejected' || u.status === 'pending') {
@@ -82,24 +82,43 @@ export default function Login() {
     }
     await signIn(result);
     navigate(u.role === 'admin' ? '/admin' : '/main', { replace: true });
-  };
+  }, [navigate, showPendingScreen, signIn]);
 
   /** Una cuenta no aprobada va a su pantalla; el resto de errores se muestran. */
-  const failed = (err: unknown) => {
+  const failed = useCallback((err: unknown) => {
     const blockedStatus = accountStatusFrom403(err);
     if (blockedStatus) {
       showPendingScreen(blockedStatus);
       return;
     }
     setError(messageFor(err));
-  };
+  }, [showPendingScreen]);
+
+  useEffect(() => {
+    let active = true;
+    googleRedirectIdToken()
+      .then((idToken) => idToken ? api.auth.firebase({ idToken }) : null)
+      .then((result) => {
+        if (active && result) return enter(result);
+      })
+      .catch((err) => {
+        if (active) failed(err);
+      })
+      .finally(() => {
+        if (active) setGoogleLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [enter, failed]);
 
   const signInWithGoogle = async () => {
     setError(null);
+    setGoogleLoading(true);
     try {
-      const idToken = await googleIdToken();
-      await enter(await api.auth.firebase({ idToken }));
+      await startGoogleSignIn();
     } catch (err) {
+      setGoogleLoading(false);
       failed(err);
     }
   };
@@ -150,13 +169,13 @@ export default function Login() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {view === 'main' ? (
             <>
-              <SocialButton kind="google" label="Continuar con Google" onClick={signInWithGoogle} />
+              <SocialButton kind="google" label={googleLoading ? 'Conectando con Google...' : 'Continuar con Google'} onClick={signInWithGoogle} disabled={googleLoading} />
               <SocialButton kind="phone" label="Continuar con teléfono" onClick={() => setView('phone-number')} />
               <Divider />
               <Field label="Correo electrónico" icon="mail" placeholder="correo@ejemplo.com" type="email" autoCapitalize="none" value={email} onChangeText={setEmail} />
               <Field label="Contraseña" password placeholder="Tu contraseña" value={password} onChangeText={setPassword} />
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button className="tap-44" onClick={() => toast.info('La recuperación de contraseña estará disponible muy pronto. Por ahora, si olvidaste tu contraseña, contacta al administrador.', { title: 'Próximamente' })} style={{ fontSize: 12, color: 'var(--brand)', fontWeight: 600 }}>
+                <button className="tap-44" onClick={() => navigate('/forgot-password')} style={{ fontSize: 12, color: 'var(--brand)', fontWeight: 600 }}>
                   ¿Olvidaste tu contraseña?
                 </button>
               </div>
@@ -260,10 +279,11 @@ function Divider() {
   );
 }
 
-function SocialButton({ kind, label, onClick }: { kind: 'google' | 'phone'; label: string; onClick: () => void }) {
+function SocialButton({ kind, label, onClick, disabled }: { kind: 'google' | 'phone'; label: string; onClick: () => void; disabled?: boolean }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       className="pressable"
       style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 14, borderRadius: 12, background: '#fff', border: '1.5px solid var(--border-soft)', fontSize: 14, fontWeight: 700, color: 'var(--text-dark)' }}>
       {kind === 'google' ? (

@@ -1,9 +1,11 @@
 package com.explorarte.api.auth;
 
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -12,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.HtmlUtils;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -34,6 +37,7 @@ public class EmailService {
 
     private final String apiKey;
     private final String from;
+    private final String passwordResetUrl;
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
@@ -42,9 +46,11 @@ public class EmailService {
     public EmailService(
             @Value("${app.resend.api-key:}") String apiKey,
             @Value("${app.resend.from:Sueños y Letras <onboarding@resend.dev>}") String from,
+            @Value("${app.auth.password-reset-url:https://explorarte.app/forgot-password}") String passwordResetUrl,
             ObjectMapper objectMapper) {
         this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.from = from;
+        this.passwordResetUrl = passwordResetUrl;
         this.objectMapper = objectMapper;
     }
 
@@ -52,19 +58,19 @@ public class EmailService {
         return !apiKey.isEmpty();
     }
 
-    /** Emails a password-reset code. Returns false (and logs) if disabled or on any failure. */
-    public boolean sendPasswordResetCode(String toEmail, String code) {
+    /** Emails a one-use password-reset link. Returns false if disabled or on any failure. */
+    public boolean sendPasswordResetLink(String toEmail, String identifier, String code) {
         if (!isEnabled()) {
             // SEC-10: never write the code to the log, not even when delivery is disabled.
-            log.warn("[email] RESEND_API_KEY not set — reset code for {} was NOT sent", toEmail);
+            log.warn("[email] RESEND_API_KEY not set — reset link for {} was NOT sent", toEmail);
             return false;
         }
         try {
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("from", from);
             payload.put("to", new String[] { toEmail });
-            payload.put("subject", "Tu código para recuperar la contraseña");
-            payload.put("html", resetHtml(code));
+            payload.put("subject", "Restablece tu contraseña de ExplorArte");
+            payload.put("html", resetHtml(HtmlUtils.htmlEscape(resetLink(identifier, code))));
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(RESEND_ENDPOINT))
@@ -76,7 +82,7 @@ public class EmailService {
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                log.info("[email] reset code sent to {}", toEmail);
+                log.info("[email] reset link sent to {}", toEmail);
                 return true;
             }
             // Identifier and status only — the provider's body is echoed back from a request
@@ -89,14 +95,23 @@ public class EmailService {
         }
     }
 
-    private static String resetHtml(String code) {
+    String resetLink(String identifier, String code) {
+        String separator = passwordResetUrl.contains("?") ? "&" : "?";
+        return passwordResetUrl + separator
+                + "email=" + URLEncoder.encode(identifier.trim(), StandardCharsets.UTF_8)
+                + "&code=" + URLEncoder.encode(code, StandardCharsets.UTF_8);
+    }
+
+    static String resetHtml(String resetLink) {
         return """
                 <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
                   <h2 style="color: #2b2b2b;">Recuperar contraseña</h2>
-                  <p>Recibimos una solicitud para restablecer tu contraseña. Tu código de verificación es:</p>
-                  <p style="font-size: 30px; font-weight: bold; letter-spacing: 6px; color: #3DBFB8;">%s</p>
-                  <p>Vence en 15 minutos. Si no solicitaste esto, puedes ignorar este correo.</p>
+                  <p>Recibimos una solicitud para restablecer tu contraseña.</p>
+                  <p style="margin: 28px 0;">
+                    <a href="%s" style="display:inline-block;background:#3DBFB8;color:#fff;text-decoration:none;font-weight:bold;padding:14px 22px;border-radius:10px;">Crear nueva contraseña</a>
+                  </p>
+                  <p>Este enlace vence en 15 minutos y solo puede utilizarse una vez. Si no solicitaste el cambio, puedes ignorar este correo.</p>
                   <p style="color: #888; font-size: 12px; margin-top: 24px;">Sueños y Letras · ExplorArte</p>
-                </div>""".formatted(code);
+                </div>""".formatted(resetLink);
     }
 }

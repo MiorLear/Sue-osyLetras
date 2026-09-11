@@ -35,7 +35,7 @@ final class AuthTestFixture {
 
     /** No Resend API key: sends are disabled and report false, exercising the fallback path. */
     static EmailService disabledEmailService() {
-        return new EmailService("", "Test <test@ejemplo.com>", new com.fasterxml.jackson.databind.ObjectMapper());
+        return new EmailService("", "Test <test@ejemplo.com>", "https://explorarte.app/forgot-password", new com.fasterxml.jackson.databind.ObjectMapper());
     }
 
     static SchoolService schoolService() {

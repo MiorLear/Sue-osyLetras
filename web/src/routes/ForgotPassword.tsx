@@ -4,53 +4,32 @@ import { Icon } from '@/components/Icon';
 import { Logo } from '@/components/Logo';
 import { Field, PrimaryButton } from '@/components/ui';
 import { api } from '@/lib/api';
-import { OtpInput } from './Login';
 
-type Tab = 'email' | 'phone';
-type Step = 'input' | 'otp' | 'password' | 'success';
+type Step = 'input' | 'sent' | 'password' | 'success';
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>('email');
-  const [identifier, setIdentifier] = useState('');
-  const [step, setStep] = useState<Step>('input');
-  const [otp, setOtp] = useState('');
+  const resetLink = new URLSearchParams(window.location.search);
+  const linkEmail = resetLink.get('email')?.trim() ?? '';
+  const linkCode = resetLink.get('code')?.trim() ?? '';
+  const hasResetLink = Boolean(linkEmail && linkCode);
+  const [email, setEmail] = useState(linkEmail);
+  const [step, setStep] = useState<Step>(hasResetLink ? 'password' : 'input');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const goLogin = () => navigate('/login');
-  const isPhone = tab === 'phone';
-  const canSend = isPhone ? identifier.length >= 8 : identifier.includes('@');
 
-  const switchTab = (t: Tab) => {
-    setTab(t);
-    setIdentifier('');
-    setError(null);
-  };
-
-  const sendCode = async () => {
+  const sendLink = async () => {
     setLoading(true);
     setError(null);
     try {
-      await api.auth.requestOtp(identifier);
-      setStep('otp');
+      await api.auth.forgotPassword(email.trim());
+      setStep('sent');
     } catch {
-      setError('No se pudo enviar el código. Revisa tu conexión e intenta de nuevo.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const verifyCode = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      await api.auth.checkOtp(identifier, otp);
-      setStep('password');
-    } catch {
-      setError('Código incorrecto. Verifica e intenta de nuevo.');
+      setError('No se pudo enviar el enlace. Revisa tu conexión e intenta de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -68,10 +47,11 @@ export default function ForgotPassword() {
     setLoading(true);
     setError(null);
     try {
-      await api.auth.resetPassword(identifier, otp, password);
+      await api.auth.resetPassword(linkEmail, linkCode, password);
       setStep('success');
+      window.history.replaceState({}, '', '/forgot-password');
     } catch {
-      setError('No se pudo restablecer la contraseña. Intenta de nuevo.');
+      setError('El enlace es inválido o ya venció. Solicita uno nuevo.');
     } finally {
       setLoading(false);
     }
@@ -94,50 +74,29 @@ export default function ForgotPassword() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {step === 'input' ? (
-            <div style={{ display: 'flex', padding: 4, borderRadius: 16, background: '#E8F8F7' }}>
-              <TabBtn label="Por correo" icon="mail" active={!isPhone} onClick={() => switchTab('email')} />
-              <TabBtn label="Por teléfono" icon="phone" active={isPhone} onClick={() => switchTab('phone')} />
-            </div>
-          ) : null}
-
-          {step === 'input' ? (
             <>
-              <InfoBox
-                text={
-                  isPhone
-                    ? 'Ingresa tu número de teléfono y te enviaremos un código de 6 dígitos para verificar tu identidad.'
-                    : 'Ingresa el correo con el que te registraste y te enviaremos un código de 6 dígitos para restablecer tu contraseña.'
-                }
-              />
+              <InfoBox text="Ingresa el correo con el que te registraste. Te enviaremos un enlace seguro para crear una nueva contraseña." />
               <Field
-                label={isPhone ? 'Número de teléfono' : 'Correo electrónico'}
-                icon={isPhone ? 'phone' : 'mail'}
-                placeholder={isPhone ? '+502 1234 5678' : 'correo@ejemplo.com'}
-                type={isPhone ? 'tel' : 'email'}
+                label="Correo electrónico"
+                icon="mail"
+                placeholder="correo@ejemplo.com"
+                type="email"
                 autoCapitalize="none"
-                value={identifier}
-                onChangeText={setIdentifier}
+                autoComplete="email"
+                value={email}
+                onChangeText={setEmail}
               />
               {error ? <ErrorText text={error} /> : null}
-              <PrimaryButton label={loading ? 'Enviando...' : 'Enviar código'} onClick={sendCode} disabled={!canSend || loading} />
+              <PrimaryButton label={loading ? 'Enviando...' : 'Enviar enlace'} onClick={sendLink} disabled={!email.includes('@') || loading} />
             </>
           ) : null}
 
-          {step === 'otp' ? (
+          {step === 'sent' ? (
             <>
-              <div style={{ borderRadius: 16, padding: 16, textAlign: 'center', background: '#E8F8F7', border: '1px solid #C0E8E5' }}>
-                <div style={{ fontSize: 12.5, color: 'var(--text-body)' }}>Código enviado a</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-dark)' }}>{identifier}</div>
-              </div>
-              <label className="field-label">Código de 6 dígitos</label>
-              <OtpInput value={otp} onChange={setOtp} />
-              {import.meta.env.DEV ? (
-                <p style={{ fontSize: 11.5, color: 'var(--text-muted)', textAlign: 'center' }}>Modo prueba: el código llega por correo (o en el log del servidor)</p>
-              ) : null}
+              <SuccessBox emoji="📨" title="Revisa tu correo" text={`Si existe una cuenta asociada a ${email.trim()}, recibirás un enlace para restablecer tu contraseña. También revisa la carpeta de spam.`} />
               {error ? <ErrorText text={error} /> : null}
-              <PrimaryButton label={loading ? 'Verificando...' : 'Verificar código'} onClick={verifyCode} disabled={otp.length < 6 || loading} />
-              <button onClick={sendCode} className="center muted tap-44" style={{ fontSize: 12.5, padding: 8 }}>
-                ¿No recibiste el código? <span style={{ color: 'var(--brand)', fontWeight: 700 }}>Reenviar</span>
+              <button onClick={sendLink} disabled={loading} className="center muted tap-44" style={{ fontSize: 12.5, padding: 8 }}>
+                ¿No recibiste el correo? <span style={{ color: 'var(--brand)', fontWeight: 700 }}>Reenviar enlace</span>
               </button>
             </>
           ) : null}
@@ -145,8 +104,8 @@ export default function ForgotPassword() {
           {step === 'password' ? (
             <>
               <InfoBox text="Crea una nueva contraseña para tu cuenta." />
-              <Field label="Nueva contraseña" password placeholder="Mínimo 6 caracteres" value={password} onChangeText={setPassword} />
-              <Field label="Confirmar contraseña" password placeholder="Repite tu contraseña" value={confirm} onChangeText={setConfirm} />
+              <Field label="Nueva contraseña" password autoComplete="new-password" placeholder="Mínimo 6 caracteres" value={password} onChangeText={setPassword} />
+              <Field label="Confirmar contraseña" password autoComplete="new-password" placeholder="Repite tu contraseña" value={confirm} onChangeText={setConfirm} />
               {error ? <ErrorText text={error} /> : null}
               <PrimaryButton label={loading ? 'Guardando...' : 'Guardar contraseña'} onClick={submitNewPassword} disabled={!password || !confirm || loading} />
             </>
@@ -166,15 +125,6 @@ export default function ForgotPassword() {
 
 function ErrorText({ text }: { text: string }) {
   return <p style={{ fontSize: 12.5, color: '#E53E3E', textAlign: 'center' }}>{text}</p>;
-}
-
-function TabBtn({ label, icon, active, onClick }: { label: string; icon: 'mail' | 'phone'; active: boolean; onClick: () => void }) {
-  return (
-    <button aria-pressed={active} className="tap-44" onClick={onClick} style={{ flex: 1, gap: 8, padding: 10, borderRadius: 12, background: active ? '#fff' : 'transparent', boxShadow: active ? '0 1px 4px rgba(0,0,0,0.08)' : undefined, fontSize: 12.5, fontWeight: active ? 700 : 500, color: active ? 'var(--text-dark)' : 'var(--text-muted)' }}>
-      <Icon name={icon} size={14} color={active ? 'var(--text-dark)' : 'var(--text-muted)'} />
-      {label}
-    </button>
-  );
 }
 
 function InfoBox({ text }: { text: string }) {
