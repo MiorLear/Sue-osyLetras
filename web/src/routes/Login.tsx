@@ -134,8 +134,13 @@ export default function Login() {
     try {
       setPhoneConfirmation(await requestPhoneCode(phone));
       setView('phone-otp');
-    } catch {
-      setError('No pudimos enviar el SMS. Revisa el número y vuelve a intentarlo.');
+    } catch (err) {
+      console.error('[login] sms', err);
+      // Culpar al número siempre era falso la mitad de las veces: el país sin
+      // SMS habilitado o la cuota agotada no se arreglan reescribiéndolo.
+      const display = describeAuthError(err);
+      if (display?.kind === 'silent') return;
+      setError(display?.message ?? 'No pudimos enviar el SMS. Revisa el número y vuelve a intentarlo.');
     }
   };
 

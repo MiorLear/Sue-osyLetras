@@ -135,8 +135,11 @@ export default function Register() {
                 try {
                   setPhoneConfirmation(await requestPhoneCode(phone));
                   setPhoneStep('otp');
-                } catch {
-                  toast.error('No pudimos enviar el SMS. Revisa el número e intenta de nuevo.');
+                } catch (err) {
+                  console.error('[registro] sms', err);
+                  const display = describeAuthError(err);
+                  if (display?.kind === 'silent') return;
+                  toast.error(display?.message ?? 'No pudimos enviar el SMS. Revisa el número e intenta de nuevo.');
                 }
               }}
               disabled={phone.length < 8}
@@ -162,8 +165,12 @@ export default function Register() {
                   if (!phoneConfirmation) throw new Error('No confirmation');
                   setFirebaseToken(await confirmPhoneCode(phoneConfirmation, otp));
                   setStep(2);
-                } catch {
-                  toast.error('Código incorrecto. Verifica e intenta de nuevo.');
+                } catch (err) {
+                  console.error('[registro] otp', err);
+                  // Un código caducado no se arregla releyéndolo: hay que pedir otro.
+                  const display = describeAuthError(err);
+                  if (display?.kind === 'silent') return;
+                  toast.error(display?.message ?? 'Código incorrecto. Verifica e intenta de nuevo.');
                 }
               }}
               disabled={otp.length < 6 || !phoneConfirmation}

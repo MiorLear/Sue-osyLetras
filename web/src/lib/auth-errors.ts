@@ -32,10 +32,31 @@ const CANCELLED = new Set([
 ]);
 
 const MESSAGES: Record<string, string> = {
+  // Google (ventana emergente).
   'auth/popup-blocked':
     'Tu navegador bloqueó la ventana de Google. Permite las ventanas emergentes para explorarte.app, o abre la app en Chrome o Safari, e intenta de nuevo.',
+
+  // Teléfono. El código y el número son cosas distintas, y confundirlos manda a
+  // la usuaria a corregir lo que ya estaba bien.
+  'auth/invalid-phone-number':
+    'Ese número no parece válido. Escríbelo con el código de país, por ejemplo +502 1234 5678.',
+  'auth/missing-phone-number': 'Escribe tu número de teléfono para enviarte el código.',
+  'auth/invalid-verification-code':
+    'El código no coincide. Revísalo y vuelve a escribirlo.',
+  'auth/code-expired': 'El código caducó. Pide uno nuevo para continuar.',
+  'auth/missing-verification-code': 'Escribe el código de 6 dígitos que te llegó por SMS.',
+  // El SMS solo está habilitado para ciertos países en la consola de Firebase:
+  // culpar al número aquí es falso, y la usuaria no puede hacer nada al respecto.
+  'auth/operation-not-allowed':
+    'Por ahora no podemos enviar SMS a ese país. Entra con Google o con tu correo.',
+  'auth/quota-exceeded':
+    'Se agotaron los envíos de SMS por hoy. Entra con Google o con tu correo, o inténtalo mañana.',
+  'auth/captcha-check-failed':
+    'No pudimos verificar que no eres un robot. Recarga la página e intenta de nuevo.',
+
+  // Comunes a ambos métodos.
   'auth/network-request-failed':
-    'No pudimos conectar con Google. Revisa tu conexión e intenta de nuevo.',
+    'No pudimos conectar con el servicio de acceso. Revisa tu conexión e intenta de nuevo.',
   'auth/too-many-requests': 'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.',
   'auth/account-exists-with-different-credential':
     'Ya existe una cuenta con ese correo. Inicia sesión con el método que usaste la primera vez.',
@@ -52,10 +73,12 @@ export function describeAuthError(err: unknown): AuthErrorDisplay | null {
   if (CANCELLED.has(code)) return { kind: 'silent' };
   const known = MESSAGES[code];
   if (known) return { kind: 'message', message: known };
-  // The code travels in the message on purpose: it is what makes a report from
-  // a teacher's phone diagnosable without reproducing her browser.
+  // Provider-neutral on purpose: Login funnels Google *and* SMS through the
+  // same handler, so naming one of them here mislabels the other. The code
+  // travels in the message so a report from a teacher's phone is diagnosable
+  // without reproducing her browser.
   return {
     kind: 'message',
-    message: `No se pudo iniciar sesión con Google (${code}). Intenta de nuevo.`,
+    message: `No se pudo iniciar sesión (${code}). Intenta de nuevo.`,
   };
 }
