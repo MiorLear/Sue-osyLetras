@@ -4,11 +4,11 @@
 MAINT-15 y este documento es la fuente autoritativa; si algo en otro archivo las contradice, lo
 que está mal es el otro archivo.
 
-| Entorno | Dónde | Para qué |
-|---|---|---|
-| **Producción** | Firebase Hosting + Cloud Run + Cloud SQL + Cloud Storage for Firebase | Lo que usan las docentes. Dominio propio, sin límite de 30 días en la base, arranque en frío de segundos y no de minuto y medio. |
-| **Desarrollo / staging** | Render (`render.yaml`) + Supabase Postgres | Backend compartido del equipo, para que mobile no dependa de túneles ni de que la laptop de alguien esté prendida (ver [`COMO-EMPEZAR.md`](./COMO-EMPEZAR.md)). **Se mantiene al día a propósito.** No está abandonado ni es aspiracional. |
-| **Local** | `docker compose up` | Tu máquina. |
+| Entorno                  | Dónde                                                                 | Para qué                                                                                                                                                                                                                                   |
+| ------------------------ | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Producción**           | Firebase Hosting + Cloud Run + Cloud SQL + Cloud Storage for Firebase | Lo que usan las docentes. Dominio propio, sin límite de 30 días en la base, arranque en frío de segundos y no de minuto y medio.                                                                                                           |
+| **Desarrollo / staging** | Render (`render.yaml`) + Supabase Postgres                            | Backend compartido del equipo, para que mobile no dependa de túneles ni de que la laptop de alguien esté prendida (ver [`COMO-EMPEZAR.md`](./COMO-EMPEZAR.md)). **Se mantiene al día a propósito.** No está abandonado ni es aspiracional. |
+| **Local**                | `docker compose up`                                                   | Tu máquina.                                                                                                                                                                                                                                |
 
 > **Estado actualizado:** existe el proyecto Blaze `explorarte-6335b` y su sitio Hosting
 > `https://explorarte-6335b.web.app`. Cloud Run, Cloud SQL, Storage y secretos deben verificarse
@@ -19,13 +19,13 @@ que está mal es el otro archivo.
 
 ## 1. Qué va dónde
 
-| Pieza | Servicio | Por qué |
-|---|---|---|
-| **Web** (`web/`) | **Firebase Hosting** | Sitio estático (build de Vite) — el caso clásico de Hosting. |
-| **API** (`api/`) | **Cloud Run** | Hosting no ejecuta Java. Cloud Run corre el mismo contenedor que ya existe (`api/Dockerfile`, target `prod`), y Hosting puede enrutar tráfico hacia él. |
-| **Base de datos** | **Cloud SQL for PostgreSQL** | Firestore es NoSQL; reescribir el esquema/JPA sería otro proyecto. Cloud SQL es Postgres real y vive en el mismo proyecto de Google Cloud. |
-| **Archivos** (fotos, PDFs, videos) | **Cloud Storage for Firebase** | Cloud Run es efímero. Ver §5, que es la sección más importante de este documento para quien construya la caché de medios. |
-| **Mobile** (`src/`) | *No se hospeda* | Se publica con EAS Build/Submit. Ver §10. |
+| Pieza                              | Servicio                       | Por qué                                                                                                                                                 |
+| ---------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Web** (`web/`)                   | **Firebase Hosting**           | Sitio estático (build de Vite) — el caso clásico de Hosting.                                                                                            |
+| **API** (`api/`)                   | **Cloud Run**                  | Hosting no ejecuta Java. Cloud Run corre el mismo contenedor que ya existe (`api/Dockerfile`, target `prod`), y Hosting puede enrutar tráfico hacia él. |
+| **Base de datos**                  | **Cloud SQL for PostgreSQL**   | Firestore es NoSQL; reescribir el esquema/JPA sería otro proyecto. Cloud SQL es Postgres real y vive en el mismo proyecto de Google Cloud.              |
+| **Archivos** (fotos, PDFs, videos) | **Cloud Storage for Firebase** | Cloud Run es efímero. Ver §5, que es la sección más importante de este documento para quien construya la caché de medios.                               |
+| **Mobile** (`src/`)                | _No se hospeda_                | Se publica con EAS Build/Submit. Ver §10.                                                                                                               |
 
 Lo que ya está en el código para que esto funcione sin tocar nada más:
 
@@ -35,11 +35,11 @@ Lo que ya está en el código para que esto funcione sin tocar nada más:
   se conecta a los tres entornos sin ninguna rama en el código — solo cambia el valor de
   `SPRING_DATASOURCE_URL`:
 
-  | Entorno | `SPRING_DATASOURCE_URL` |
-  |---|---|
-  | docker-compose | `jdbc:postgresql://db:5432/explorarte` |
-  | Render | *no se setea* — se setea `DATABASE_URL` y `RenderDatabaseUrlEnvironmentPostProcessor` la traduce |
-  | Cloud SQL | `jdbc:postgresql:///explorarte?cloudSqlInstance=<PROJECT>:<REGION>:<INSTANCE>&socketFactory=com.google.cloud.sql.postgres.SocketFactory` |
+  | Entorno        | `SPRING_DATASOURCE_URL`                                                                                                                  |
+  | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+  | docker-compose | `jdbc:postgresql://db:5432/explorarte`                                                                                                   |
+  | Render         | _no se setea_ — se setea `DATABASE_URL` y `RenderDatabaseUrlEnvironmentPostProcessor` la traduce                                         |
+  | Cloud SQL      | `jdbc:postgresql:///explorarte?cloudSqlInstance=<PROJECT>:<REGION>:<INSTANCE>&socketFactory=com.google.cloud.sql.postgres.SocketFactory` |
 
   La forma de Cloud SQL no lleva host ni puerto: el driver le entrega la conexión al socket
   factory, que abre el túnel TLS por su cuenta.
@@ -113,18 +113,29 @@ export GCS_BUCKET="explorarte-6335b-media"
 es exactamente lo que hacía que cualquier archivo subido fuera legible por internet para siempre
 (SEC-11), y el diseño de §5 no lo necesita: nadie lee del bucket directamente.
 
-Si la PWA va a cachear medios con el service worker, el bucket necesita CORS para el origen de
-Hosting (ver §5, "Lo que hace falta del lado de Firebase Hosting"):
+**El bucket necesita CORS, y no es opcional.** Una descarga en la PWA es un `fetch` a la URL
+canónica `/media/**`, que esta API responde con un 302 hacia una URL firmada en
+`storage.googleapis.com` (§5). Ese redirect cruza de origen, así que el navegador exige
+`Access-Control-Allow-Origin` en la respuesta de Cloud Storage. Sin CORS el `fetch` rechaza con
+`TypeError` y la app solo puede decir "No se pudo conectar para descargar el archivo": el síntoma
+no distingue entre esto y estar sin red, y no hay nada que arreglar del lado del código.
+
+El origen tiene que ser **el de Hosting de este proyecto**, no un nombre de ejemplo. La
+configuración está versionada en `infra/gcs-media-cors.json`:
 
 ```bash
-cat > /tmp/cors.json <<'JSON'
-[{"origin": ["https://explorarte-prod.web.app"],
-  "method": ["GET", "HEAD"],
-  "responseHeader": ["Content-Type", "Content-Length"],
-  "maxAgeSeconds": 3600}]
-JSON
-gcloud storage buckets update "gs://$GCS_BUCKET" --cors-file=/tmp/cors.json
+./scripts/set-media-cors.sh
 ```
+
+Y se comprueba contra un archivo real, ya desplegado:
+
+```bash
+URL=$(curl -s -o /dev/null -D - "https://$PROJECT_ID.web.app/media/tools/<uuid>-<archivo>.pdf" \
+      | sed -n 's/^[Ll]ocation: //p' | tr -d '\r')
+curl -sI -H "Origin: https://$PROJECT_ID.web.app" "$URL" | grep -i access-control
+```
+
+Si esa última línea no imprime nada, el bucket sigue sin CORS.
 
 ---
 
@@ -186,14 +197,14 @@ gcloud iam service-accounts add-iam-policy-binding "$RUNTIME_SA" \
 
 ### Qué es secreto y qué no
 
-| Variable | Cómo se pasa | Por qué |
-|---|---|---|
-| `JWT_SECRET` | `--set-secrets` | Firma los tokens. Quien la tenga es admin. |
-| `SPRING_DATASOURCE_PASSWORD` | `--set-secrets` (`DB_PASSWORD`) | Acceso total a la base. |
-| `SEED_USER_PASSWORD` | **no se setea** | Sin ella el seeder no crea ninguna cuenta (SEC-02). En producción se deja fuera. |
-| `RESEND_API_KEY` | `--set-secrets` si se usa correo | Permite enviar correo como el dominio del proyecto. |
-| `GCS_BUCKET`, `APP_MEDIA_*`, `APP_CORS_ALLOWED_ORIGINS`, `JWT_EXPIRATION_MINUTES` | `--set-env-vars` | No son secretos. |
-| *(ninguna llave de storage)* | — | **Ya no existe.** GCP-04 quitó `SUPABASE_KEY`; las credenciales de Storage son la propia identidad del servicio. |
+| Variable                                                                          | Cómo se pasa                     | Por qué                                                                                                          |
+| --------------------------------------------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `JWT_SECRET`                                                                      | `--set-secrets`                  | Firma los tokens. Quien la tenga es admin.                                                                       |
+| `SPRING_DATASOURCE_PASSWORD`                                                      | `--set-secrets` (`DB_PASSWORD`)  | Acceso total a la base.                                                                                          |
+| `SEED_USER_PASSWORD`                                                              | **no se setea**                  | Sin ella el seeder no crea ninguna cuenta (SEC-02). En producción se deja fuera.                                 |
+| `RESEND_API_KEY`                                                                  | `--set-secrets` si se usa correo | Permite enviar correo como el dominio del proyecto.                                                              |
+| `GCS_BUCKET`, `APP_MEDIA_*`, `APP_CORS_ALLOWED_ORIGINS`, `JWT_EXPIRATION_MINUTES` | `--set-env-vars`                 | No son secretos.                                                                                                 |
+| _(ninguna llave de storage)_                                                      | —                                | **Ya no existe.** GCP-04 quitó `SUPABASE_KEY`; las credenciales de Storage son la propia identidad del servicio. |
 
 ---
 
@@ -237,7 +248,7 @@ caché offline es **siempre la canónica**.
 ### Cómo se renuevan sin romper una descarga offline ya hecha
 
 **No hay nada que renovar.** Un archivo descargado son bytes en el disco del teléfono; la
-caducidad se aplica a la *descarga*, no al *archivo*. Un teléfono que lleva tres semanas sin red
+caducidad se aplica a la _descarga_, no al _archivo_. Un teléfono que lleva tres semanas sin red
 sigue abriendo el PDF que bajó, porque nadie va a volver a pedirle una firma a nadie. Y la próxima
 vez que ese teléfono tenga red y quiera refrescar, pide la misma URL canónica de siempre y recibe
 una firma nueva. No hace falta un job de renovación, ni un refresco en segundo plano, ni que el
@@ -267,7 +278,7 @@ Lo que **no** revoca: una copia ya descargada en un teléfono. Ningún diseño d
 
 `GET /media/**` no pide token hoy, porque `<img src>` y `<video src>` no pueden mandar la cabecera
 `Authorization` y ambos clientes pintan los adjuntos así. O sea que la URL canónica es una
-*capability*: imposible de adivinar (lleva un UUID v4) pero no autenticada. Está a un interruptor:
+_capability_: imposible de adivinar (lleva un UUID v4) pero no autenticada. Está a un interruptor:
 `APP_MEDIA_REQUIRE_AUTH_FOR_PRIVATE=true` exige sesión para las categorías `posts` y `profile` (las
 de contenido de docentes; el material publicado por admin queda abierto porque los endpoints que
 reparten sus URLs ya son `permitAll`). El interruptor está cableado y probado
@@ -281,7 +292,10 @@ mismo servicio de Cloud Run que `/api/**` — **los dos, no uno en lugar del otr
 
 ```jsonc
 // web/firebase.json → hosting.rewrites, junto al de /api/**
-{ "source": "/media/**", "run": { "serviceId": "explorarte-api", "region": "us-east4" } }
+{
+  "source": "/media/**",
+  "run": { "serviceId": "explorarte-api", "region": "us-east4" },
+}
 ```
 
 ✅ **Y su CSP ya lleva `https://storage.googleapis.com` en `img-src`, `media-src` y `connect-src`**,
@@ -416,10 +430,10 @@ psql "$CLOUD_SQL_URL" \
 **Cambian todas las URLs de medios.** El efecto en las cachés existentes no es el mismo en los dos
 clientes, y la diferencia está en por qué clave guarda cada uno:
 
-| Cliente | Clave de la caché | Qué pasa |
-|---|---|---|
-| **Mobile (Expo)** | el **id** del `MediaItem`, con `sizeBytes` como versión (`src/lib/offlineStorage.ts:67-73`, `src/lib/media-sync.ts:16-25`) | **Nada.** Ni el id ni el tamaño cambian con la migración, así que `needsUpdate()` sigue devolviendo `false` y `getLocalUri()` sigue resolviendo al archivo local. Los teléfonos que ya bajaron contenido no vuelven a bajar nada. |
-| **PWA (índice de medios en IndexedDB, PR #29)** | la **URL** | **Se invalida todo una vez.** Cada archivo ya cacheado se vuelve a descargar la próxima vez que ese navegador tenga red. Es inevitable: el archivo cambia de dominio. |
+| Cliente                                         | Clave de la caché                                                                                                          | Qué pasa                                                                                                                                                                                                                          |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Mobile (Expo)**                               | el **id** del `MediaItem`, con `sizeBytes` como versión (`src/lib/offlineStorage.ts:67-73`, `src/lib/media-sync.ts:16-25`) | **Nada.** Ni el id ni el tamaño cambian con la migración, así que `needsUpdate()` sigue devolviendo `false` y `getLocalUri()` sigue resolviendo al archivo local. Los teléfonos que ya bajaron contenido no vuelven a bajar nada. |
+| **PWA (índice de medios en IndexedDB, PR #29)** | la **URL**                                                                                                                 | **Se invalida todo una vez.** Cada archivo ya cacheado se vuelve a descargar la próxima vez que ese navegador tenga red. Es inevitable: el archivo cambia de dominio.                                                             |
 
 O sea que el susto es real pero acotado: le pasa a la PWA, no a la app instalada. Aun así, para una
 docente con varios videos guardados en el navegador puede ser bastante tráfico de golpe, y con
@@ -443,12 +457,12 @@ terminado.
 
 ### Lo medido
 
-| Qué | Medición | Origen |
-|---|---|---|
-| Render, plan gratuito, primer request tras 15 min de inactividad | **más de 90 segundos** (timeout del test) | Medido en la auditoría (SCALE-06). `render.yaml` documentaba "~30-60s" — ya está corregido ahí. |
-| Tamaño del jar antes de este batch | 61,699,142 B (58.8 MB) | `mvn package` local |
-| Tamaño del jar después | 90,161,222 B (86.0 MB) | `mvn package` local |
-| **Arranque del contenedor `prod` contra un Postgres limpio** | **6.9 s** (`Started ApiApplication in 6.945 seconds`) | `docker run` local, 1 contenedor, incluye Flyway V1→V7 |
+| Qué                                                              | Medición                                              | Origen                                                                                          |
+| ---------------------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Render, plan gratuito, primer request tras 15 min de inactividad | **más de 90 segundos** (timeout del test)             | Medido en la auditoría (SCALE-06). `render.yaml` documentaba "~30-60s" — ya está corregido ahí. |
+| Tamaño del jar antes de este batch                               | 61,699,142 B (58.8 MB)                                | `mvn package` local                                                                             |
+| Tamaño del jar después                                           | 90,161,222 B (86.0 MB)                                | `mvn package` local                                                                             |
+| **Arranque del contenedor `prod` contra un Postgres limpio**     | **6.9 s** (`Started ApiApplication in 6.945 seconds`) | `docker run` local, 1 contenedor, incluye Flyway V1→V7                                          |
 
 Las librerías de Google Cloud suman 28.5 MB al jar. Serían 49 MB si no se excluyera el transporte
 gRPC de `google-cloud-storage` (`api/pom.xml`), que no se usa porque el cliente va por JSON/HTTP:
@@ -465,12 +479,12 @@ estimaciones a partir del perfil conocido de la app (Spring Boot 3.3 + JPA + Fly
 jar de 85 MB) y hay que confirmarlas con `gcloud run services describe` y las trazas del primer
 despliegue real:
 
-| Escenario | Estimación de la primera respuesta | Nota |
-|---|---|---|
-| Cloud Run, `min-instances=0`, sin `--cpu-boost` | ~10–20 s | Los 6.9 s medidos más el sandbox y menos CPU durante el arranque. |
-| Cloud Run, `min-instances=0`, con `--cpu-boost` | ~7–12 s | El flag ya está en el comando de §6.1. |
-| Cloud Run, `min-instances=1` | **~0 s** | Nunca hay arranque en frío para el primer usuario. |
-| Render gratuito (hoy) | **>90 s medido** | El punto de comparación. |
+| Escenario                                       | Estimación de la primera respuesta | Nota                                                              |
+| ----------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------- |
+| Cloud Run, `min-instances=0`, sin `--cpu-boost` | ~10–20 s                           | Los 6.9 s medidos más el sandbox y menos CPU durante el arranque. |
+| Cloud Run, `min-instances=0`, con `--cpu-boost` | ~7–12 s                            | El flag ya está en el comando de §6.1.                            |
+| Cloud Run, `min-instances=1`                    | **~0 s**                           | Nunca hay arranque en frío para el primer usuario.                |
+| Render gratuito (hoy)                           | **>90 s medido**                   | El punto de comparación.                                          |
 
 Es decir: incluso el peor caso de Cloud Run es entre **4 y 9 veces mejor** que lo que hay hoy. Pero
 `min-instances=0` **sí** parte de cero, así que el problema se reduce mucho y no desaparece.
@@ -494,13 +508,13 @@ Memoria en reposo: 1,314,000 GiB-s  × $0.00000025/GiB-s  =  $0.33
 
 Contra eso hay que poner el resto de la factura, que existe igual:
 
-| Concepto | Estimación mensual |
-|---|---|
-| Cloud SQL `db-f1-micro` + 10 GB SSD | **~$9–12** — no tiene capa gratuita, se paga aunque nadie use la app |
+| Concepto                                       | Estimación mensual                                                               |
+| ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| Cloud SQL `db-f1-micro` + 10 GB SSD            | **~$9–12** — no tiene capa gratuita, se paga aunque nadie use la app             |
 | Cloud Run con `min-instances=0` y tráfico bajo | **~$0** — cabe en la capa gratuita (2M requests, 180k vCPU-s, 360k GiB-s al mes) |
-| Cloud Run con `min-instances=1` | **~$7** — el cálculo de arriba; la capa gratuita no cubre el tiempo en reposo |
-| Firebase Hosting | **~$0** para este volumen |
-| Cloud Storage (10 GB + 20 GB de egreso) | **~$2.60** ($0.020/GB almacenado + $0.12/GB de salida) |
+| Cloud Run con `min-instances=1`                | **~$7** — el cálculo de arriba; la capa gratuita no cubre el tiempo en reposo    |
+| Firebase Hosting                               | **~$0** para este volumen                                                        |
+| Cloud Storage (10 GB + 20 GB de egreso)        | **~$2.60** ($0.020/GB almacenado + $0.12/GB de salida)                           |
 
 **Recomendación: empezar con `min-instances=0`.** Un arranque en frío de 5–10 s con `--cpu-boost`
 es aceptable —y es una mejora enorme sobre los 90 s de hoy— y ahorra el 40% de una factura que
@@ -533,15 +547,15 @@ se ejecutó, en esta máquina, y lo que apareció.
 
 **Ejecutado:**
 
-| Verificación | Resultado |
-|---|---|
-| `./mvnw test` | **154 tests, 0 fallos** |
-| Cadena Flyway V1→V7 sobre un PostgreSQL 16 limpio | Aplica limpia; `validate()` pasa; la segunda pasada no ejecuta nada (`MigrationChainTest`) |
-| `scripts/migrate-media-urls.sql` contra el esquema real | Reescribe las siete columnas y no deja nada apuntando a `supabase.co` (`MigrationChainTest`) |
-| `docker build --target prod` | Construye, con la suite completa corriendo dentro |
+| Verificación                                                                     | Resultado                                                                                                         |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `./mvnw test`                                                                    | **154 tests, 0 fallos**                                                                                           |
+| Cadena Flyway V1→V7 sobre un PostgreSQL 16 limpio                                | Aplica limpia; `validate()` pasa; la segunda pasada no ejecuta nada (`MigrationChainTest`)                        |
+| `scripts/migrate-media-urls.sql` contra el esquema real                          | Reescribe las siete columnas y no deja nada apuntando a `supabase.co` (`MigrationChainTest`)                      |
+| `docker build --target prod`                                                     | Construye, con la suite completa corriendo dentro                                                                 |
 | Contenedor `prod` con variables con forma de Cloud Run, contra un Postgres vacío | Arranca en **6.9 s**, escucha en el `PORT` inyectado (8080), aplica V1→V7, `/actuator/health` → `{"status":"UP"}` |
-| Sin `JWT_SECRET` | **No arranca**, con el mensaje correcto. Es la razón de la advertencia en §4. |
-| Autorización tras el cambio de medios | `/schools` 200 · `/posts` 401 · `POST /media/upload` 401 · `GET /media/**` **no** 401 |
+| Sin `JWT_SECRET`                                                                 | **No arranca**, con el mensaje correcto. Es la razón de la advertencia en §4.                                     |
+| Autorización tras el cambio de medios                                            | `/schools` 200 · `/posts` 401 · `POST /media/upload` 401 · `GET /media/**` **no** 401                             |
 
 **No ejecutado, y por qué:** nada contra Google Cloud. No se creó ningún proyecto, bucket,
 instancia ni secreto, no se firmó ninguna URL real y no se movió ningún dato. La firma V4 y el
@@ -630,6 +644,7 @@ Actualizada a lo que el código lee hoy. Ninguna debe ser igual a los valores de
 - [ ] `SPRING_DATASOURCE_URL` — la forma con `cloudSqlInstance` + `socketFactory` (§1).
 - [ ] `SPRING_DATASOURCE_USERNAME`
 - [ ] `GCS_BUCKET` — el bucket privado de Cloud Storage for Firebase.
+- [ ] CORS del bucket aplicado con `./scripts/set-media-cors.sh` (§3). Sin esto **ninguna descarga funciona**, y el error que ve la docente no lo dice.
 - [ ] `APP_MEDIA_PUBLIC_BASE_URL` — el dominio de **Hosting**, no la URL de Cloud Run (§5).
 - [ ] `APP_CORS_ALLOWED_ORIGINS` — el dominio real, sin `localhost`.
 - [ ] `JWT_EXPIRATION_MINUTES` — 1440 salvo que se decida otra cosa.

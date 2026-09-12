@@ -1,0 +1,19 @@
+[
+  {
+    "origin": [
+      "https://explorarte-6335b.web.app",
+      "https://explorarte-6335b.firebaseapp.com"
+    ],
+    "method": ["GET", "HEAD"],
+    "responseHeader": [
+      "Content-Type",
+      "Content-Length",
+      "Content-Range",
+      "Range",
+      "ETag",
+      "Last-Modified",
+      "Accept-Ranges"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]
