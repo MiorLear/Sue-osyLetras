@@ -82,6 +82,14 @@ function usable(): boolean {
   return isCacheStorageAvailable() && isIdbAvailable();
 }
 
+/** Sin red, con certeza. Es la mitad fiable de `navigator.onLine`: cuando dice
+ *  `false` no hay nada que intentar, y cuando dice `true` no promete nada —de
+ *  ahí el sondeo de useNetworkStatus, que aquí no se puede usar por ser un
+ *  hook—. Para lo que se usa basta: descartar la falta de conexión como causa. */
+function isOffline(): boolean {
+  return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
+
 /** Logout privacy boundary: remove the downloaded bytes and their index. */
 export async function clearMediaDownloads(): Promise<void> {
   if (isCacheStorageAvailable()) {
@@ -209,7 +217,7 @@ export async function needsUpdate(id: string, remoteVersion: string | undefined)
   // no hace falta una petición condicional por cada archivo.
   if (remoteVersion !== undefined) return meta.version !== remoteVersion;
 
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+  if (isOffline()) return false;
 
   return revalidate(meta, { etag: meta.etag, lm: meta.lastModified });
 }
@@ -274,7 +282,18 @@ async function doDownload(id: string, url: string, opts: DownloadOptions): Promi
   try {
     response = await fetch(url, { signal: opts.signal });
   } catch (e) {
-    throw new MediaDownloadError('No se pudo conectar para descargar el archivo.', id, e);
+    // Quedarse sin cobertura y que el navegador bloquee la respuesta —por CSP o
+    // por CORS— lanzan el mismo TypeError, sin nada dentro que los distinga: el
+    // detalle solo existe en la consola. Dar por hecho que es la conexión mandó
+    // a mirar el wifi durante un fallo en el que las descargas estaban rotas
+    // para todo el mundo, así que cuando hay red el aviso dice lo otro.
+    throw new MediaDownloadError(
+      isOffline()
+        ? 'No se pudo conectar para descargar el archivo.'
+        : 'El navegador rechazó este archivo. Actualiza la app y vuelve a intentarlo.',
+      id,
+      e,
+    );
   }
   if (!response.ok) {
     throw new MediaDownloadError(`El servidor respondió ${response.status}.`, id);

@@ -258,6 +258,28 @@ describe('media-cache · frescura (BUG-05)', () => {
     fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
     await expect(needsUpdate('manual', undefined)).resolves.toBe(false);
   });
+
+  // Estar sin cobertura y que el navegador bloquee la respuesta por CSP o CORS
+  // lanzan el mismo TypeError, indistinguibles desde JavaScript. Cuando las
+  // descargas se rompieron en producción el aviso decía que no había conexión,
+  // y eso mandó a buscar el fallo al sitio equivocado.
+  it('con red, un fetch rechazado no culpa a la conexión', async () => {
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true);
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+    await expect(download('manual', URL_PDF)).rejects.toThrow(/Actualiza la app/);
+
+    onLine.mockRestore();
+  });
+
+  it('sin red, sí culpa a la conexión', async () => {
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+    await expect(download('manual', URL_PDF)).rejects.toThrow(/No se pudo conectar/);
+
+    onLine.mockRestore();
+  });
 });
 
 describe('media-cache · cuota y evicción', () => {

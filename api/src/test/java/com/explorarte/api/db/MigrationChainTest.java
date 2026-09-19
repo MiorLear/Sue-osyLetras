@@ -52,6 +52,10 @@ class MigrationChainTest {
     private static final String NEW_PREFIX = "https://explorarte-prod.web.app/media/";
     private static final Path MIGRATE_MEDIA_URLS_SQL = Path.of("..", "scripts", "migrate-media-urls.sql");
 
+    /** Los dos prefijos de V11: el sitio por defecto del proyecto y el dominio propio. */
+    private static final String WEB_APP_PREFIX = "https://explorarte-6335b.web.app/media/";
+    private static final String OWN_DOMAIN_PREFIX = "https://explorarte.app/media/";
+
     private static EmbeddedPostgres postgres;
     private static DataSource dataSource;
 
@@ -90,7 +94,7 @@ class MigrationChainTest {
                     .as("migration %s state", info.getVersion())
                     .isFalse();
         }
-        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10");
+        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11");
 
         // validate() vuelve a leer los checksums: si alguien editó una migración
         // ya aplicada en vez de agregar una nueva, esto es lo que lo dice — y en
@@ -266,6 +270,76 @@ class MigrationChainTest {
                 + " WHERE emotion_id = '" + emotionId + "'";
     }
 
+    /**
+     * V11 — con el host viejo ninguna descarga funciona, y no por el servidor.
+     * La cadena es explorarte.app → explorarte-6335b.web.app (302) → Cloud
+     * Storage, y el primer salto ya cruza de origen: al seguir el redirect hacia
+     * un tercer origen, la spec de Fetch sustituye el origen de la petición por
+     * uno opaco, Cloud Storage recibe {@code Origin: null}, no lo encuentra en
+     * el CORS del bucket y no manda Access-Control-Allow-Origin. Desde el
+     * dominio propio el primer salto es del mismo origen y eso no pasa.
+     *
+     * <p>Lo que se prueba aquí es lo único que puede fallar en frío: que la
+     * migración alcance las siete columnas. Una que se quede con el host viejo
+     * es un archivo que no se descarga, y sin error de red que lo delate.
+     */
+    @Test
+    void movesEveryStoredMediaUrlToTheOwnDomain() throws SQLException {
+        Flyway throughV10 = Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/migration")
+                .target("10")
+                .cleanDisabled(false)
+                .load();
+        throughV10.clean();
+        throughV10.migrate();
+
+        seedRowsWithMediaPrefix(WEB_APP_PREFIX);
+
+        flyway().migrate();
+
+        assertThat(scalar("SELECT photo FROM users WHERE id = 'u-1'"))
+                .isEqualTo(OWN_DOMAIN_PREFIX + "profile/9f1c-foto.png");
+        assertThat(scalar("SELECT attachments->0->>'url' FROM posts WHERE id = 1"))
+                .isEqualTo(OWN_DOMAIN_PREFIX + "posts/9f1c-ficha.pdf");
+        assertThat(scalar("SELECT video->>'url' FROM screen_intro_videos WHERE screen_key = 'home'"))
+                .isEqualTo(OWN_DOMAIN_PREFIX + "screen-intros/9f1c-intro.mp4");
+        assertThat(scalar("SELECT stories->0->>'url' FROM emotion_content WHERE emotion_id = 'e-1'"))
+                .isEqualTo(OWN_DOMAIN_PREFIX + "emotions/9f1c-cuento.pdf");
+        assertThat(scalar("SELECT pdfs->0->>'url' FROM topic_subtopics WHERE id = 1"))
+                .isEqualTo(OWN_DOMAIN_PREFIX + "learning/9f1c-guia.pdf");
+        assertThat(scalar("SELECT manual_document->>'url' FROM tools_content WHERE id = 1"))
+                .isEqualTo(OWN_DOMAIN_PREFIX + "tools/9f1c-manual.pdf");
+
+        // El resto del MediaItem no se toca: reescribir por texto plano podría
+        // haberse llevado por delante un título o un mimeType.
+        assertThat(scalar("SELECT attachments->0->>'title' FROM posts WHERE id = 1"))
+                .isEqualTo("ficha.pdf");
+        assertThat(scalar("SELECT attachments->0->>'mimeType' FROM posts WHERE id = 1"))
+                .isEqualTo("application/pdf");
+    }
+
+    /** Y en un entorno que nunca vio ese host no hace nada: el bloque de
+     * verificación no puede abortar el arranque de local, Render o los tests. */
+    @Test
+    void leavesUrlsOfOtherEnvironmentsAlone() throws SQLException {
+        Flyway throughV10 = Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/migration")
+                .target("10")
+                .cleanDisabled(false)
+                .load();
+        throughV10.clean();
+        throughV10.migrate();
+
+        seedRowsWithMediaPrefix("http://localhost:8000/media/");
+
+        flyway().migrate();
+
+        assertThat(scalar("SELECT photo FROM users WHERE id = 'u-1'"))
+                .isEqualTo("http://localhost:8000/media/profile/9f1c-foto.png");
+    }
+
     /** Las siete columnas que scripts/migrate-media-urls.sql toca, tal como
      * quedan tras V1→V7. Si alguien renombra una, el script deja de reescribir
      * esas filas en silencio y las URLs viejas sobreviven a la migración. */
@@ -351,6 +425,13 @@ class MigrationChainTest {
     // --- helpers -----------------------------------------------------------
 
     private void seedRowsWithSupabaseUrls() throws SQLException {
+        seedRowsWithMediaPrefix(OLD_PREFIX);
+    }
+
+    /** Las siete columnas con MediaItem dentro, sembradas con el prefijo que se
+     * le pase. Lo comparten el script de Supabase y V11, que hacen lo mismo
+     * sobre las mismas columnas y se equivocarían igual si alguien renombra una. */
+    private void seedRowsWithMediaPrefix(String prefix) throws SQLException {
         execute("""
                 INSERT INTO users (id, name, lastname, email, password_hash, role, status, photo)
                 VALUES ('u-1', 'Ana', 'Perez', 'ana@example.com', 'x', 'TEACHER', 'APPROVED',
@@ -382,7 +463,7 @@ class MigrationChainTest {
                 VALUES (1,
                         '{"id":"9f1c","title":"manual.pdf","url":"%1$stools/9f1c-manual.pdf",
                           "mimeType":"application/pdf","sizeBytes":10}');
-                """.formatted(OLD_PREFIX));
+                """.formatted(prefix));
     }
 
     /**
