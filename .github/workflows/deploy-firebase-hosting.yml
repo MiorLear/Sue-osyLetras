@@ -1,7 +1,19 @@
 name: Deploy Firebase Hosting
 
+# Este workflow solo se podía lanzar a mano, y el resultado fue que entre el
+# 24 de agosto y el 19 de septiembre de 2026 se mergearon a `main` ocho cambios
+# sin publicar ni uno: la PWA en producción llevaba 26 días de retraso y los
+# arreglos "ya mergeados" no existían para ninguna docente.
+#
+# Ahora también publica al mergear. No con `push: [main]`, que dispararía el
+# deploy en paralelo con CI y podría publicar justo lo que acaba de romperse,
+# sino esperando a que CI termine sobre ese commit y mirando su conclusión.
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
@@ -16,8 +28,17 @@ jobs:
     name: Firebase Hosting (producción)
     runs-on: ubuntu-latest
     environment: production
+    # A mano, siempre. Automático, solo detrás de un CI verde.
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || github.event.workflow_run.conclusion == 'success'
     steps:
       - uses: actions/checkout@v4
+        with:
+          # En `workflow_run` el checkout por defecto es la punta de la rama por
+          # defecto en este instante, que puede ser un commit posterior al que
+          # CI aprobó. Publicar exactamente lo que se probó.
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
       - uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'

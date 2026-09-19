@@ -90,7 +90,7 @@ class MigrationChainTest {
                     .as("migration %s state", info.getVersion())
                     .isFalse();
         }
-        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9");
+        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10");
 
         // validate() vuelve a leer los checksums: si alguien editó una migración
         // ya aplicada en vez de agregar una nueva, esto es lo que lo dice — y en
@@ -165,6 +165,105 @@ class MigrationChainTest {
         // Y una lista vacía sigue siendo una lista vacía, no NULL.
         assertThat(scalar("SELECT activities::text FROM emotion_content WHERE emotion_id = 'vacio'"))
                 .isEqualTo("[]");
+    }
+
+    /**
+     * V10 — V9 dio por hecho que una actividad cargada era solo un nombre,
+     * porque eso es lo que siembra {@code DataSeeder}. Las 43 de producción no:
+     * vienen del material de Sueños y Letras y traen propósito, duración,
+     * edades, materiales, paso a paso y preguntas dentro de la misma cadena,
+     * con etiquetas. Sin repartirlas, la tarjeta rediseñada enseña un párrafo
+     * de 750 caracteres como título en negrita y debajo "Sin detalle todavía".
+     *
+     * <p>El primer caso es una actividad real de producción, copiada tal cual.
+     * Los otros dos son las dos formas de equivocarse: inventar un paso donde
+     * solo había un paréntesis con números, y repartir una cadena que no es una
+     * actividad.
+     */
+    @Test
+    void splitsTheLoadedActivityTextIntoTheFieldsTheCardShows() throws SQLException {
+        Flyway throughV8 = Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/migration")
+                .target("8")
+                .cleanDisabled(false)
+                .load();
+        throughV8.clean();
+        throughV8.migrate();
+
+        execute("""
+                INSERT INTO emotions (id, name, emoji, color, bg) VALUES
+                    ('cargada', 'Cargada', ':)', '#1', '#2'),
+                    ('numerada', 'Numerada', ':)', '#1', '#2'),
+                    ('ajena', 'Ajena', ':)', '#1', '#2');
+
+                INSERT INTO emotion_content (emotion_id, description, classroom, activities) VALUES
+                    ('cargada', 'd', 'c', jsonb_build_array($a$El mural de las cosas buenas — \
+                Objetivo: reconocer experiencias positivas y fortalecer el agradecimiento. \
+                Duración: 20 minutos. Edades: 5 a 15 años. Materiales: cartulina o papelógrafo, \
+                notas adhesivas, marcadores. Instrucciones: cada estudiante escribe o dibuja una \
+                experiencia que le haya dado alegría durante la semana. Luego colocan sus notas en \
+                un mural común. Preguntas para reflexionar: ¿Qué tienen en común nuestras \
+                experiencias? ¿Cómo nos sentimos al escuchar las alegrías de otras personas? ¿Qué \
+                podemos hacer para crear más momentos positivos en nuestra escuela?$a$)),
+                    ('numerada', 'd', 'c', jsonb_build_array($b$Agentes de paz — \
+                Objetivo: practicar formas respetuosas de resolver desacuerdos. \
+                Duración: 25-30 minutos. Edades: 8 a 15 años. Materiales: tarjetas de situaciones \
+                (3-6 años) y un accesorio. Cómo jugar: 1) El conflicto aparece: cada pareja toma \
+                una tarjeta. 2) Congelados: representan la escena. 3) Entra el agente de paz y \
+                propone un acuerdo. Preguntas para reflexionar: ¿Funcionó la misma solución para \
+                todos?$b$)),
+                    ('ajena', 'd', 'c', jsonb_build_array($c$Historias sugeridas: Ramón Preocupón \
+                (Anthony Browne, 4-8 años): un niño con demasiadas preocupaciones.$c$));
+                """);
+
+        flyway().migrate();
+
+        // Cada cosa en su campo, y el título sin el guión que lo separaba.
+        assertThat(field("cargada", "title")).isEqualTo("El mural de las cosas buenas");
+        assertThat(field("cargada", "purpose"))
+                .isEqualTo("reconocer experiencias positivas y fortalecer el agradecimiento.");
+        assertThat(field("cargada", "duration")).isEqualTo("20 minutos");
+        assertThat(field("cargada", "ages")).isEqualTo("5 a 15 años");
+        assertThat(field("cargada", "materials"))
+                .isEqualTo("cartulina o papelógrafo, notas adhesivas, marcadores.");
+
+        // Prosa corrida: un paso, no uno por frase. Partir por el punto
+        // convertiría una abreviatura en un paso que nadie escribió.
+        assertThat(scalar(len("cargada", "steps"))).isEqualTo("1");
+        assertThat(scalar("SELECT activities->0->'steps'->>0 FROM emotion_content WHERE emotion_id = 'cargada'"))
+                .startsWith("cada estudiante escribe")
+                .endsWith("un mural común.");
+
+        // Una pregunta por signo de cierre.
+        assertThat(scalar(len("cargada", "questions"))).isEqualTo("3");
+        assertThat(scalar("SELECT activities->0->'questions'->>0 FROM emotion_content WHERE emotion_id = 'cargada'"))
+                .isEqualTo("¿Qué tienen en común nuestras experiencias?");
+
+        // Numerada: tres pasos, sin el ordinal, y el "(3-6 años)" de los
+        // materiales no abre un cuarto.
+        assertThat(scalar(len("numerada", "steps"))).isEqualTo("3");
+        assertThat(scalar("SELECT activities->0->'steps'->>0 FROM emotion_content WHERE emotion_id = 'numerada'"))
+                .isEqualTo("El conflicto aparece: cada pareja toma una tarjeta.");
+        assertThat(scalar("SELECT activities->0->'steps'->>2 FROM emotion_content WHERE emotion_id = 'numerada'"))
+                .isEqualTo("Entra el agente de paz y propone un acuerdo.");
+        assertThat(field("numerada", "materials")).contains("(3-6 años)");
+
+        // Y lo que no es una actividad se queda como lo dejó V9: entero en el
+        // título, sin campos inventados a partir de un texto que no los tiene.
+        assertThat(field("ajena", "title")).startsWith("Historias sugeridas: Ramón Preocupón");
+        assertThat(field("ajena", "purpose")).isEmpty();
+        assertThat(scalar(len("ajena", "steps"))).isEqualTo("0");
+    }
+
+    private String field(String emotionId, String key) throws SQLException {
+        return scalar("SELECT activities->0->>'" + key + "' FROM emotion_content WHERE emotion_id = '"
+                + emotionId + "'");
+    }
+
+    private String len(String emotionId, String key) {
+        return "SELECT jsonb_array_length(activities->0->'" + key + "') FROM emotion_content"
+                + " WHERE emotion_id = '" + emotionId + "'";
     }
 
     /** Las siete columnas que scripts/migrate-media-urls.sql toca, tal como

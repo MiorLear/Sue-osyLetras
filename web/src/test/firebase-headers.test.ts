@@ -91,6 +91,20 @@ describe('cabeceras de seguridad (PWA-1.7 / SEC-12)', () => {
     expect(directive('media-src')).toContain('https://storage.googleapis.com');
   });
 
+  // Y el principio de esa redirección, que es lo que el navegador pide primero.
+  // La app se sirve en explorarte.app, pero APP_MEDIA_PUBLIC_BASE_URL apunta a
+  // explorarte-6335b.web.app, así que la URL guardada de cada archivo es de otro
+  // origen: sin esta entrada, las 13 de producción se bloquean en silencio y la
+  // pantalla queda sin video y sin foto, sin un solo error de red. Las dos
+  // tienen que estar mientras convivan URLs viejas y nuevas.
+  it('deja pasar el dominio donde viven las URLs de medios ya guardadas', () => {
+    const directive = (name: string) =>
+      csp.split(';').find((d) => d.trim().startsWith(`${name} `)) ?? '';
+    for (const name of ['img-src', 'media-src', 'connect-src']) {
+      expect(directive(name), name).toContain('https://explorarte-6335b.web.app');
+    }
+  });
+
   it('bloquea el enmarcado y fija la política de referrer', () => {
     expect(csp).toContain("frame-ancestors 'none'");
     expect(headerOf('**', 'X-Frame-Options')).toBe('DENY');

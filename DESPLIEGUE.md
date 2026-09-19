@@ -341,11 +341,21 @@ gcloud run deploy "$SERVICE" \
   --set-env-vars "SPRING_DATASOURCE_USERNAME=postgres" \
   --set-env-vars "JWT_EXPIRATION_MINUTES=1440" \
   --set-env-vars "GCS_BUCKET=$GCS_BUCKET" \
-  --set-env-vars "APP_MEDIA_PUBLIC_BASE_URL=https://$PROJECT_ID.web.app" \
-  --set-env-vars "APP_CORS_ALLOWED_ORIGINS=https://$PROJECT_ID.web.app"
+  --set-env-vars "APP_MEDIA_PUBLIC_BASE_URL=https://explorarte.app" \
+  --set-env-vars "APP_MEDIA_LEGACY_HOSTS=$PROJECT_ID.web.app" \
+  --set-env-vars "APP_CORS_ALLOWED_ORIGINS=https://explorarte.app,https://www.explorarte.app,https://$PROJECT_ID.web.app,https://$PROJECT_ID.firebaseapp.com"
 ```
 
 Notas sobre esos flags:
+
+- **`APP_MEDIA_PUBLIC_BASE_URL` es el dominio propio, no el `.web.app`.** Esta línea decía
+  `https://$PROJECT_ID.web.app` y eso es lo que quedó puesto en producción, con la consecuencia de
+  que `MediaUrlPolicy.canonicalUrl()` escribió en la base URLs de un origen distinto al que sirve la
+  app. Las docentes entran por `explorarte.app`, la CSP de `web/firebase.json` no listaba
+  `explorarte-6335b.web.app`, y el navegador bloqueaba cada foto, cada PDF y cada video antes de
+  pedirlos — sin error de red, solo una violación en la consola. `APP_MEDIA_LEGACY_HOSTS` acepta el
+  host viejo para que las URLs ya guardadas sigan validando; reescribirlas es aparte, y cambia
+  TODAS las URLs de medios (§5).
 
 - `--allow-unauthenticated` es correcto: la autenticación la hace la propia API con JWT. Si se
   pone lo contrario, Hosting no puede enrutar hacia el servicio.
