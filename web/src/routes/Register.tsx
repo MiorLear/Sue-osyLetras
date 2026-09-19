@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ApiError } from '@explorarte/shared';
 import { useSchools } from '@/lib/useSchools';
 import { GoogleIcon, Icon, type IconName } from '@/components/Icon';
 import { Logo } from '@/components/Logo';
-import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
+import { ErrorNote, Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
 import { toast } from '@/components/toast-store';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
@@ -15,6 +16,61 @@ import type { ConfirmationResult } from 'firebase/auth';
 
 type Method = 'google' | 'phone' | 'email' | null;
 const TITLES = ['Crear cuenta', 'Verificar identidad', 'Tu información'];
+
+/** Lo mismo que `PasswordPolicy.MIN_LENGTH` en la API, que es quien manda: si
+ *  allí sube, aquí sube. Comprobarlo también en el cliente no es duplicar la
+ *  validación por gusto — sin esto el rechazo llega dos pantallas más tarde,
+ *  donde ya no está el campo que hay que corregir. */
+const MIN_PASSWORD = 8;
+
+/** El `detail` o el primer error de campo de un problem+json de la API.
+ *
+ *  El orden importa: ante un fallo de validación el `detail` es "The request
+ *  body is not valid", que no le dice nada a nadie, mientras que `errors` trae
+ *  el mensaje bueno ("La contraseña debe tener al menos 8 caracteres"). Las
+ *  reglas que cruzan campos llegan al revés, con el mensaje en `detail` y sin
+ *  `errors`. */
+function detailOf(err: ApiError): string | null {
+  try {
+    const body = JSON.parse(err.body) as { detail?: string; errors?: Record<string, string> };
+    const field = body.errors ? Object.values(body.errors)[0] : undefined;
+    return field ?? body.detail ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Qué decirle a la persona, y si hay que devolverla al paso del correo.
+ *
+ * El correo repetido (409) y la contraseña o el correo mal formados (400) son
+ * los tres datos del paso 1. Dejar el aviso en el paso 3 la obligaría a
+ * adivinar dónde está el campo que hay que corregir, porque ahí ya no se ve.
+ */
+function registerFailure(err: unknown): { message: string; backToCredentials: boolean } {
+  if (!(err instanceof ApiError)) {
+    return {
+      message: 'No pudimos conectar con el servidor. Revisa tu conexión e intenta de nuevo.',
+      backToCredentials: false,
+    };
+  }
+  if (err.status === 409) {
+    return {
+      message: 'Ya existe una cuenta con ese correo. Inicia sesión o usa otro correo.',
+      backToCredentials: true,
+    };
+  }
+  if (err.status === 400) {
+    return { message: detailOf(err) ?? 'Revisa los datos ingresados.', backToCredentials: true };
+  }
+  if (err.status === 429) {
+    return {
+      message: 'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.',
+      backToCredentials: false,
+    };
+  }
+  return { message: 'Algo salió mal. Intenta de nuevo en un momento.', backToCredentials: false };
+}
 
 export default function Register() {
   const navigate = useNavigate();
@@ -36,6 +92,8 @@ export default function Register() {
   const [ubicacion, setUbicacion] = useState('');
   const [firebaseToken, setFirebaseToken] = useState<string | null>(null);
   const [phoneConfirmation, setPhoneConfirmation] = useState<ConfirmationResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   // Igual que en Login: un service worker anterior al denylist de `/__/` rompe
   // el popup de Google, y aquí tampoco hay trabajo que se pueda perder.
@@ -45,12 +103,30 @@ export default function Register() {
 
   // Los registros ya no necesitan aprobación: la cuenta queda activa y entra
   // directo a la app.
+  //
+  // El catch no es defensivo: es el único que hay en el camino. Sin él, un 409
+  // por correo repetido o un 400 por contraseña corta eran una promesa
+  // rechazada sin capturar, y el último botón del alta no hacía nada ni decía
+  // nada. Login ya lo arregló en su momento; aquí se había quedado sin.
   const finishRegister = async () => {
-    const result = firebaseToken
-      ? await api.auth.firebase({ idToken: firebaseToken, name, lastname, institucion, ubicacion })
-      : await api.auth.register({ name, lastname, institucion, ubicacion, email, password, phone });
-    await signIn(result);
-    navigate('/main', { replace: true });
+    setError(null);
+    setSubmitting(true);
+    try {
+      const result = firebaseToken
+        ? await api.auth.firebase({ idToken: firebaseToken, name, lastname, institucion, ubicacion })
+        : await api.auth.register({ name, lastname, institucion, ubicacion, email, password, phone });
+      await signIn(result);
+      navigate('/main', { replace: true });
+    } catch (err) {
+      console.error('[registro] crear cuenta', err);
+      const { message, backToCredentials } = registerFailure(err);
+      setError(message);
+      // Solo el alta por correo tiene un paso 1 al que volver: con Google o con
+      // teléfono la credencial ya está resuelta y allí no hay nada que corregir.
+      if (backToCredentials && method === 'email') setStep(1);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const back = () => {
@@ -109,6 +185,10 @@ export default function Register() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {/* Arriba del formulario y fuera de cada paso: el fallo puede devolver
+            al paso del correo, y el aviso tiene que seguir visible al llegar. */}
+        <ErrorNote message={error} />
+
         {step === 0 ? (
           <>
             <MethodCard iconBg="#FFF3E0" title="Continuar con Google" subtitle="Usa tu cuenta de Google" onClick={() => choose('google')} google />
@@ -122,7 +202,21 @@ export default function Register() {
             <Field label="Correo electrónico" placeholder="correo@ejemplo.com" type="email" autoCapitalize="none" value={email} onChangeText={setEmail} />
             <Field label="Contraseña" password placeholder="Mínimo 8 caracteres" value={password} onChangeText={setPassword} />
             <Field label="Confirmar contraseña" password placeholder="Repite tu contraseña" value={confirm} onChangeText={setConfirm} />
-            <PrimaryButton label="Siguiente" onClick={() => setStep(2)} disabled={!email || !password || password !== confirm} />
+            {/* Un botón deshabilitado sin explicación es su propio problema: la
+                persona reescribe la contraseña sin saber qué le falta. Va como
+                texto normal y no como alerta porque cambia en cada tecla. */}
+            {password && password.length < MIN_PASSWORD ? (
+              <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                La contraseña necesita al menos {MIN_PASSWORD} caracteres.
+              </p>
+            ) : confirm && password !== confirm ? (
+              <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Las dos contraseñas no coinciden.</p>
+            ) : null}
+            <PrimaryButton
+              label="Siguiente"
+              onClick={() => { setError(null); setStep(2); }}
+              disabled={!email || password.length < MIN_PASSWORD || password !== confirm}
+            />
           </>
         ) : null}
 
@@ -187,7 +281,11 @@ export default function Register() {
             <Field label="Apellido" icon="user" placeholder="García" value={lastname} onChangeText={setLastname} />
             <SelectOrAdd label="Institución" icon="map-pin" placeholder="Selecciona tu institución" value={institucion} options={schools} onChange={setInstitucion} newPlaceholder="Nombre de la institución" />
             <LocationAutocomplete label="Ubicación" value={ubicacion} placeholder="Busca tu ubicación" onChange={setUbicacion} />
-            <PrimaryButton label="Crear cuenta" onClick={finishRegister} disabled={!name || !lastname || !institucion || !ubicacion} />
+            <PrimaryButton
+              label={submitting ? 'Creando cuenta...' : 'Crear cuenta'}
+              onClick={finishRegister}
+              disabled={submitting || !name || !lastname || !institucion || !ubicacion}
+            />
           </>
         ) : null}
         <div style={{ height: 8 }} />

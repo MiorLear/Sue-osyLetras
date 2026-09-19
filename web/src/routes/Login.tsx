@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ApiError, type AuthResult, type UserStatus } from '@explorarte/shared';
 import { GoogleIcon, Icon } from '@/components/Icon';
 import { Logo } from '@/components/Logo';
-import { Field, PrimaryButton } from '@/components/ui';
+import { ErrorNote, Field, PrimaryButton } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 import { api, usingMock } from '@/lib/api';
 import { describeAuthError } from '@/lib/auth-errors';
@@ -259,23 +259,6 @@ export default function Login() {
         ) : null}
       </div>
       <div id="recaptcha-container" />
-    </div>
-  );
-}
-
-/**
- * Antes de esto ninguna llamada de esta pantalla tenía .catch, así que una
- * contraseña incorrecta era una promesa rechazada sin capturar: el botón no hacía
- * nada y no se decía nada. Ahora que el servidor también responde 403, 429 y 400,
- * hace falta un sitio donde contarlo.
- */
-function ErrorNote({ message }: { message: string | null }) {
-  if (!message) return null;
-  return (
-    <div
-      role="alert"
-      style={{ padding: '10px 12px', borderRadius: 11, background: '#FFF5F5', border: '1px solid #FED7D7', fontSize: 12.5, color: '#C53030' }}>
-      {message}
     </div>
   );
 }
