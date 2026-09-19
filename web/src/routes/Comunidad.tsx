@@ -312,6 +312,24 @@ export default function Comunidad() {
         lede="Comparte experiencias, aprendizajes e ideas con otras docentes que promueven el bienestar emocional."
       />
 
+      {/* Introducción del documento de estructura: qué se espera que se
+          comparta aquí. Sin esto el foro abre en un formulario sin encargo. */}
+      <div style={{ borderRadius: 24, padding: 'clamp(20px, 6vw, 30px)', background: '#fff', border: '1px solid var(--border)', marginBottom: 22 }}>
+        <p style={{ fontSize: 15, lineHeight: 1.7, color: 'var(--text-body)' }}>
+          Comparte experiencias, aprendizajes e ideas con otras docentes que están promoviendo el
+          bienestar emocional en sus comunidades educativas.
+        </p>
+        <p style={{ marginTop: 16, fontSize: 13, fontWeight: 700, color: 'var(--text-dark)' }}>Comparte aquí:</p>
+        <ul style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 9, listStyle: 'none' }}>
+          {SHARE_BULLETS.map((item) => (
+            <li key={item} style={{ display: 'flex', alignItems: 'baseline', gap: 9, fontSize: 13.5, lineHeight: 1.5, color: 'var(--text-body)' }}>
+              <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: 4, background: 'var(--brand)', flexShrink: 0, transform: 'translateY(-2px)' }} />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
       <div style={{ display: 'flex', gap: 8, marginBottom: 22, flexWrap: 'wrap' }}>
         {FILTERS.map((f) => {
           const active = filter === f.id;

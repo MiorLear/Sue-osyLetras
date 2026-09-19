@@ -41,6 +41,13 @@ async function abrirDetalleEvento(page: Page): Promise<void> {
   await page.getByRole('button', { name: /Evento táctil/ }).click();
 }
 
+async function abrirHojaMas(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Más' }).click();
+  await expect(page.getByRole('dialog', { name: 'Más secciones' })).toBeVisible();
+}
+
+const hojaMas = (page: Page): Locator => page.getByRole('dialog', { name: 'Más secciones' });
+
 async function preparaSugerencia(page: Page): Promise<void> {
   await page.route('https://photon.komoot.io/api/**', (route) =>
     route.fulfill({
@@ -83,11 +90,11 @@ const CONTROLES: {
   scope?: (page: Page) => Locator;
 }[] = [
   { ruta: '/', rol: 'button', nombre: 'Siguiente' },
-  { ruta: '/', rol: 'button', nombre: 'Ir a la pantalla 1 de 3' },
-  { ruta: '/', rol: 'button', nombre: 'Ir a la pantalla 2 de 3' },
-  { ruta: '/', rol: 'button', nombre: 'Ir a la pantalla 3 de 3' },
+  // Dos pantallas desde que el cliente pidió quitar "¿Cómo funciona?".
+  { ruta: '/', rol: 'button', nombre: 'Ir a la pantalla 1 de 2' },
+  { ruta: '/', rol: 'button', nombre: 'Ir a la pantalla 2 de 2' },
   { ruta: '/login', rol: 'button', nombre: '¿Olvidaste tu contraseña?' },
-  { ruta: '/login', rol: 'button', nombre: 'Registrarse' },
+  { ruta: '/login', rol: 'button', nombre: 'Crear mi cuenta' },
   { ruta: '/register', rol: 'button', nombre: 'Volver' },
   { ruta: '/register', rol: 'button', nombre: 'Lugar 1, San Salvador', prepara: preparaSugerencia },
   {
@@ -103,11 +110,17 @@ const CONTROLES: {
   { ruta: '/pendiente', rol: 'button', nombre: 'Volver al inicio de sesión' },
   { ruta: '/emociones/alegria', rol: 'button', nombre: 'Volver' },
   // La barra de tabs del teléfono (PWA-1.4) ya nació con `min-height: 44px`.
+  // Las pestañas son Inicio y los tres módulos de ExplorArte: el documento de
+  // estructura los marca como principales y antes dos vivían detrás de "Más".
   { ruta: '/main', rol: 'button', nombre: 'Inicio' },
-  { ruta: '/main', rol: 'button', nombre: 'Explora' },
-  { ruta: '/main', rol: 'button', nombre: 'Comunidad' },
-  { ruta: '/main', rol: 'button', nombre: 'Perfil' },
+  { ruta: '/main', rol: 'button', nombre: 'Emociones' },
+  { ruta: '/main', rol: 'button', nombre: 'Herramientas' },
+  { ruta: '/main', rol: 'button', nombre: 'Aprendiendo' },
   { ruta: '/main', rol: 'button', nombre: 'Más' },
+  // Comunidad y Perfil ya no son pestaña, pero siguen teniendo que ser
+  // alcanzables con el dedo desde la hoja de "Más".
+  { ruta: '/main', rol: 'button', nombre: 'Comunidad', prepara: abrirHojaMas, scope: hojaMas },
+  { ruta: '/main', rol: 'button', nombre: 'Perfil', prepara: abrirHojaMas, scope: hojaMas },
   { ruta: '/main', rol: 'button', nombre: 'Ir a mi perfil', nota: 'avatar de la barra superior' },
   { ruta: '/descargas', rol: 'button', nombre: 'Descargar todo para usar sin conexión' },
   { ruta: '/comunidad', rol: 'button', nombre: 'Crear publicación' },

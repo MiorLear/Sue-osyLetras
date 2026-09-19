@@ -3,7 +3,30 @@ import { useAuth } from '@/context/AuthContext';
 import { Icon } from './Icon';
 // Las listas viven en nav-items.ts para que la barra inferior de móvil y la
 // hoja de "Más" naveguen exactamente lo mismo que el sidebar.
-import { ADMIN_NAV, TEACHER_NAV, isActive } from './nav-items';
+import { ADMIN_NAV, SECONDARY_NAV, TEACHER_NAV, isActive } from './nav-items';
+import type { NavItem } from './nav-items';
+
+function NavButton({
+  item,
+  pathname,
+  onGo,
+}: {
+  item: NavItem;
+  pathname: string;
+  onGo: (href: string) => void;
+}) {
+  const active = isActive(pathname, item.href);
+  return (
+    <button
+      className={active ? 'active' : ''}
+      onClick={() => onGo(item.href)}
+      aria-current={active ? 'page' : undefined}>
+      <span className="tile">{item.emoji}</span>
+      <span className="label">{item.label}</span>
+      <span className="dot" />
+    </button>
+  );
+}
 
 export function Sidebar() {
   const navigate = useNavigate();
@@ -36,20 +59,15 @@ export function Sidebar() {
       <div className="sidebar-kicker">Navegación</div>
 
       <nav className="sidebar-nav escroll">
-        {nav.map((item) => {
-          const active = isActive(pathname, item.href);
-          return (
-            <button
-              key={item.href}
-              className={active ? 'active' : ''}
-              onClick={() => navigate(item.href)}
-              aria-current={active ? 'page' : undefined}>
-              <span className="tile">{item.emoji}</span>
-              <span className="label">{item.label}</span>
-              <span className="dot" />
-            </button>
-          );
-        })}
+        {nav.map((item) => (
+          <NavButton key={item.href} item={item} pathname={pathname} onGo={navigate} />
+        ))}
+
+        {/* Secundario: separado de los módulos para que no compita con ellos. */}
+        <div className="sidebar-sep" role="separator" />
+        {SECONDARY_NAV.map((item) => (
+          <NavButton key={item.href} item={item} pathname={pathname} onGo={navigate} />
+        ))}
       </nav>
 
       <button className="sidebar-logout" type="button" onClick={logout}>

@@ -8,6 +8,6 @@ public record EmotionContentDto(
         String description,
         String classroom,
         List<String> questions,
-        List<String> activities,
+        List<EmotionActivity> activities,
         List<MediaItem> stories
 ) {}

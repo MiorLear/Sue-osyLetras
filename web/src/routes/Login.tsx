@@ -21,7 +21,7 @@ const DEMO_ACCOUNTS = [
 ] as const;
 
 const TITLES: Record<ViewKind, string> = {
-  main: 'Bienvenida de nuevo',
+  main: 'Inicia sesión en ExplorArte',
   'phone-number': 'Ingresa tu teléfono',
   'phone-otp': 'Verificar número',
 };
@@ -134,8 +134,13 @@ export default function Login() {
     try {
       setPhoneConfirmation(await requestPhoneCode(phone));
       setView('phone-otp');
-    } catch {
-      setError('No pudimos enviar el SMS. Revisa el número y vuelve a intentarlo.');
+    } catch (err) {
+      console.error('[login] sms', err);
+      // Culpar al número siempre era falso la mitad de las veces: el país sin
+      // SMS habilitado o la cuota agotada no se arreglan reescribiéndolo.
+      const display = describeAuthError(err);
+      if (display?.kind === 'silent') return;
+      setError(display?.message ?? 'No pudimos enviar el SMS. Revisa el número y vuelve a intentarlo.');
     }
   };
 
@@ -152,7 +157,7 @@ export default function Login() {
 
   const subtitle =
     view === 'main'
-      ? 'Sueños y Letras · más letras, más libres'
+      ? 'Accede a tus recursos y continúa explorando.'
       : view === 'phone-number'
       ? 'Te enviaremos un código de 6 dígitos'
       : 'Código enviado a ' + phone;
@@ -245,9 +250,9 @@ export default function Login() {
         {view === 'main' ? (
           <div style={{ padding: '24px 0 0', textAlign: 'center' }}>
             <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
-              ¿No tienes cuenta?{' '}
+              ¿Primera vez en ExplorArte?{' '}
               <button className="tap-44" onClick={() => navigate('/register')} style={{ color: 'var(--brand)', fontWeight: 700, fontSize: 12.5 }}>
-                Registrarse
+                Crear mi cuenta
               </button>
             </span>
           </div>

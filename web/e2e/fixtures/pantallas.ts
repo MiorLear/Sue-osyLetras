@@ -59,15 +59,17 @@ export const PANTALLAS: Pantalla[] = [
     nombre: 'Onboarding',
     ruta: '/',
     ancla: (page) => page.getByRole('heading', { name: 'Bienvenida a ExplorArte' }),
+    // Una sola variante: la tercera pantalla ("¿Cómo funciona?") la quitó el
+    // cliente porque pedía demasiado antes de dejar entrar a la docente, y en
+    // la segunda el botón ya dice "Comenzar", no "Siguiente".
     variantes: [
-      { nombre: '¿Qué es ExplorArte?', activa: (page) => page.getByRole('button', { name: 'Siguiente' }).click() },
-      { nombre: '¿Cómo funciona?', activa: (page) => page.getByRole('button', { name: 'Siguiente' }).click() },
+      { nombre: '¿Qué encontrarás en ExplorArte?', activa: (page) => page.getByRole('button', { name: 'Siguiente' }).click() },
     ],
   },
   {
     nombre: 'Login',
     ruta: '/login',
-    ancla: (page) => page.getByRole('heading', { name: 'Bienvenida de nuevo' }),
+    ancla: (page) => page.getByRole('heading', { name: 'Inicia sesión en ExplorArte' }),
   },
   {
     nombre: 'Registro',

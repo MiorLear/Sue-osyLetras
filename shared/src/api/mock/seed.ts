@@ -4,6 +4,7 @@
 import type {
   CalEvent,
   Emotion,
+  EmotionActivity,
   EmotionContent,
   MediaItem,
   Post,
@@ -28,6 +29,22 @@ function fakeMedia(title: string, mimeType = 'application/pdf'): MediaItem {
   };
 }
 
+/**
+ * Una actividad de la que solo se conoce el nombre — el estado en el que quedó
+ * todo el contenido cargado cuando las actividades pasaron de ser una cadena a
+ * tener campos. El resto lo escribe Sueños y Letras desde el CMS; aquí no se
+ * rellena con valores plausibles porque una docente los leería como reales.
+ */
+const act = (title: string): EmotionActivity => ({
+  title,
+  purpose: '',
+  duration: '',
+  ages: '',
+  materials: '',
+  steps: [],
+  questions: [],
+});
+
 export const EMOTIONS: Emotion[] = [
   { id: 'alegria', name: 'Alegría', emoji: '😊', color: '#F0B429', bg: '#FFFBEB' },
   { id: 'tristeza', name: 'Tristeza', emoji: '😢', color: '#4299E1', bg: '#EBF8FF' },
@@ -49,11 +66,7 @@ export const EMOTION_CONTENT: Record<string, EmotionContent> = {
       '¿Cómo compartes tu alegría con los demás?',
       '¿Puedes recordar un momento muy feliz?',
     ],
-    activities: [
-      'Dibuja un momento feliz',
-      'Crea un mural de cosas que te alegran',
-      'Comparte una buena noticia con el grupo',
-    ],
+    activities: [act('Dibuja un momento feliz'), act('Crea un mural de cosas que te alegran'), act('Comparte una buena noticia con el grupo')],
     stories: [fakeMedia('El Principito — Antoine de Saint-Exupéry'), fakeMedia('Pollyanna — Eleanor H. Porter')],
   },
   tristeza: {
@@ -65,7 +78,7 @@ export const EMOTION_CONTENT: Record<string, EmotionContent> = {
       '¿A quién buscas cuando estás triste?',
       '¿Qué te ayuda a sentirte mejor?',
     ],
-    activities: ['Carta a un amigo que está triste', 'Rincón de la calma', 'Dibuja lo que sientes hoy'],
+    activities: [act('Carta a un amigo que está triste'), act('Rincón de la calma'), act('Dibuja lo que sientes hoy')],
     stories: [fakeMedia('El árbol generoso — Shel Silverstein'), fakeMedia('La vasija agrietada (cuento popular)')],
   },
   enojo: {
@@ -73,14 +86,14 @@ export const EMOTION_CONTENT: Record<string, EmotionContent> = {
       'El enojo surge cuando sentimos que algo es injusto o cuando algo importante para nosotros es amenazado.',
     classroom: 'Puede verse en tensión muscular, voz elevada, dificultad para escuchar.',
     questions: ['¿Qué te hace enojar?', '¿Qué haces con tu cuerpo cuando te enojas?', '¿Cómo te tranquilizas?'],
-    activities: ['Respiración del globo', 'El semáforo de las emociones', 'Botella de la calma'],
+    activities: [act('Respiración del globo'), act('El semáforo de las emociones'), act('Botella de la calma')],
     stories: [fakeMedia('¡Fernando Furioso! — Hiawyn Oram'), fakeMedia('Vaya rabieta — Mireille d’Allancé')],
   },
   miedo: {
     description: 'El miedo nos alerta ante situaciones de peligro real o percibido, protegiéndonos.',
     classroom: 'Puede verse en parálisis, llanto, evitar situaciones o buscar refugio.',
     questions: ['¿A qué le tienes miedo?', '¿Qué haces cuando sientes miedo?', '¿Quién te ayuda cuando tienes miedo?'],
-    activities: ['Mapa de mis miedos', 'El cofre del valor', 'Dibuja un escudo protector'],
+    activities: [act('Mapa de mis miedos'), act('El cofre del valor'), act('Dibuja un escudo protector')],
     stories: [fakeMedia('Donde viven los monstruos — Maurice Sendak'), fakeMedia('El monstruo de colores — Anna Llenas')],
   },
   frustracion: {
@@ -92,7 +105,7 @@ export const EMOTION_CONTENT: Record<string, EmotionContent> = {
       '¿Qué hiciste?',
       '¿Cómo puedes pedir ayuda cuando algo se te hace difícil?',
     ],
-    activities: ['El paso a paso para no rendirme', 'Lista de pequeñas metas', 'Juego de intentarlo de nuevo'],
+    activities: [act('El paso a paso para no rendirme'), act('Lista de pequeñas metas'), act('Juego de intentarlo de nuevo')],
     stories: [fakeMedia('La pequeña oruga glotona — Eric Carle'), fakeMedia('Lo que escuchó la mariquita (cuento de constancia)')],
   },
   verguenza: {
@@ -104,14 +117,14 @@ export const EMOTION_CONTENT: Record<string, EmotionContent> = {
       '¿Qué piensas de ti mismo en ese momento?',
       '¿Qué te gustaría que los demás supieran?',
     ],
-    activities: ['Mis cualidades en un espejo', 'Círculo de aprecio del grupo', 'Diario de mis logros'],
+    activities: [act('Mis cualidades en un espejo'), act('Círculo de aprecio del grupo'), act('Diario de mis logros')],
     stories: [fakeMedia('Orejas de mariposa — Luisa Aguilar'), fakeMedia('El patito feo — Hans Christian Andersen')],
   },
   decepcion: {
     description: 'La decepción ocurre cuando la realidad no cumple nuestras expectativas.',
     classroom: 'Puede verse en resignación, tristeza tranquila, o pérdida de motivación.',
     questions: ['¿Qué esperabas que pasara?', '¿Cómo te sentiste cuando no fue así?', '¿Qué aprendiste de eso?'],
-    activities: ['De la expectativa al aprendizaje', 'Caja de los planes B', 'Conversación sobre intentar otra vez'],
+    activities: [act('De la expectativa al aprendizaje'), act('Caja de los planes B'), act('Conversación sobre intentar otra vez')],
     stories: [fakeMedia('Por cuatro esquinitas de nada — Jérôme Ruillier'), fakeMedia('El jardín curioso — Peter Brown')],
   },
   ansiedad: {
@@ -122,7 +135,7 @@ export const EMOTION_CONTENT: Record<string, EmotionContent> = {
       '¿Qué pasa en tu cuerpo cuando te sientes ansioso?',
       '¿Qué te ayuda a calmarte?',
     ],
-    activities: ['Respiración 4-4-4', 'Frasco de las preocupaciones', 'Anclaje de los 5 sentidos'],
+    activities: [act('Respiración 4-4-4'), act('Frasco de las preocupaciones'), act('Anclaje de los 5 sentidos')],
     stories: [fakeMedia('Tranquilos — Lemniscates'), fakeMedia('Respira — Inês Castel-Branco')],
   },
 };
