@@ -11,16 +11,20 @@ import { expect, test } from '@playwright/test';
  * responden al dedo. Añadir swipe encima introduciría el único gesto de toda la
  * app, descubrible por nadie y con dos caminos que mantener en vez de uno.
  *
+ * El carrusel tiene DOS pantallas desde que el cliente pidió quitar "¿Cómo
+ * funciona?": a esa altura todavía se le estaba pidiendo demasiado a la docente
+ * antes de dejarla entrar.
+ *
  * Este spec es el contrato de esa decisión. CONTRATO PARA C2:
  *   - cada punto es un `<button type="button">`;
- *   - con `aria-label="Ir a la pantalla N de 3"` (N empezando en 1);
+ *   - con `aria-label="Ir a la pantalla N de 2"` (N empezando en 1);
  *   - y el que corresponde a la vista actual lleva `aria-current="true"`.
  *
  * No hay test de swipe porque no hay swipe: la ausencia de gesto es la
  * decisión, no un olvido.
  */
 
-const TOTAL = 3;
+const TOTAL = 2;
 const punto = (n: number) => `Ir a la pantalla ${n} de ${TOTAL}`;
 
 test.describe('carrusel del onboarding', () => {
@@ -37,8 +41,8 @@ test.describe('carrusel del onboarding', () => {
       await expect(page.getByRole('button', { name: punto(n) })).toBeVisible();
     }
 
-    await page.getByRole('button', { name: punto(3) }).click();
-    await expect(page.getByRole('heading', { name: '¿Cómo funciona?' })).toBeVisible();
+    await page.getByRole('button', { name: punto(2) }).click();
+    await expect(page.getByRole('heading', { name: '¿Qué encontrarás en ExplorArte?' })).toBeVisible();
 
     await page.getByRole('button', { name: punto(1) }).click();
     await expect(page.getByRole('heading', { name: 'Bienvenida a ExplorArte' })).toBeVisible();
