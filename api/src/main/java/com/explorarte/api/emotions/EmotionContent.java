@@ -41,7 +41,7 @@ public class EmotionContent implements Persistable<String> {
     private List<String> questions;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    private List<String> activities;
+    private List<EmotionActivity> activities;
 
     @JdbcTypeCode(SqlTypes.JSON)
     private List<MediaItem> stories;
@@ -61,8 +61,8 @@ public class EmotionContent implements Persistable<String> {
     public List<String> getQuestions() { return questions; }
     public void setQuestions(List<String> questions) { this.questions = questions; }
 
-    public List<String> getActivities() { return activities; }
-    public void setActivities(List<String> activities) { this.activities = activities; }
+    public List<EmotionActivity> getActivities() { return activities; }
+    public void setActivities(List<EmotionActivity> activities) { this.activities = activities; }
 
     public List<MediaItem> getStories() { return stories; }
     public void setStories(List<MediaItem> stories) { this.stories = stories; }

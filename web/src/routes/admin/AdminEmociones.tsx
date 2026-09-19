@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Emotion, EmotionDetail } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
-import { AdminBtn, AdminModal, MediaListEditor, StringListEditor } from '@/components/admin/ui';
+import { ActivityListEditor, AdminBtn, AdminModal, MediaListEditor, StringListEditor } from '@/components/admin/ui';
 import { confirmDialog } from '@/components/confirm-store';
 import { api } from '@/lib/api';
 
@@ -12,7 +12,7 @@ const BLANK: EmotionDetail = {
   emoji: '🙂',
   color: '#1E7E78',
   bg: '#E7F4F2',
-  content: { description: '', classroom: '', questions: [''], activities: [''], stories: [] },
+  content: { description: '', classroom: '', questions: [''], activities: [], stories: [] },
 };
 
 /** kebab-case slug from the emotion name, used as the route id for new emotions */
@@ -44,7 +44,7 @@ export default function AdminEmociones() {
   };
 
   const openNew = () => {
-    setDraft({ ...BLANK, content: { ...BLANK.content, questions: [''], activities: [''], stories: [] } });
+    setDraft({ ...BLANK, content: { ...BLANK.content, questions: [''], activities: [], stories: [] } });
     setEditing('new');
   };
 
@@ -73,7 +73,20 @@ export default function AdminEmociones() {
       content: {
         ...draft.content,
         questions: draft.content.questions.map((s) => s.trim()).filter(Boolean),
-        activities: draft.content.activities.map((s) => s.trim()).filter(Boolean),
+        // Una actividad sin nombre no es nada; lo demás puede quedar vacío y la
+        // app simplemente no lo dibuja.
+        activities: draft.content.activities
+          .map((a) => ({
+            ...a,
+            title: a.title.trim(),
+            purpose: a.purpose.trim(),
+            duration: a.duration.trim(),
+            ages: a.ages.trim(),
+            materials: a.materials.trim(),
+            steps: a.steps.map((step) => step.trim()).filter(Boolean),
+            questions: a.questions.map((q) => q.trim()).filter(Boolean),
+          }))
+          .filter((a) => a.title),
         stories: draft.content.stories.filter((s) => s.url),
       },
     };
@@ -188,7 +201,7 @@ export default function AdminEmociones() {
               </div>
 
               <StringListEditor label="Preguntas para reflexionar" items={draft.content.questions} placeholder="Escribe una pregunta…" onChange={(questions) => setContent({ questions })} />
-              <StringListEditor label="Actividades sugeridas" items={draft.content.activities} placeholder="Describe una actividad…" onChange={(activities) => setContent({ activities })} />
+              <ActivityListEditor label="Actividades" items={draft.content.activities} onChange={(activities) => setContent({ activities })} />
               <MediaListEditor label="Cuentos e historias (video, audio o PDF)" items={draft.content.stories} category="emotions" onChange={(stories) => setContent({ stories })} />
             </div>
           )}

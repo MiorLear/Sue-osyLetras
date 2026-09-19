@@ -90,7 +90,7 @@ class MigrationChainTest {
                     .as("migration %s state", info.getVersion())
                     .isFalse();
         }
-        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6", "7", "8");
+        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9");
 
         // validate() vuelve a leer los checksums: si alguien editó una migración
         // ya aplicada en vez de agregar una nueva, esto es lo que lo dice — y en
@@ -100,6 +100,71 @@ class MigrationChainTest {
         // Y el segundo arranque no hace nada, que es lo que pasa en cada deploy
         // posterior al primero.
         assertThat(flyway.migrate().migrationsExecuted).isZero();
+    }
+
+    /**
+     * V9 — las actividades de una emoción eran una cadena suelta dentro del
+     * JSONB, y por eso la tarjeta de la app no podía enseñar más que el nombre.
+     * La migración las convierte en objetos con campos para propósito,
+     * duración, edades, materiales, paso a paso y preguntas.
+     *
+     * <p>Lo que importa aquí es que no pierda nada: el nombre tiene que
+     * sobrevivir, lo que ya estuviera estructurado no se puede volver a
+     * envolver, y una lista vacía tiene que seguir vacía.
+     */
+    @Test
+    void turnsPlainActivityStringsIntoObjectsWithoutLosingTheName() throws SQLException {
+        Flyway throughV8 = Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/migration")
+                .target("8")
+                .cleanDisabled(false)
+                .load();
+        throughV8.clean();
+        throughV8.migrate();
+
+        execute("""
+                INSERT INTO emotions (id, name, emoji, color, bg) VALUES
+                    ('viejo', 'Viejo', ':)', '#1', '#2'),
+                    ('nuevo', 'Nuevo', ':)', '#1', '#2'),
+                    ('vacio', 'Vacio', ':)', '#1', '#2');
+
+                INSERT INTO emotion_content (emotion_id, description, classroom, activities) VALUES
+                    ('viejo', 'd', 'c', '["Respiracion del globo", "Botella de la calma"]'),
+                    ('nuevo', 'd', 'c',
+                     '[{"title":"Ya estructurada","purpose":"p","duration":"10 min","ages":"6-9",
+                        "materials":"m","steps":["uno"],"questions":["q"]}]'),
+                    ('vacio', 'd', 'c', '[]');
+                """);
+
+        flyway().migrate();
+
+        // La cadena pasa a objeto y el nombre queda intacto.
+        assertThat(scalar("SELECT jsonb_typeof(activities->0) FROM emotion_content WHERE emotion_id = 'viejo'"))
+                .isEqualTo("object");
+        assertThat(scalar("SELECT activities->0->>'title' FROM emotion_content WHERE emotion_id = 'viejo'"))
+                .isEqualTo("Respiracion del globo");
+        assertThat(scalar("SELECT activities->1->>'title' FROM emotion_content WHERE emotion_id = 'viejo'"))
+                .isEqualTo("Botella de la calma");
+
+        // Lo que no existe queda vacío, nunca relleno: un dato plausible que
+        // nadie escribió es el fallo que esta migración no puede introducir.
+        assertThat(scalar("SELECT activities->0->>'duration' FROM emotion_content WHERE emotion_id = 'viejo'"))
+                .isEmpty();
+        assertThat(scalar("SELECT activities->0->>'ages' FROM emotion_content WHERE emotion_id = 'viejo'"))
+                .isEmpty();
+        assertThat(scalar("SELECT jsonb_typeof(activities->0->'steps') FROM emotion_content WHERE emotion_id = 'viejo'"))
+                .isEqualTo("array");
+
+        // Idempotente: correrla sobre algo ya estructurado no lo envuelve otra vez.
+        assertThat(scalar("SELECT activities->0->>'title' FROM emotion_content WHERE emotion_id = 'nuevo'"))
+                .isEqualTo("Ya estructurada");
+        assertThat(scalar("SELECT activities->0->>'duration' FROM emotion_content WHERE emotion_id = 'nuevo'"))
+                .isEqualTo("10 min");
+
+        // Y una lista vacía sigue siendo una lista vacía, no NULL.
+        assertThat(scalar("SELECT activities::text FROM emotion_content WHERE emotion_id = 'vacio'"))
+                .isEqualTo("[]");
     }
 
     /** Las siete columnas que scripts/migrate-media-urls.sql toca, tal como

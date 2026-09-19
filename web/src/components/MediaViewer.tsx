@@ -41,9 +41,13 @@ export function MediaViewer({ item, onClose }: MediaViewerProps) {
     void (async () => {
       const local = await getLocalUrl(item.id);
       if (!active) return;
+      // Un archivo del propio bundle (`/videos/...`) no tiene copia en
+      // media-cache que buscar —nadie lo descargó a mano—, pero la petición no
+      // sale a internet: la resuelve el worker. Pedirlo sin red es correcto.
+      const ownAsset = item.url.startsWith('/');
       // Con copia local se usa esa; con red, la remota; sin ninguna de las dos,
       // null y el cuerpo lo explica en vez de dejar un hueco negro.
-      setSrc(local ?? (online ? item.url : null));
+      setSrc(local ?? (online || ownAsset ? item.url : null));
     })();
     return () => {
       active = false;

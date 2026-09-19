@@ -36,12 +36,39 @@ export interface Emotion {
   bg: string;
 }
 
+/**
+ * Una actividad de la Biblioteca de emociones.
+ *
+ * Era una sola cadena de texto, y por eso la tarjeta no podía enseñar más que
+ * el nombre. El documento de estructura pide que la tarjeta resumida muestre
+ * propósito, duración y edades, y que al desplegarla aparezcan objetivo,
+ * materiales, paso a paso y preguntas: cada uno de esos es un campo aquí.
+ *
+ * Todo menos `title` puede venir vacío, y entonces no se dibuja. Nada se
+ * rellena con valores por defecto: una docente planifica con la duración y la
+ * edad que lee, así que un dato inventado es peor que un dato ausente.
+ */
+export interface EmotionActivity {
+  title: string;
+  /** Resumen en la tarjeta, y "Objetivo" al desplegarla. */
+  purpose: string;
+  /** Texto libre ("20–30 min"): el material no siempre da un número. */
+  duration: string;
+  /** Rango de edad, también libre ("7–12 años"). */
+  ages: string;
+  materials: string;
+  /** Paso a paso, una entrada por paso. */
+  steps: string[];
+  /** Preguntas para conversar al cerrar la actividad. */
+  questions: string[];
+}
+
 /** Full pedagogical content for a single emotion (the detail screen). */
 export interface EmotionContent {
   description: string;
   classroom: string;
   questions: string[];
-  activities: string[];
+  activities: EmotionActivity[];
   /** real uploaded story files (video/audio/pdf) */
   stories: MediaItem[];
 }

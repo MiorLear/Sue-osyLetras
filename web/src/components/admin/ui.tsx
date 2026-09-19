@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactNode } from 'react';
-import type { MediaCategory, MediaItem } from '@explorarte/shared';
+import type { EmotionActivity, MediaCategory, MediaItem } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { api } from '@/lib/api';
 
@@ -54,6 +54,162 @@ export function StringListEditor({ label, items, onChange, placeholder }: {
         </button>
       </div>
     </div>
+  );
+}
+
+/** Una actividad recién añadida: todo vacío menos lo que escriba quien edita.
+ *  Sin exportar: este módulo solo exporta componentes, y react-refresh avisa
+ *  en cuanto deja de ser así. */
+const BLANK_ACTIVITY: EmotionActivity = {
+  title: '',
+  purpose: '',
+  duration: '',
+  ages: '',
+  materials: '',
+  steps: [],
+  questions: [],
+};
+
+/**
+ * Editor de las actividades de una emoción.
+ *
+ * Antes eran una línea de texto por actividad, así que la app solo podía
+ * enseñar el nombre. El documento de estructura pide que la tarjeta resumida
+ * muestre propósito, duración y edades, y que al desplegarla aparezcan
+ * objetivo, materiales, paso a paso y preguntas: cada uno tiene su campo aquí.
+ *
+ * Todo menos el nombre es opcional y la app no dibuja lo que esté vacío, de
+ * modo que una actividad a medio escribir se ve incompleta pero nunca inventada.
+ */
+export function ActivityListEditor({ label, items, onChange }: {
+  label: string;
+  items: EmotionActivity[];
+  onChange: (items: EmotionActivity[]) => void;
+}) {
+  const [open, setOpen] = useState<number | null>(null);
+  const patchAt = (i: number, patch: Partial<EmotionActivity>) =>
+    onChange(items.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
+  const removeAt = (i: number) => {
+    onChange(items.filter((_, idx) => idx !== i));
+    setOpen(null);
+  };
+  const add = () => {
+    onChange([...items, BLANK_ACTIVITY]);
+    setOpen(items.length);
+  };
+
+  return (
+    <div>
+      <label className="field-label">{label}</label>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {items.map((item, i) => {
+          const expanded = open === i;
+          return (
+            <div key={i} style={{ borderRadius: 12, border: `1.5px solid ${expanded ? 'var(--brand)' : 'var(--border-input)'}`, background: '#fff' }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: 10 }}>
+                <input
+                  className="input"
+                  value={item.title}
+                  placeholder="Nombre de la actividad…"
+                  onChange={(e) => patchAt(i, { title: e.target.value })}
+                />
+                <button
+                  type="button"
+                  onClick={() => setOpen(expanded ? null : i)}
+                  aria-expanded={expanded}
+                  style={{ flexShrink: 0, minHeight: 38, padding: '0 12px', borderRadius: 10, background: expanded ? 'var(--nav-bg)' : '#fff', border: '1.5px solid var(--border-input)', color: 'var(--brand-dark)', fontSize: 12.5, fontWeight: 700 }}>
+                  {expanded ? 'Cerrar' : 'Detalles'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeAt(i)}
+                  aria-label={`Eliminar ${item.title || 'actividad'}`}
+                  style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBEAE6', border: '1px solid #F1CFC6' }}>
+                  <Icon name="trash" size={15} color="var(--danger)" />
+                </button>
+              </div>
+
+              {expanded ? (
+                <div style={{ padding: '4px 10px 12px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <Field label="Propósito / objetivo" hint="Una o dos líneas: es lo que se lee en la tarjeta antes de abrirla.">
+                    <textarea
+                      value={item.purpose}
+                      placeholder="¿Para qué sirve esta actividad?"
+                      onChange={(e) => patchAt(i, { purpose: e.target.value })}
+                      style={{ width: '100%', minHeight: 60, padding: '10px 14px', borderRadius: 12, fontSize: 13.5, color: 'var(--text-dark)', lineHeight: 1.5, background: '#fff', border: '1.5px solid var(--border-input)', outline: 'none', resize: 'vertical' }}
+                    />
+                  </Field>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 12 }}>
+                    <Field label="Duración">
+                      <input className="input" value={item.duration} placeholder="20–30 min" onChange={(e) => patchAt(i, { duration: e.target.value })} />
+                    </Field>
+                    <Field label="Edades">
+                      <input className="input" value={item.ages} placeholder="7–12 años" onChange={(e) => patchAt(i, { ages: e.target.value })} />
+                    </Field>
+                  </div>
+
+                  <Field label="Materiales">
+                    <input className="input" value={item.materials} placeholder="Hojas, colores, una caja…" onChange={(e) => patchAt(i, { materials: e.target.value })} />
+                  </Field>
+
+                  <StringListEditor
+                    label="Paso a paso"
+                    items={item.steps}
+                    placeholder="Escribe un paso…"
+                    onChange={(steps) => patchAt(i, { steps })}
+                  />
+                  <StringListEditor
+                    label="Preguntas para conversar"
+                    items={item.questions}
+                    placeholder="Escribe una pregunta…"
+                    onChange={(questions) => patchAt(i, { questions })}
+                  />
+                </div>
+              ) : (
+                <IncompleteNote item={item} />
+              )}
+            </div>
+          );
+        })}
+        <button onClick={add} style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 13px', borderRadius: 10, background: '#fff', border: '1.5px dashed var(--border-input)', color: 'var(--brand-dark)', fontSize: 13, fontWeight: 700 }}>
+          <Icon name="plus" size={14} color="var(--brand-dark)" /> Agregar actividad
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <div>
+      <label className="field-label" style={{ marginBottom: hint ? 2 : 6 }}>{label}</label>
+      {hint ? <p style={{ marginBottom: 6, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>{hint}</p> : null}
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Lo que le falta a la actividad, dicho en la fila cerrada. Sin esto hay que
+ * abrir una por una para saber cuáles están a medias, y una actividad sin
+ * duración ni edades llega a la docente como una tarjeta medio vacía.
+ */
+function IncompleteNote({ item }: { item: EmotionActivity }) {
+  const missing = [
+    item.purpose.trim() ? null : 'propósito',
+    item.duration.trim() ? null : 'duración',
+    item.ages.trim() ? null : 'edades',
+    item.materials.trim() ? null : 'materiales',
+    item.steps.length ? null : 'paso a paso',
+    item.questions.length ? null : 'preguntas',
+  ].filter((x): x is string => x !== null);
+
+  if (!missing.length) return null;
+  return (
+    <p style={{ padding: '0 12px 10px', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+      Sin {missing.join(', ')}. La app no dibuja lo que está vacío.
+    </p>
   );
 }
 

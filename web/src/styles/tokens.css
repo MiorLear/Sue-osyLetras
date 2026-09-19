@@ -7,6 +7,12 @@
   --brand: #2fa7a0;
   --brand-dark: #1e7e78;
   --brand-gradient: linear-gradient(150deg, #2fa7a0, #1e7e78);
+  /* El gradiente de marca arranca en #2fa7a0, que con texto blanco da 2,9:1:
+     por debajo del 4,5:1 que la WCAG pide para 15px en negrita. Los botones
+     sólidos usan este tramo más oscuro del mismo teal —4,7:1 en su punto más
+     claro, 7,3:1 en el más oscuro— y el gradiente original se queda para las
+     cabeceras, donde el texto es grande. */
+  --brand-gradient-strong: linear-gradient(150deg, #1a817b, #15605c);
 
   /* warm accents */
   --clay: #d98763;

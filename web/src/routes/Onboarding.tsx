@@ -7,19 +7,12 @@ import { cacheKeys } from '@/lib/cache-keys';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
 
 const PILARES = [
-  { emoji: '🧠', title: 'Salud mental', text: 'Promovemos herramientas que fortalecen el bienestar psicológico y emocional.' },
-  { emoji: '💚', title: 'Desarrollo emocional', text: 'Facilitamos espacios para reconocer, comprender y expresar emociones de manera saludable.' },
-  { emoji: '🤝', title: 'Desarrollo social', text: 'Fortalecemos habilidades que favorecen relaciones positivas y comunidades más empáticas.' },
+  { emoji: '🧠', title: 'Salud mental', text: 'Recursos para comprender y promover el bienestar psicológico y emocional.' },
+  { emoji: '💚', title: 'Desarrollo emocional', text: 'Herramientas para reconocer, comprender y expresar las emociones.' },
+  { emoji: '🤝', title: 'Desarrollo social', text: 'Experiencias para fortalecer la empatía, la convivencia y las relaciones saludables.' },
 ];
 
-const PASOS = [
-  { n: '1', title: 'Reconocer', text: 'Comprender emociones, pensamientos y comportamientos.' },
-  { n: '2', title: 'Expresar', text: 'Utilizar la lectura, el arte y el diálogo para expresar experiencias y emociones.' },
-  { n: '3', title: 'Conectar', text: 'Fortalecer la empatía, la convivencia y las relaciones saludables.' },
-  { n: '4', title: 'Crecer', text: 'Desarrollar herramientas para el bienestar personal y comunitario.' },
-];
-
-const SLIDES = 3;
+const SLIDES = 2;
 
 export default function Onboarding() {
   const navigate = useNavigate();
@@ -53,26 +46,27 @@ export default function Onboarding() {
               Bienvenida a ExplorArte
             </h1>
             <p style={{ fontSize: 14, color: 'var(--text-body)', textAlign: 'center', lineHeight: 1.5 }}>
-              Lectura, arte y emociones para construir comunidades de aprendizaje más saludables.
+              Lectura, arte y emociones para acompañar el bienestar en el aula.
             </p>
-            <VideoPlaceholder caption="Video de bienvenida del equipo de Sueños y Letras" video={introVideo} />
+            <VideoPlaceholder caption="Video de bienvenida del equipo de Sueños y Letras" video={introVideo} duration="1 min 34 s" fallbackUrl="/videos/inicio.mp4" />
             <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
-              Acompañamos a docentes con recursos prácticos para promover el bienestar emocional, la
-              creatividad y el desarrollo socioemocional de niñas, niños y adolescentes.
+              Un espacio creado para docentes, con recursos, historias y herramientas prácticas para
+              acompañar el bienestar emocional, la creatividad y el desarrollo socioemocional de niñas,
+              niños y adolescentes.
             </p>
           </div>
         ) : null}
 
         {index === 1 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-dark)' }}>¿Qué es ExplorArte?</h2>
+            <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-dark)' }}>¿Qué encontrarás en ExplorArte?</h2>
             <p style={{ fontSize: 13, color: 'var(--text-body)', lineHeight: 1.55 }}>
-              ExplorArte es una metodología creada por Sueños y Letras para fortalecer la salud mental y
-              el bienestar emocional en comunidades educativas a través de la lectura, el arte y
-              experiencias participativas.
+              ExplorArte es una iniciativa de Sueños y Letras que reúne recursos para fortalecer el
+              bienestar emocional y socioemocional en las comunidades educativas a través de la lectura,
+              el arte y experiencias participativas.
             </p>
             <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-dark)' }}>
-              Trabajamos desde tres pilares fundamentales:
+              Nuestros recursos se construyen desde tres pilares:
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {PILARES.map((p) => (
@@ -88,24 +82,6 @@ export default function Onboarding() {
           </div>
         ) : null}
 
-        {index === 2 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-dark)' }}>¿Cómo funciona?</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {PASOS.map((p) => (
-                <div key={p.n} style={{ display: 'flex', gap: 14 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--nav-bg)', border: '1.5px solid rgba(61,191,184,0.3)', flexShrink: 0 }}>
-                    <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--brand)' }}>{p.n}</span>
-                  </div>
-                  <div style={{ paddingTop: 4 }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-dark)' }}>{p.title}</div>
-                    <div style={{ marginTop: 2, fontSize: 12.5, color: 'var(--text-body)', lineHeight: 1.45 }}>{p.text}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
       </div>
 
       <div style={{ paddingTop: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>

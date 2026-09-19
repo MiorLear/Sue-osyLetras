@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Icon } from './Icon';
-import { ADMIN_NAV, ADMIN_TABS, MAIN_TABS, TEACHER_NAV, isActive } from './nav-items';
+import { ADMIN_NAV, ADMIN_TABS, MAIN_TABS, SECONDARY_NAV, TEACHER_NAV, isActive } from './nav-items';
 
 /**
  * Phone navigation. Hidden on desktop, where the sidebar stays exactly as it
@@ -22,7 +22,15 @@ export function BottomNav() {
   const sheetRef = useRef<HTMLDivElement>(null);
 
   const tabs = isAdmin ? ADMIN_TABS : MAIN_TABS;
-  const allSections = isAdmin ? ADMIN_NAV : TEACHER_NAV;
+  // La hoja solo lleva lo que no es ya una pestaña: repetir Inicio o Emociones
+  // abajo y otra vez dentro convertía diez filas en seis que llevaran a algo
+  // nuevo. Lo secundario cierra la lista, igual que en el sidebar.
+  const sheetSections = [
+    ...(isAdmin ? ADMIN_NAV : TEACHER_NAV).filter(
+      (section) => !tabs.some((tab) => tab.href === section.href),
+    ),
+    ...SECONDARY_NAV,
+  ];
 
   // Close the sheet on navigation so it never survives a route change.
   useEffect(() => setMoreOpen(false), [pathname]);
@@ -74,7 +82,7 @@ export function BottomNav() {
             <div className="more-sheet__grabber" aria-hidden="true" />
             <p className="more-sheet__title">Secciones</p>
             <div className="more-sheet__list">
-              {allSections.map((item) => (
+              {sheetSections.map((item) => (
                 <button
                   key={item.href}
                   type="button"

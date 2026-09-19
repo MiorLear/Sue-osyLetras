@@ -8,7 +8,7 @@ vi.mock('@/context/AuthContext', () => ({
   useAuth: () => ({ isAdmin: false, signOut: vi.fn(async () => undefined) }),
 }));
 import { BottomNav } from './BottomNav';
-import { MAIN_TABS, TEACHER_NAV } from './nav-items';
+import { MAIN_TABS, SECONDARY_NAV, TEACHER_NAV } from './nav-items';
 
 // Normalizado a LF: el repo se edita desde Windows y git reescribe los finales.
 const css = readFileSync(path.resolve(import.meta.dirname, '../styles/global.css'), 'utf8').replace(
@@ -27,7 +27,7 @@ function renderAt(pathname: string) {
 afterEach(cleanup);
 
 describe('<BottomNav />', () => {
-  it('muestra las mismas cuatro pestañas que la app nativa, más "Más"', () => {
+  it('muestra Inicio y los tres módulos de ExplorArte, más "Más"', () => {
     renderAt('/main');
     const nav = screen.getByRole('navigation', { name: /navegación principal/i });
     const labels = Array.from(nav.querySelectorAll('button')).map((b) => b.textContent);
@@ -35,8 +35,8 @@ describe('<BottomNav />', () => {
   });
 
   it('marca la pestaña de la sección actual', () => {
-    renderAt('/comunidad');
-    expect(screen.getByRole('button', { name: /Comunidad/ })).toHaveProperty(
+    renderAt('/herramientas');
+    expect(screen.getByRole('button', { name: /Herramientas/ })).toHaveProperty(
       'ariaCurrent',
       'page',
     );
@@ -44,22 +44,34 @@ describe('<BottomNav />', () => {
 
   it('marca una subruta como parte de su sección', () => {
     renderAt('/emociones/7');
-    expect(screen.getByRole('button', { name: /Explora/ })).toHaveProperty(
+    expect(screen.getByRole('button', { name: /Emociones/ })).toHaveProperty(
       'ariaCurrent',
       'page',
     );
   });
 
-  it('"Más" abre una hoja con todas las secciones del sidebar', () => {
+  it('"Más" abre una hoja con lo que no es ya una pestaña', () => {
     renderAt('/main');
     expect(screen.queryByRole('dialog')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: /Más/ }));
     const sheet = screen.getByRole('dialog', { name: /más secciones/i });
     const labels = Array.from(sheet.querySelectorAll('button')).map((b) => b.textContent);
-    // Ninguna sección puede quedar inalcanzable en teléfono.
-    for (const item of TEACHER_NAV) {
-      expect(labels.some((l) => l?.includes(item.label))).toBe(true);
+
+    // Ninguna sección puede quedar inalcanzable en teléfono: o es pestaña, o
+    // está en la hoja.
+    for (const item of [...TEACHER_NAV, ...SECONDARY_NAV]) {
+      const isTab = MAIN_TABS.some((tab) => tab.href === item.href);
+      const inSheet = labels.some((l) => l?.includes(item.label));
+      expect(isTab || inSheet).toBe(true);
+    }
+
+    // Y la hoja no repite lo que ya está abajo.
+    for (const tab of MAIN_TABS) {
+      const duplicated = [...TEACHER_NAV, ...SECONDARY_NAV].some(
+        (item) => item.href === tab.href && labels.some((l) => l?.includes(item.label)),
+      );
+      expect(duplicated).toBe(false);
     }
   });
 
