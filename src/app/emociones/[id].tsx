@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { EmotionActivity } from '@explorarte/shared';
 
 import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
 import { DownloadableMediaItem } from '@/components/downloadable-media-item';
@@ -18,54 +20,119 @@ function SectionTitle({ children }: { children: string }) {
   return <Text style={{ fontSize: 15, fontWeight: '800', color: colors.textDark }}>{children}</Text>;
 }
 
-const ACTIVITY_LABEL =
-  /^(objetivo|duración|duracion|edades|materiales|instrucciones|desarrollo|reflexión|reflexion|preguntas para reflexionar|preguntas para conversar|cómo jugar|como jugar|variante)/i;
+/**
+ * Una actividad, como tarjeta.
+ *
+ * Resumen: nombre, propósito, duración y edades. Al abrirla: objetivo,
+ * materiales, paso a paso y preguntas para conversar. Cada cosa sale de su
+ * campo, y lo que el material no diga no se dibuja — una docente planifica con
+ * la duración y la edad que lee, así que un valor por defecto plausible es peor
+ * que un hueco.
+ */
+function ActivityCard({
+  activity,
+  color,
+  bg,
+}: {
+  activity: EmotionActivity;
+  color: string;
+  bg: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const { title, purpose, duration, ages, materials, steps, questions } = activity;
+  const chips = [duration ? `⏱ ${duration}` : null, ages ? `👧 ${ages}` : null].filter(
+    (chip): chip is string => chip !== null,
+  );
+  // Sin nada que desplegar, el botón abriría un panel vacío.
+  const hasDetail = Boolean(materials || steps.length || questions.length || purpose);
 
-// Activities arrive as rich multi-line text (title + Objetivo/Duración/Instrucciones/…).
-// Render the first line as the card title and the rest as body, emphasizing labels.
-function ActivityCard({ text, color, bg }: { text: string; color: string; bg: string }) {
-  const lines = text.split('\n');
-  const title = lines[0];
-  const body = lines.slice(1);
   return (
-    <View
-      style={{
-        borderRadius: 12,
-        padding: 14,
-        backgroundColor: '#fff',
-        borderWidth: 1.5,
-        borderColor: colors.border,
-      }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: body.length ? 10 : 0 }}>
-        <View
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: 9,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: bg,
-          }}>
-          <Icon name="edit" size={14} color={color} />
+    <View style={{ borderRadius: 16, overflow: 'hidden', backgroundColor: '#fff', borderWidth: 1.5, borderColor: open ? color : colors.border }}>
+      <View style={{ padding: 16 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 11 }}>
+          <View style={{ width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: bg }}>
+            <Icon name="edit" size={15} color={color} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 14, fontWeight: '800', color: colors.textDark }}>{title}</Text>
+            {purpose ? (
+              <Text numberOfLines={2} style={{ marginTop: 4, fontSize: 12.5, lineHeight: 19, color: colors.textBody }}>{purpose}</Text>
+            ) : null}
+          </View>
         </View>
-        <Text style={{ flex: 1, fontSize: 14, fontWeight: '800', color: colors.textDark }}>{title}</Text>
+
+        {chips.length > 0 ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 12 }}>
+            {chips.map((label) => (
+              <Text key={label} style={{ paddingHorizontal: 9, paddingVertical: 5, borderRadius: 20, backgroundColor: bg, fontSize: 10.5, fontWeight: '600', color: colors.textBody }}>{label}</Text>
+            ))}
+          </View>
+        ) : null}
+
+        {hasDetail ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: open }}
+            onPress={() => setOpen((value) => !value)}
+            style={{ marginTop: 13, minHeight: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: color }}>
+            <Text style={{ color: '#fff', fontSize: 12.5, fontWeight: '800' }}>
+              {open ? 'Ocultar actividad' : 'Ver actividad'}
+            </Text>
+          </Pressable>
+        ) : (
+          <Text style={{ marginTop: 13, fontSize: 12, color: colors.textMuted }}>Sin detalle todavía</Text>
+        )}
       </View>
-      {body.map((line, i) => {
-        const label = ACTIVITY_LABEL.test(line.trim());
-        return (
-          <Text
-            key={i}
-            style={{
-              fontSize: 12.5,
-              lineHeight: 18,
-              marginTop: label && i > 0 ? 6 : 2,
-              color: label ? colors.textDark : colors.textBody,
-              fontWeight: label ? '700' : '400',
-            }}>
-            {line}
-          </Text>
-        );
-      })}
+
+      {open && hasDetail ? (
+        <View style={{ padding: 16, backgroundColor: '#FAFDFD', borderTopWidth: 1, borderTopColor: colors.borderSoft, gap: 13 }}>
+          {purpose ? <Detail label="Objetivo" value={purpose} /> : null}
+          {duration ? <Detail label="Duración" value={duration} /> : null}
+          {ages ? <Detail label="Edades" value={ages} /> : null}
+          {materials ? <Detail label="Materiales" value={materials} /> : null}
+
+          {steps.length > 0 ? (
+            <View>
+              <DetailLabel>Paso a paso</DetailLabel>
+              <View style={{ marginTop: 6, gap: 7 }}>
+                {steps.map((step, i) => (
+                  <View key={i} style={{ flexDirection: 'row', gap: 9 }}>
+                    <Text style={{ width: 20, height: 20, borderRadius: 10, textAlign: 'center', lineHeight: 20, backgroundColor: bg, color, fontSize: 11, fontWeight: '800' }}>{i + 1}</Text>
+                    <Text style={{ flex: 1, fontSize: 12.5, lineHeight: 19, color: colors.textBody }}>{step}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {questions.length > 0 ? (
+            <View>
+              <DetailLabel>Preguntas para conversar</DetailLabel>
+              <View style={{ marginTop: 6, gap: 6 }}>
+                {questions.map((question) => (
+                  <View key={question} style={{ flexDirection: 'row', gap: 8 }}>
+                    <Text style={{ color, fontWeight: '800' }}>•</Text>
+                    <Text style={{ flex: 1, fontSize: 12.5, lineHeight: 19, color: colors.textBody }}>{question}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function DetailLabel({ children }: { children: string }) {
+  return <Text style={{ fontSize: 11, fontWeight: '800', color: colors.textDark, textTransform: 'uppercase' }}>{children}</Text>;
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <View>
+      <DetailLabel>{label}</DetailLabel>
+      <Text style={{ marginTop: 4, fontSize: 12.5, lineHeight: 19, color: colors.textBody }}>{value}</Text>
     </View>
   );
 }
@@ -127,12 +194,12 @@ export default function EmotionDetailScreen() {
             </View>
 
             <Divider />
-            <SectionTitle>Actividades recomendadas</SectionTitle>
+            <SectionTitle>Actividades para explorar esta emoción</SectionTitle>
             <View style={{ marginTop: 10, gap: 8 }}>
               {data.activities.map((a, i) => (
                 <ActivityCard
                   key={i}
-                  text={a}
+                  activity={a}
                   color={emotion?.color ?? colors.brand}
                   bg={emotion?.bg ?? colors.navBg}
                 />

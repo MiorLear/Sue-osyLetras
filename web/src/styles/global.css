@@ -181,6 +181,15 @@ a {
 }
 .sidebar-nav button .label {
   flex: 1;
+  /* "Aprendiendo sobre bienestar emocional" no cabe en una línea de 280px y
+     debe poder partirse sin apretarse contra la siguiente entrada. */
+  line-height: 1.3;
+}
+/* Separa lo secundario ("Sobre ExplorArte") de los módulos de la plataforma. */
+.sidebar-sep {
+  height: 1px;
+  margin: 10px 11px;
+  background: var(--border);
 }
 .sidebar-nav button .dot {
   width: 6px;
@@ -613,7 +622,7 @@ a {
   transform: scale(0.99);
 }
 .btn-primary {
-  background: var(--brand-gradient);
+  background: var(--brand-gradient-strong);
   color: #fff;
   box-shadow: 0 10px 22px -8px rgba(31, 126, 118, 0.6);
 }
@@ -622,6 +631,10 @@ a {
 }
 .btn-primary:disabled {
   background: var(--disabled);
+  /* Blanco sobre #c2dbd9 son 1,5:1: la docente no puede leer qué botón está
+     mirando antes de llenar el formulario. En gris oscuro son 5,6:1 y sigue
+     leyéndose apagado. */
+  color: #3f5450;
   box-shadow: none;
   cursor: default;
 }
@@ -714,7 +727,9 @@ a {
   align-items: center;
   gap: 12px;
   background: var(--nav-bg);
-  border: 1.5px dashed var(--border-input);
+  /* Sólido, no discontinuo: desde que hay videos de verdad esto ya no es un
+     hueco a la espera de contenido. */
+  border: 1.5px solid var(--border-input);
   text-align: center;
   width: 100%;
   transition: background 0.12s ease;
@@ -736,6 +751,11 @@ a {
   font-size: 13px;
   color: var(--text-body);
   line-height: 18px;
+}
+.video-ph .dur {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--brand-dark);
 }
 
 /* ── toast ── */
@@ -837,6 +857,16 @@ a {
   right: 30px;
 }
 
+/* Recorta a dos líneas. El propósito de una actividad se escribe en el CMS sin
+   límite de largo, y en la tarjeta resumida tiene que caber; completo se lee al
+   desplegarla. */
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* hit-44 solo sirve para controles aislados y que no usen ya ::after; no usar dos a menos de 44px. */
 .hit-44 {
   position: relative;
@@ -934,6 +964,15 @@ a {
   font-weight: 700;
   color: var(--text-muted);
   transition: background 0.12s ease, color 0.12s ease;
+  /* Cinco botones en 360px dejan ~57px por etiqueta: "Herramientas" solo entra
+     si el botón puede encogerse y recortar en vez de desbordar la barra. */
+  min-width: 0;
+}
+.bottom-nav button span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .bottom-nav button:active {
   transform: scale(0.96);

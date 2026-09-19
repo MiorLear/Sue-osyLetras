@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { CacheAgeNote, ContentState } from '@/components/ContentState';
 import { MediaList } from '@/components/DownloadableMediaItem';
 import { Masthead } from '@/components/Masthead';
-import { MediaViewer } from '@/components/MediaViewer';
+import { VideoPlaceholder } from '@/components/VideoPlaceholder';
 
 import { api } from '@/lib/api';
 import { cacheKeys } from '@/lib/cache-keys';
@@ -22,9 +22,7 @@ export default function Aprendiendo() {
     () => api.screenIntros.get('learning'),
     [],
   );
-  const videoUrl = intro?.video.url ?? null;
   const [open, setOpen] = useState<string | null>(null);
-  const [videoOpen, setVideoOpen] = useState(false);
 
   return (
     <div className="page page-narrow">
@@ -38,28 +36,14 @@ export default function Aprendiendo() {
       <div style={{ borderRadius: 24, padding: '30px 32px', background: 'linear-gradient(150deg,#E7F4F2,#FFFCF6)', border: '1px solid #DCEDEA', marginBottom: 30, position: 'relative', overflow: 'hidden' }}>
         <span style={{ position: 'absolute', top: -20, right: -10, fontSize: 120, opacity: 0.08 }}>🌱</span>
         <p style={{ fontSize: 15.5, lineHeight: 1.7, color: '#3F5450', maxWidth: 560, position: 'relative' }}>
-          Esta sección fortalece los conocimientos y herramientas de las docentes para acompañar procesos de bienestar
-          emocional en sus comunidades educativas.
+          Esta sección busca fortalecer los conocimientos y herramientas de las docentes para acompañar
+          procesos de bienestar emocional en sus comunidades educativas.
         </p>
       </div>
 
-      {videoUrl ? (
-        <button
-          onClick={() => setVideoOpen(true)}
-          style={{ position: 'relative', width: '100%', borderRadius: 20, overflow: 'hidden', background: '#5C8A4F', minHeight: 150, textAlign: 'left', marginBottom: 30, border: 'none', cursor: 'pointer' }}>
-          <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,rgba(30,54,24,.15),rgba(30,54,24,.78))' }} />
-          <span style={{ position: 'absolute', top: 18, right: 24, fontSize: 82, opacity: 0.22 }}>🌱</span>
-          <span style={{ position: 'absolute', left: 24, bottom: 20, right: 24, color: '#fff' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,255,255,.92)', color: '#5C8A4F', fontSize: 17, marginBottom: 10 }}>▶</span>
-            <span style={{ display: 'block', fontFamily: 'var(--font-serif)', fontSize: 19 }}>Introducción al bienestar emocional</span>
-            <span style={{ display: 'block', fontSize: 12.5, opacity: 0.85, marginTop: 2 }}>Video de introducción · ~1 min</span>
-          </span>
-        </button>
-      ) : null}
-
-      {videoOpen && intro?.video ? (
-        <MediaViewer item={intro.video} onClose={() => setVideoOpen(false)} />
-      ) : null}
+      <div style={{ marginBottom: 30 }}>
+        <VideoPlaceholder caption="La importancia de la formación continua en temas socioemocionales" video={intro?.video ?? null} duration="45 s" fallbackUrl="/videos/bienestar.mp4" />
+      </div>
 
       <CacheAgeNote status={status} ageMs={ageMs} />
 

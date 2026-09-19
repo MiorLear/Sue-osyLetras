@@ -43,6 +43,12 @@ export const cacheKeys = {
   profile: () => 'profile:me',
   /** Video de introducción de una pantalla. */
   screenIntro: (screen: IntroScreen) => `screen-intro:${screen}`,
+  /**
+   * "Mis recursos": lo que la docente guardó. Es la única clave que no viene
+   * del servidor, así que queda fuera de STATIC_CACHE_KEYS a propósito — no
+   * hay nada que precargar ni que revalidar.
+   */
+  savedActivities: () => 'saved:activities',
 } as const;
 
 /**

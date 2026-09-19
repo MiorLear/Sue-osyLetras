@@ -20,6 +20,7 @@ import com.explorarte.api.community.CommentRepository;
 import com.explorarte.api.community.Post;
 import com.explorarte.api.community.PostRepository;
 import com.explorarte.api.emotions.Emotion;
+import com.explorarte.api.emotions.EmotionActivity;
 import com.explorarte.api.emotions.EmotionContent;
 import com.explorarte.api.emotions.EmotionContentRepository;
 import com.explorarte.api.emotions.EmotionRepository;
@@ -228,7 +229,13 @@ public class DataSeeder implements ApplicationRunner {
             content.setDescription(e.description());
             content.setClassroom(e.classroom());
             content.setQuestions(e.questions());
-            content.setActivities(e.activities());
+            // El semillero solo conoce el nombre de cada actividad: propósito,
+            // duración, edades, materiales y pasos son contenido pedagógico que
+            // escribe Sueños y Letras desde el CMS, no algo que se pueda dar por
+            // supuesto aquí.
+            content.setActivities(e.activities().stream()
+                    .map(title -> new EmotionActivity(title, "", "", "", "", List.of(), List.of()))
+                    .toList());
             // Story titles used to be plain text; real story files are now
             // uploaded by an admin via the CMS, so seed with no files yet.
             content.setStories(List.of());

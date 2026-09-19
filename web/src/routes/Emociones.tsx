@@ -1,8 +1,7 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CacheAgeNote, ContentState } from '@/components/ContentState';
 import { Masthead } from '@/components/Masthead';
-import { MediaViewer } from '@/components/MediaViewer';
+import { VideoPlaceholder } from '@/components/VideoPlaceholder';
 import { api } from '@/lib/api';
 import { cacheKeys } from '@/lib/cache-keys';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
@@ -22,8 +21,6 @@ export default function Emociones() {
     () => api.screenIntros.get('emotions'),
     [],
   );
-  const videoUrl = intro?.video.url ?? null;
-  const [videoOpen, setVideoOpen] = useState(false);
 
   return (
     <div className="page">
@@ -38,7 +35,11 @@ export default function Emociones() {
         <div style={{ borderRadius: 24, padding: 'clamp(20px, 6vw, 32px)', background: '#fff', border: '1px solid var(--border)' }}>
           <p style={{ fontSize: 15.5, lineHeight: 1.7, color: 'var(--text-body)' }}>
             Las emociones forman parte de nuestra vida cotidiana. Reconocerlas, nombrarlas y comprenderlas es el primer
-            paso para desarrollar bienestar emocional y construir relaciones saludables dentro del aula.
+            paso para desarrollar bienestar emocional y construir relaciones saludables.
+            <br /><br />
+            Esta sección reúne recursos para comprender distintas emociones y acompañar conversaciones significativas dentro del aula.
+            <br /><br />
+            Explora actividades, lecturas y recursos diseñados para acompañar a tus estudiantes en el reconocimiento y gestión de sus emociones.
           </p>
           {emotions && emotions.length > 0 ? (
             <div style={{ display: 'flex', gap: 18, marginTop: 22, paddingTop: 20, borderTop: '1px solid #F0E7D8' }}>
@@ -47,22 +48,8 @@ export default function Emociones() {
           ) : null}
         </div>
 
-        {videoUrl ? (
-          <button onClick={() => setVideoOpen(true)} style={{ position: 'relative', borderRadius: 24, overflow: 'hidden', background: '#1E7E78', minHeight: 210, textAlign: 'left' }}>
-            <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,rgba(13,60,57,.15),rgba(13,60,57,.78))' }} />
-            <span style={{ position: 'absolute', top: 18, right: 22, fontSize: 90, opacity: 0.25 }}>💛</span>
-            <span style={{ position: 'absolute', left: 24, bottom: 22, right: 24, color: '#fff' }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 52, height: 52, borderRadius: '50%', background: 'rgba(255,255,255,.92)', color: '#1E7E78', fontSize: 18, marginBottom: 12 }}>▶</span>
-              <span style={{ display: 'block', fontFamily: 'var(--font-serif)', fontSize: 19 }}>¿Por qué reconocer las emociones?</span>
-              <span style={{ display: 'block', fontSize: 12.5, opacity: 0.85, marginTop: 2 }}>Video de introducción · ~1 min</span>
-            </span>
-          </button>
-        ) : null}
+        <VideoPlaceholder caption="¿Por qué es importante reconocer y comprender las emociones?" video={intro?.video ?? null} duration="36 s" fallbackUrl="/videos/biblioteca.mp4" />
       </div>
-
-      {videoOpen && intro?.video ? (
-        <MediaViewer item={intro.video} onClose={() => setVideoOpen(false)} />
-      ) : null}
 
       <div className="section-head" style={{ gap: 12 }}>
         <h2 className="section-title">Biblioteca</h2>

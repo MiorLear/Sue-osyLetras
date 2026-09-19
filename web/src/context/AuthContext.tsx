@@ -3,6 +3,7 @@ import type { AuthResult, UserProfile } from '@explorarte/shared';
 import { api } from '@/lib/api';
 import { cacheKeys } from '@/lib/cache-keys';
 import { clearUserEverything, getCacheUser, readCache, setCacheUser, writeCache } from '@/lib/offline-cache';
+import { clearSavedActivities } from '@/lib/saved-activities';
 import { clearAuthToken, getAuthToken, restoreAuthToken, storeAuthToken } from '@/lib/auth-token';
 import { clearMediaDownloads } from '@/lib/media-cache';
 import { refreshCounts } from '@/lib/outbox';
@@ -54,6 +55,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setAuthed(false);
           setUserState(null);
           setCacheUser(null);
+    // clearUserEverything ya vació la caché; esto suelta la copia en memoria
+    // para que "Mis recursos" no siga enseñando lo de la docente anterior.
+    clearSavedActivities();
         }
       } finally {
         if (!cancelled) setReady(true);

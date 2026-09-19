@@ -22,6 +22,12 @@ describe('isMediaUrl', () => {
     expect(isMediaUrl('https://explorarte-api.onrender.com/media/x')).toBe(true);
   });
 
+  it('casa los videos de introducción que viajan con la app', () => {
+    expect(isMediaUrl(`${APP}/videos/inicio.mp4`)).toBe(true);
+    expect(isMediaUrl(`${APP}/videos/biblioteca.mp4`)).toBe(true);
+    expect(isSameOriginMedia(`${APP}/videos/herramientas.mp4`, APP)).toBe(true);
+  });
+
   it('casa los almacenes de objetos conocidos', () => {
     expect(isMediaUrl('https://storage.googleapis.com/explorarte-media/tools/a.pdf')).toBe(true);
     expect(isMediaUrl('https://abc.supabase.co/storage/v1/object/public/media/a.pdf')).toBe(true);

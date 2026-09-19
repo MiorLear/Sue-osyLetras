@@ -57,6 +57,14 @@ export function isMediaUrl(href: string): boolean {
 
   if (url.pathname.startsWith('/media/')) return true;
 
+  // Los cuatro videos de introducción viajan dentro de la app, en `/videos/`,
+  // y no por el CMS. Sin esta línea el worker no los enruta: se volverían a
+  // descargar cada vez —9 MB el de bienvenida, con datos de la docente— y no
+  // habría forma de verlos sin conexión. No entran en el precache porque son
+  // 22 MB que nadie debe descargar antes de poder abrir la app: se guardan la
+  // primera vez que alguien los reproduce.
+  if (url.pathname.startsWith('/videos/')) return true;
+
   return STORAGE_HOSTS.some((re) => re.test(url.hostname)) && !isSigned(url);
 }
 

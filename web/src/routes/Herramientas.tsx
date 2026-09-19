@@ -1,8 +1,7 @@
-import { useState } from 'react';
 import { CacheAgeNote, ContentState } from '@/components/ContentState';
 import { DownloadableMediaItem, MediaList } from '@/components/DownloadableMediaItem';
 import { Masthead } from '@/components/Masthead';
-import { MediaViewer } from '@/components/MediaViewer';
+import { VideoPlaceholder } from '@/components/VideoPlaceholder';
 import { api } from '@/lib/api';
 import { cacheKeys } from '@/lib/cache-keys';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
@@ -19,8 +18,6 @@ export default function Herramientas() {
     () => api.screenIntros.get('tools'),
     [],
   );
-  const videoUrl = intro?.video.url ?? null;
-  const [videoOpen, setVideoOpen] = useState(false);
 
   return (
     <div className="page">
@@ -33,23 +30,17 @@ export default function Herramientas() {
 
       <CacheAgeNote status={status} ageMs={ageMs} />
 
-      {videoUrl ? (
-        <button
-          onClick={() => setVideoOpen(true)}
-          style={{ position: 'relative', width: '100%', borderRadius: 20, overflow: 'hidden', background: '#1E7E78', minHeight: 150, textAlign: 'left', marginBottom: 16, border: 'none', cursor: 'pointer' }}>
-          <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,rgba(13,60,57,.15),rgba(13,60,57,.78))' }} />
-          <span style={{ position: 'absolute', top: 18, right: 24, fontSize: 82, opacity: 0.22 }}>🧰</span>
-          <span style={{ position: 'absolute', left: 24, bottom: 20, right: 24, color: '#fff' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,255,255,.92)', color: '#1E7E78', fontSize: 17, marginBottom: 10 }}>▶</span>
-            <span style={{ display: 'block', fontFamily: 'var(--font-serif)', fontSize: 19 }}>Cómo usar los recursos disponibles</span>
-            <span style={{ display: 'block', fontSize: 12.5, opacity: 0.85, marginTop: 2 }}>Video de introducción · ~1 min</span>
-          </span>
-        </button>
-      ) : null}
+      {/* Introducción del documento de estructura. */}
+      <div style={{ borderRadius: 24, padding: 'clamp(20px, 6vw, 32px)', background: '#fff', border: '1px solid var(--border)', marginBottom: 16 }}>
+        <p style={{ fontSize: 15.5, lineHeight: 1.7, color: 'var(--text-body)' }}>
+          Encuentra materiales prácticos para implementar la metodología ExplorArte y fortalecer el
+          bienestar emocional en tu comunidad educativa.
+        </p>
+      </div>
 
-      {videoOpen && intro?.video ? (
-        <MediaViewer item={intro.video} onClose={() => setVideoOpen(false)} />
-      ) : null}
+      <div style={{ marginBottom: 16 }}>
+        <VideoPlaceholder caption="Cómo utilizar los recursos disponibles" video={intro?.video ?? null} duration="44 s" fallbackUrl="/videos/herramientas.mp4" />
+      </div>
 
       {tools ? (
         <>
