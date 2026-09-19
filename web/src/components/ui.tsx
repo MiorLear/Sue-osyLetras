@@ -2,6 +2,30 @@ import { useEffect, useId, useRef, useState, type InputHTMLAttributes, type Reac
 import { searchPlaces } from '@explorarte/shared';
 import { Icon, type IconName } from './Icon';
 
+/**
+ * El aviso de que algo salió mal, donde la persona está mirando.
+ *
+ * Vive aquí y no dentro de una pantalla porque las dos de autenticación lo
+ * necesitan por el mismo motivo. En Login: "antes de esto ninguna llamada de
+ * esta pantalla tenía .catch, así que una contraseña incorrecta era una promesa
+ * rechazada sin capturar: el botón no hacía nada y no se decía nada". En
+ * Registro pasaba exactamente lo mismo con el botón de "Crear cuenta", que es
+ * el último del alta y el que más caro sale en silencio.
+ *
+ * `role="alert"` para que un lector de pantalla lo anuncie: quien no ve el
+ * recuadro rojo se quedaría igual de a oscuras que antes.
+ */
+export function ErrorNote({ message }: { message: string | null }) {
+  if (!message) return null;
+  return (
+    <div
+      role="alert"
+      style={{ padding: '10px 12px', borderRadius: 11, background: '#FFF5F5', border: '1px solid #FED7D7', fontSize: 12.5, color: '#C53030' }}>
+      {message}
+    </div>
+  );
+}
+
 export function PrimaryButton({
   label,
   onClick,
