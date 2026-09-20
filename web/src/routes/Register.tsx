@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError } from '@explorarte/shared';
 import { useSchools } from '@/lib/useSchools';
@@ -10,7 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { OtpInput } from './Login';
 import { describeAuthError } from '@/lib/auth-errors';
-import { confirmPhoneCode, requestPhoneCode, startGoogleSignIn } from '@/lib/firebase-auth';
+import { confirmPhoneCode, finishGoogleSignIn, requestPhoneCode, startGoogleSignIn } from '@/lib/firebase-auth';
 import { activateWaitingServiceWorker, refreshServiceWorkerForAuthScreen } from '@/lib/sw-activate';
 import type { ConfirmationResult } from 'firebase/auth';
 
@@ -95,10 +95,47 @@ export default function Register() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Igual que en Login: un service worker anterior al denylist de `/__/` rompe
-  // el popup de Google, y aquí tampoco hay trabajo que se pueda perder.
+  /** Con el token de Google resuelto, solo falta quién es: nombre e institución. */
+  const seguirConGoogle = (idToken: string) => {
+    setFirebaseToken(idToken);
+    setMethod('google');
+    setStep(2);
+  };
+
+  // Igual que en Login, y con el mismo orden por el mismo motivo: primero se
+  // recoge la vuelta de Google, porque `refreshServiceWorkerForAuthScreen`
+  // puede recargar la página y el resultado de una redirección se lee una sola
+  // vez. Ese relevo existe porque un worker anterior al denylist de `/__/`
+  // rompe el acceso con Google, y aquí tampoco hay trabajo que se pueda perder.
+  //
+  // Al volver, la pantalla queda en el paso 2 — exactamente donde la habría
+  // dejado el popup. No hace falta guardar nada entre una página y otra porque
+  // ese paso empieza vacío: lo que se escribió antes, si acaso, fue el correo,
+  // y por Google no se pide.
+  const arrancado = useRef(false);
   useEffect(() => {
-    void refreshServiceWorkerForAuthScreen();
+    if (arrancado.current) return;
+    arrancado.current = true;
+    void (async () => {
+      let idToken: string | null = null;
+      try {
+        idToken = await finishGoogleSignIn();
+      } catch (err) {
+        console.error('[registro] vuelta de google', err);
+        const display = describeAuthError(err);
+        // Un aviso fijo y no un toast: esto ocurre al cargar la página, cuando
+        // nadie está mirando todavía, y un mensaje que se va solo en dos
+        // segundos deja un alta detenida sin explicación.
+        if (display?.kind !== 'silent') {
+          setError(display?.message ?? 'No pudimos conectar con Google. Intenta de nuevo.');
+        }
+      }
+      if (!idToken) {
+        void refreshServiceWorkerForAuthScreen();
+        return;
+      }
+      seguirConGoogle(idToken);
+    })();
   }, []);
 
   // Los registros ya no necesitan aprobación: la cuenta queda activa y entra
@@ -132,6 +169,9 @@ export default function Register() {
   const back = () => {
     if (step === 0) navigate('/login');
     else if (step === 1) { setStep(0); setMethod(null); }
+    // Con Google no hay paso 1 que pintar —la credencial se resolvió fuera—,
+    // así que volver ahí dejaba una pantalla vacía sin nada que pulsar.
+    else if (method === 'google') { setStep(0); setMethod(null); setFirebaseToken(null); }
     else setStep(1);
   };
 
@@ -140,9 +180,11 @@ export default function Register() {
       try {
         // Corto y sin red: el permiso para abrir el popup sobrevive a la espera.
         await activateWaitingServiceWorker({ timeoutMs: 400 });
-        setFirebaseToken(await startGoogleSignIn());
-        setMethod('google');
-        setStep(2);
+        const google = await startGoogleSignIn();
+        // La pestaña se va a Google. Al volver, el efecto de arranque recoge el
+        // token y deja la pantalla en el paso 2, igual que llegaría por aquí.
+        if (google.kind === 'redirecting') return;
+        seguirConGoogle(google.idToken);
       } catch (err) {
         console.error('[registro] google', err);
         const display = describeAuthError(err);

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError, type AuthResult, type UserStatus } from '@explorarte/shared';
 import { GoogleIcon, Icon } from '@/components/Icon';
@@ -7,7 +7,7 @@ import { ErrorNote, Field, PrimaryButton } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 import { api, usingMock } from '@/lib/api';
 import { describeAuthError } from '@/lib/auth-errors';
-import { confirmPhoneCode, requestPhoneCode, startGoogleSignIn } from '@/lib/firebase-auth';
+import { confirmPhoneCode, finishGoogleSignIn, requestPhoneCode, startGoogleSignIn } from '@/lib/firebase-auth';
 import { activateWaitingServiceWorker, refreshServiceWorkerForAuthScreen } from '@/lib/sw-activate';
 import type { ConfirmationResult } from 'firebase/auth';
 
@@ -106,13 +106,43 @@ export default function Login() {
     setError(messageFor(err));
   }, [showPendingScreen]);
 
-  // Un service worker anterior al denylist de `/__/` responde el popup de
-  // Firebase con el shell de la app y rompe el login con Google. Aquí no hay
-  // trabajo sin guardar, así que se puede forzar el relevo sin preguntar; el
-  // resto de la app sigue esperando a que la usuaria pulse "Actualizar".
+  // Dos cosas en el arranque, y el orden entre ellas no es indiferente.
+  //
+  // Primero se recoge la vuelta de Google, porque es la única oportunidad: la
+  // página que lanzó la redirección ya no existe y el resultado se lee una vez.
+  // `refreshServiceWorkerForAuthScreen` puede llamar a `location.reload()`, y
+  // una recarga antes de leerlo tiraría el token sin dejar rastro.
+  //
+  // Ese relevo del worker existe porque uno anterior al denylist de `/__/`
+  // responde las páginas de Firebase con el shell de la app y rompe el acceso
+  // con Google. Aquí no hay trabajo sin guardar, así que se puede forzar sin
+  // preguntar; el resto de la app sigue esperando a que la usuaria pulse
+  // "Actualizar".
+  const arrancado = useRef(false);
   useEffect(() => {
-    void refreshServiceWorkerForAuthScreen();
-  }, []);
+    if (arrancado.current) return;
+    arrancado.current = true;
+    void (async () => {
+      let idToken: string | null = null;
+      try {
+        idToken = await finishGoogleSignIn();
+      } catch (err) {
+        failed(err);
+      }
+      if (!idToken) {
+        // Sin nada pendiente que perder, ahora sí.
+        void refreshServiceWorkerForAuthScreen();
+        return;
+      }
+      setGoogleLoading(true);
+      try {
+        await enter(await api.auth.firebase({ idToken }));
+      } catch (err) {
+        failed(err);
+        setGoogleLoading(false);
+      }
+    })();
+  }, [enter, failed]);
 
   const signInWithGoogle = async () => {
     setError(null);
@@ -120,11 +150,14 @@ export default function Login() {
     try {
       // Corto y sin red: el permiso para abrir el popup sobrevive a la espera.
       await activateWaitingServiceWorker({ timeoutMs: 400 });
-      const idToken = await startGoogleSignIn();
-      await enter(await api.auth.firebase({ idToken }));
+      const google = await startGoogleSignIn();
+      // La pestaña se va a Google y esta página deja de existir. El botón se
+      // queda en "Conectando..." a propósito: apagarlo sería prometer que algo
+      // volvió cuando lo que viene es una navegación.
+      if (google.kind === 'redirecting') return;
+      await enter(await api.auth.firebase({ idToken: google.idToken }));
     } catch (err) {
       failed(err);
-    } finally {
       setGoogleLoading(false);
     }
   };

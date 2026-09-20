@@ -32,11 +32,13 @@ vi.mock('@/components/ui', async (importOriginal) => {
   return { ...real, SelectOrAdd: campo, LocationAutocomplete: campo };
 });
 
-vi.mock('@/lib/firebase-auth', () => ({
+const firebase = vi.hoisted(() => ({
   startGoogleSignIn: vi.fn(),
+  finishGoogleSignIn: vi.fn(),
   requestPhoneCode: vi.fn(),
   confirmPhoneCode: vi.fn(),
 }));
+vi.mock('@/lib/firebase-auth', () => firebase);
 
 vi.mock('@/lib/sw-activate', () => ({
   activateWaitingServiceWorker: vi.fn().mockResolvedValue(undefined),
@@ -71,6 +73,9 @@ beforeEach(() => {
   api.auth.register.mockReset();
   api.auth.firebase.mockReset();
   signIn.mockReset();
+  firebase.startGoogleSignIn.mockReset();
+  // Lo normal en cada carga: no hay ninguna redirección esperando.
+  firebase.finishGoogleSignIn.mockReset().mockResolvedValue(null);
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
 });
 
@@ -167,5 +172,69 @@ describe('<Register /> · cuando el servidor rechaza el alta', () => {
 
     await waitFor(() => expect(signIn).toHaveBeenCalled());
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
+/**
+ * La vuelta de una redirección de Google.
+ *
+ * En un navegador embebido —abrir el enlace desde WhatsApp— el popup no se
+ * puede abrir, así que la pestaña se va a Google y vuelve con la página
+ * recargada de cero. Lo que se prueba aquí es que el alta continúa donde la
+ * habría dejado el popup, y no en la pantalla de elegir método.
+ */
+describe('<Register /> · al volver de Google', () => {
+  it('sigue en el paso de los datos personales, no en el de elegir método', async () => {
+    firebase.finishGoogleSignIn.mockResolvedValue('token-de-google');
+
+    render(
+      <MemoryRouter>
+        <Register />
+      </MemoryRouter>,
+    );
+
+    // El paso 3 pide quién es; el token ya está resuelto y no se vuelve a pedir.
+    expect(await screen.findByLabelText('Nombre')).toBeTruthy();
+    expect(screen.queryByText('Correo y contraseña')).toBeNull();
+  });
+
+  it('el alta usa el token de la redirección, no el registro por correo', async () => {
+    firebase.finishGoogleSignIn.mockResolvedValue('token-de-google');
+    api.auth.firebase.mockResolvedValue({ token: 't', user: { id: 'u-1' } });
+
+    render(
+      <MemoryRouter>
+        <Register />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(await screen.findByLabelText('Nombre'), { target: { value: 'María' } });
+    fireEvent.change(screen.getByLabelText('Apellido'), { target: { value: 'García' } });
+    fireEvent.change(screen.getByLabelText('Institución'), { target: { value: 'Colegio San Francisco' } });
+    fireEvent.change(screen.getByLabelText('Ubicación'), { target: { value: 'San Salvador' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+
+    await waitFor(() => expect(api.auth.firebase).toHaveBeenCalled());
+    expect(api.auth.firebase.mock.calls[0][0]).toMatchObject({
+      idToken: 'token-de-google',
+      name: 'María',
+      institucion: 'Colegio San Francisco',
+    });
+    expect(api.auth.register).not.toHaveBeenCalled();
+  });
+
+  it('un fallo al volver se dice, y deja elegir otro método', async () => {
+    firebase.finishGoogleSignIn.mockRejectedValue(
+      Object.assign(new Error('nope'), { code: 'auth/account-exists-with-different-credential' }),
+    );
+
+    render(
+      <MemoryRouter>
+        <Register />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByText('Correo y contraseña')).toBeTruthy();
   });
 });
