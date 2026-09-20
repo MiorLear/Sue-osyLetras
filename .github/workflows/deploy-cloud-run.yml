@@ -1,0 +1,109 @@
+name: Deploy Cloud Run
+
+# El API se desplegaba a mano —`gcloud builds submit` y `gcloud run deploy`
+# copiados de DESPLIEGUE.md §6.1— y eso ya costó caro: el 19 de septiembre de
+# 2026 se mergeó el PR #170, Hosting se publicó solo, y Cloud Run se quedó
+# atrás. La PWA nueva hablaba con un API sin la migración que necesitaba, y las
+# descargas siguieron rotas hasta que alguien se acordó de desplegar la otra
+# mitad. El mismo día pasó con el #168.
+#
+# Espera a CI igual que el de Hosting, y por el mismo motivo: `push: [main]`
+# desplegaría en paralelo con los tests y publicaría justo lo que acaba de
+# romperse. Ojo con una diferencia que no tiene Hosting: aquí cada despliegue
+# corre las migraciones de Flyway al arrancar. Un arranque fallido deja la
+# revisión vieja sirviendo —Cloud Run no enruta tráfico a algo que no pasa el
+# health check— pero la migración a medias ya ocurrió.
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+# Nunca dos despliegues del API a la vez: los dos correrían Flyway contra la
+# misma base. `cancel-in-progress: false` porque cancelar uno a mitad es peor
+# que esperarlo.
+concurrency:
+  group: cloud-run-production
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: explorarte-6335b
+  REGION: us-east4
+  SERVICE: explorarte-api
+  REPO: explorarte
+
+jobs:
+  api:
+    name: Cloud Run (producción)
+    runs-on: ubuntu-latest
+    environment: production
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || github.event.workflow_run.conclusion == 'success'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # En `workflow_run` el checkout por defecto es la punta de la rama por
+          # defecto en este instante, que puede ser un commit posterior al que
+          # CI aprobó. Desplegar exactamente lo que se probó.
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+
+      - name: Autenticar en Google Cloud sin llave JSON
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      # Se construye aquí y no con `gcloud builds submit` para no depender de
+      # Cloud Build ni de su bucket de origen: el runner ya tiene Docker, y así
+      # la cuenta que despliega necesita un permiso menos.
+      - name: Construir la imagen
+        run: |
+          IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO/api:${{ github.sha }}"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          docker build --target prod -t "$IMAGE" api
+
+      - name: Publicar la imagen
+        run: |
+          gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+          docker push "$IMAGE"
+
+      # Sin más flags: `gcloud run deploy` sobre un servicio que ya existe
+      # conserva secretos, Cloud SQL, cuenta de servicio, escalado y variables.
+      # Volver a pasar la lista entera de DESPLIEGUE.md §6.1 es justo como se
+      # pierde una: esa sección llegó a dejar APP_CORS_ALLOWED_ORIGINS con un
+      # solo dominio.
+      - name: Desplegar la revisión
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --image "$IMAGE" \
+            --region "$REGION" \
+            --project "$PROJECT_ID" \
+            --quiet
+
+      # Cloud Run ya no enruta tráfico a una revisión que no arranca, pero eso
+      # sale como un despliegue "correcto" con la revisión vieja sirviendo. Esto
+      # lo convierte en un job rojo, que es lo que alguien mira.
+      - name: Comprobar que responde
+        run: |
+          set -o pipefail
+          for intento in 1 2 3 4 5; do
+            estado=$(curl -sf --max-time 30 https://explorarte.app/api/actuator/health \
+                      | python3 -c 'import sys,json; print(json.load(sys.stdin)["status"])' 2>/dev/null) && break
+            echo "intento $intento sin respuesta todavía"
+            sleep 10
+          done
+          echo "health: ${estado:-sin respuesta}"
+          test "$estado" = "UP"
+
+      - name: Qué quedó desplegado
+        run: |
+          gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT_ID" \
+            --format="value(status.traffic[0].revisionName)"
