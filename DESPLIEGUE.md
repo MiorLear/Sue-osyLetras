@@ -321,6 +321,18 @@ niega a arrancar si ese valor pudiera sobrevivir a la firma que entrega.
 
 ## 6. Desplegar
 
+> **Los dos van solos al mergear a `main`.** `.github/workflows/ci.yml` corre las
+> pruebas y, si quedan en verde, disparan `deploy-firebase-hosting.yml` y
+> `deploy-cloud-run.yml` por `workflow_run` sobre ese mismo commit. Lo de abajo
+> sigue siendo correcto y es lo que hay que usar para el primer despliegue, para
+> una vuelta atrás, o cuando haga falta cambiar una variable — pero en el día a
+> día no se toca.
+>
+> Se automatizó porque desplegar solo la mitad ya costó caro: el 19 de
+> septiembre de 2026 se mergeó el PR #170, Hosting se publicó solo y Cloud Run se
+> quedó atrás, así que la PWA nueva habló con un API sin la migración que
+> necesitaba y las descargas siguieron rotas hasta que alguien se acordó.
+
 ### 6.1 Backend → Cloud Run
 
 ```bash
