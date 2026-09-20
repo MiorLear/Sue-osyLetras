@@ -11,7 +11,7 @@ describe('isMediaUrl', () => {
   it.each([
     `${APP}/api/posts`,
     `${APP}/api/media/upload`,
-    'https://explorarte-api.onrender.com/api/profile',
+    'https://otro-origen.example/api/profile',
   ])('nunca casa con la API: %s', (url) => {
     expect(isMediaUrl(url)).toBe(false);
   });
@@ -19,7 +19,7 @@ describe('isMediaUrl', () => {
   it('casa la ruta canónica /media/** en cualquier origen', () => {
     expect(isMediaUrl(`${APP}/media/tools/manual.pdf`)).toBe(true);
     expect(isMediaUrl('https://explorarte-prod.web.app/media/posts/foto.jpg')).toBe(true);
-    expect(isMediaUrl('https://explorarte-api.onrender.com/media/x')).toBe(true);
+    expect(isMediaUrl('https://otro-origen.example/media/x')).toBe(true);
   });
 
   it('casa los videos de introducción que viajan con la app', () => {
@@ -62,7 +62,7 @@ describe('isSameOriginMedia', () => {
 
   it('no para otro origen, aunque sea un medio válido', () => {
     expect(isSameOriginMedia('https://storage.googleapis.com/m/a.pdf', APP)).toBe(false);
-    expect(isSameOriginMedia('https://explorarte-api.onrender.com/media/a.pdf', APP)).toBe(false);
+    expect(isSameOriginMedia('https://otro-origen.example/media/a.pdf', APP)).toBe(false);
   });
 
   it('no para lo que no es un medio, aunque sea del propio origen', () => {

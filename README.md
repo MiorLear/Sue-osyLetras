@@ -9,7 +9,7 @@ Construida con **Expo SDK 54**, **Expo Router** (navegación por archivos), **re
 >
 > 🧭 **¿Ya lo tienes corriendo y quieres saber cómo trabajamos como equipo?** Ve a
 > [`COMO-TRABAJAMOS.md`](./COMO-TRABAJAMOS.md) (arquitectura, cómo agregar una funcionalidad,
-> convenciones). Para el despliegue —producción en Google Cloud, staging en Render— ve a
+> convenciones). Para el despliegue —producción en Google Cloud— ve a
 > [`DESPLIEGUE.md`](./DESPLIEGUE.md), que es el runbook único. Para cómo funciona el acceso sin
 > internet a documentos y videos descargados, ve a [`OFFLINE.md`](./OFFLINE.md).
 
@@ -87,30 +87,6 @@ Tanto mobile como web soportan además `EXPO_PUBLIC_API_MOCK_MODULES` /
 (`auth,emotions,posts,events,learning,tools,profile,misc,admin`) que se
 quedan en el mock aunque la URL de la API esté configurada — útil para seguir
 trabajando en una pantalla sin depender de que esa parte de la API ya esté lista.
-
-## Entorno compartido en Render (desarrollo/staging)
-
-El repo incluye un **blueprint** [`render.yaml`](./render.yaml) que publica el
-backend real más dos sitios estáticos en [Render](https://render.com):
-
-| Servicio | Origen | Qué es |
-|-------|--------|--------|
-| `explorarte-api` | `/api` (Docker) | La API Java real, contra una Postgres persistente |
-| `explorarte-web` | `/web` (Vite + React) | Vista **web de escritorio** (sidebar, multi-columna) |
-| `explorarte-mobile` | raíz (Expo web export) | Vista **mobile** en el navegador |
-
-Los dos sitios apuntan a la API real vía `VITE_API_URL` / `EXPO_PUBLIC_API_URL`, que
-`render.yaml` ya configura — **no corren contra el mock**, aunque este README lo dijera antes.
-
-**Publicar:** en Render → **New → Blueprint** → conecta este repositorio. Render
-detecta `render.yaml` y crea todo automáticamente. Cada push a la rama
-re-despliega; los Pull Requests generan previews.
-
-> **Esto es desarrollo/staging, no producción.** Producción va en Google Cloud (Firebase Hosting +
-> Cloud Run + Cloud SQL). El runbook único es [`DESPLIEGUE.md`](./DESPLIEGUE.md).
->
-> Las credenciales de este entorno no se publican; pídelas por un canal privado. Y es plan
-> gratuito: tras un rato sin uso, el primer request puede tardar **más de 90 segundos**.
 
 ## Estructura
 

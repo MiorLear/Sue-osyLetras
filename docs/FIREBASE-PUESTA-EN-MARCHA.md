@@ -28,7 +28,6 @@ No sustituye el runbook técnico: fija los identificadores ya decididos y evita 
 - La PWA usa `VITE_API_URL=/api` en producción.
 - Hosting reenvía `/api/**` y `/media/**` a Cloud Run `explorarte-api` en `us-east4`, junto a Cloud SQL.
 - Firebase conserva la ruta original; `ApiPrefixFilter` elimina `/api` antes de Spring MVC.
-- Render sigue siendo staging y puede conservar su `VITE_API_URL` explícita.
 - No se versionan llaves JSON. GitHub Actions usa Workload Identity Federation.
 
 ## Orden seguro del primer despliegue

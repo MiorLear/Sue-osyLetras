@@ -122,32 +122,17 @@ Esto abre una pantalla en la terminal con un **código QR**. Tienes tres formas 
 ### Por defecto, mobile usa datos de ejemplo (no la API real)
 
 Así puedes empezar a ver la app de inmediato sin depender de que el backend esté corriendo.
-Hay dos formas de conectarlo a datos reales — la primera no requiere que tengas nada corriendo
-en tu computadora:
+Para conectarlo a datos reales, levanta el backend en tu máquina.
 
-#### Opción A (recomendada): usar la API compartida del equipo en Render
+> **Aquí había una "Opción A": una API compartida del equipo en Render, para no depender de Docker
+> ni de tu Wi-Fi.** Se retiró el 20 de septiembre de 2026. Existía por la app móvil, y al quedar
+> todo en la PWA dejó de tener sentido mantener un segundo backend, con su propia base de datos y
+> sus 90 s de arranque en frío. Si lo que quieres es ver datos reales sin montar nada, abre
+> [explorarte.app](https://explorarte.app) — pero eso es producción, con las docentes dentro.
 
-El equipo tiene una API ya desplegada en Render con una URL fija — no necesitas Docker
-corriendo en tu laptop ni preocuparte por tu red Wi-Fi. Solo edita tu `.env`:
+#### Usar tu propio backend local (Docker)
 
-```
-EXPO_PUBLIC_API_URL=https://explorarte-api.onrender.com
-```
-
-> **Las credenciales de este backend compartido no se publican aquí.** Este repositorio es público
-> y antes había una contraseña de ADMIN escrita en este mismo párrafo (SEC-02). Pídesela a alguien
-> del equipo por un canal privado. Puede que ni siquiera existan cuentas de ejemplo: si
-> `SEED_USER_PASSWORD` no está configurada en el dashboard de Render, el seeder no crea ninguna.
->
-> ⚠️ Es un plan gratuito de Render: si nadie lo usó en un rato, el primer request puede tardar
-> **más de 90 segundos** en responder (se estaba "durmiendo"). Está medido — no son los 30-60 s
-> que decía esta guía antes. Es normal, solo espera. Producción va en Cloud Run justamente para no
-> tener esto; ver [`DESPLIEGUE.md`](./DESPLIEGUE.md), "Arranque en frío: los números".
-
-#### Opción B: usar tu propio backend local (Docker)
-
-Si prefieres correr tu propio backend (por ejemplo, para probar cambios que aún no subiste),
-sigue el paso 2 de arriba y edita `.env` con tu **IP local**:
+Sigue el paso 2 de arriba y edita `.env` con tu **IP local**:
 
 ```
 EXPO_PUBLIC_API_URL=http://TU-IP-LOCAL:8000
@@ -163,12 +148,11 @@ EXPO_PUBLIC_API_URL=http://TU-IP-LOCAL:8000
 Después de editar `.env`, para que el cambio se aplique detén `npm start` (Ctrl+C) y vuelve a
 correrlo.
 
-##### Si tu teléfono no puede llegar a tu IP local (Opción B)
+##### Si tu teléfono no puede llegar a tu IP local
 
 A veces el firewall de Windows bloquea conexiones entrantes al puerto 8000 aunque el teléfono
-esté en la misma Wi-Fi (te va a salir `Network request failed` en la app). Antes de pelear con
-esto, considera si la **Opción A** (Render) ya te resuelve el problema — es la razón por la que
-existe. Si de verdad necesitas tu backend local:
+esté en la misma Wi-Fi (te va a salir `Network request failed` en la app). Desde que no hay
+backend compartido, esto hay que resolverlo:
 
 1. **Abrir el puerto en el firewall, solo para ti (Windows)** — doble clic en
    [`scripts/setup-windows-firewall.cmd`](./scripts/setup-windows-firewall.cmd). Te va a pedir
