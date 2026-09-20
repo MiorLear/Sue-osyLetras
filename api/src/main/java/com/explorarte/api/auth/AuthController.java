@@ -93,8 +93,11 @@ public class AuthController {
         final FirebaseToken token;
         try {
             token = firebaseAuth.verifyIdToken(input.idToken(), true);
-        } catch (FirebaseAuthException | IllegalArgumentException ex) {
+        } catch (IllegalArgumentException ex) {
+            log.warn("Token de Firebase con forma inválida: {}", ex.getMessage());
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Firebase token");
+        } catch (FirebaseAuthException ex) {
+            throw verificationFailure(ex);
         }
 
         String email = clean(token.getEmail());
@@ -113,6 +116,43 @@ public class AuthController {
             schoolService.addIfNew(user.getInstitucion());
         }
         return authResult(user);
+    }
+
+    /**
+     * Traduce un fallo de verificación a la respuesta que toca.
+     *
+     * <p>{@code verifyIdToken(_, true)} pide comprobar la revocación, y eso es
+     * una llamada autenticada a Identity Toolkit. Si a la cuenta con la que
+     * corre el servicio le falta el rol de Firebase Authentication, esa llamada
+     * lanza y con ella se caen TODOS los tokens, los buenos también: no es una
+     * credencial mala, es la instalación rota.
+     *
+     * <p>Devolver eso como 401 tenía una consecuencia que no se ve desde aquí:
+     * el cliente lo trata como sesión inválida, borra el token y salta a
+     * {@code /login} (ver {@code onUnauthorized} en {@code web/src/lib/api.ts}).
+     * Un alta con Google a medio llenar se perdía entera, y la persona acababa
+     * en el login probando una contraseña que su cuenta nunca tuvo, porque las
+     * cuentas creadas con Google reciben una aleatoria.
+     *
+     * <p>El SDK solo rellena {@code AuthErrorCode} cuando el problema es del
+     * token —caducado, revocado, mal firmado—. Un permiso que falta, una red
+     * caída o un 5xx de Google llegan con ese campo vacío y el motivo en
+     * {@code ErrorCode}. Esa es la línea que separa las dos respuestas.
+     *
+     * <p>Y en los dos casos se registra: hasta ahora el {@code catch} se comía
+     * la excepción, así que una caída total del acceso con Google no dejaba una
+     * sola línea en los logs.
+     */
+    static ResponseStatusException verificationFailure(FirebaseAuthException ex) {
+        if (ex.getAuthErrorCode() == null) {
+            log.error("No se pudo verificar el token de Firebase ({}). Revisa que la cuenta de"
+                    + " servicio de Cloud Run tenga un rol de Firebase Authentication.",
+                    ex.getErrorCode(), ex);
+            return new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "No se pudo verificar la identidad. Intenta de nuevo en un momento.");
+        }
+        log.warn("Token de Firebase rechazado: {}", ex.getAuthErrorCode());
+        return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Firebase token");
     }
 
     private User createFirebaseUser(FirebaseToken token, String email, String phone, FirebaseAuthInput input) {
