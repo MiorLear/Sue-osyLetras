@@ -152,9 +152,11 @@ despliegues; ver [`DESPLIEGUE.md`](./DESPLIEGUE.md) §6.
 
 ## 6. Gaps conocidos (para no fingir que no existen)
 
-- **El acceso con Google solo usa `signInWithPopup`.** No hay `signInWithRedirect` en ninguna parte
-  del repositorio, y en los navegadores embebidos —abrir el enlace desde WhatsApp, que es como le
-  llega a mucha gente— los popups se bloquean. Está documentado con detalle en el issue #172.
+- **La redirección de Google no cubre el WebView que no dice nada.** Desde el #172, un popup
+  bloqueado cae a `signInWithRedirect`, pero eso solo funciona cuando el navegador *avisa* con
+  `auth/popup-blocked`. Un WebView que abre la ventana y nunca devuelve el control no lanza ningún
+  error, así que no hay nada que detectar. Si aparecen reportes de ese caso, la salida sería un
+  tiempo de espera, con el riesgo de mandar a Google a quien simplemente tardó en decidir.
 - **Contenido que falta en el CMS.** De las 43 actividades de producción, 10 tienen solo el título:
   su texto no traía etiquetas de las que sacar propósito, duración o materiales, y rellenarlas sería
   inventar material pedagógico. Y la tabla de videos de introducción está vacía, así que se ven los

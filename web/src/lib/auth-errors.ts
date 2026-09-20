@@ -33,8 +33,16 @@ const CANCELLED = new Set([
 
 const MESSAGES: Record<string, string> = {
   // Google (ventana emergente).
+  // Desde que hay redirección de respaldo, este código casi no se ve: un popup
+  // bloqueado manda la pestaña a Google en vez de fallar. Queda para cuando
+  // tampoco la redirección es posible.
   'auth/popup-blocked':
     'Tu navegador bloqueó la ventana de Google. Permite las ventanas emergentes para explorarte.app, o abre la app en Chrome o Safari, e intenta de nuevo.',
+
+  // Sale cuando alguien añade un dominio y olvida autorizarlo en Firebase. Sin
+  // mapear caía en el mensaje genérico, que manda a mirar la conexión.
+  'auth/unauthorized-domain':
+    'Este sitio no está autorizado para entrar con Google. Avísanos: es algo que tenemos que arreglar nosotros.',
 
   // Teléfono. El código y el número son cosas distintas, y confundirlos manda a
   // la usuaria a corregir lo que ya estaba bien.
