@@ -1,14 +1,18 @@
 # Despliegue — runbook único
 
-**Producción es Google Cloud. Render es desarrollo/staging.** Esas dos frases son la respuesta a
-MAINT-15 y este documento es la fuente autoritativa; si algo en otro archivo las contradice, lo
-que está mal es el otro archivo.
+**Producción es Google Cloud, y ya no hay más entornos desplegados.** Este documento es la fuente
+autoritativa; si algo en otro archivo lo contradice, lo que está mal es el otro archivo.
+
+> **Render se retiró el 20 de septiembre de 2026.** Existía para que quien trabajaba en la app
+> móvil tuviera un backend compartido sin depender de Docker ni de su Wi-Fi. Al quedar todo en la
+> PWA ese motivo desapareció, y lo que quedaba era un plan gratuito que dormía 90 s, una base de
+> datos aparte con datos divergentes, y una copia más de la CSP que mantener. Las menciones que
+> siguen abajo son el registro de por qué producción está donde está, no instrucciones.
 
 | Entorno                  | Dónde                                                                 | Para qué                                                                                                                                                                                                                                   |
 | ------------------------ | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Producción**           | Firebase Hosting + Cloud Run + Cloud SQL + Cloud Storage for Firebase | Lo que usan las docentes. Dominio propio, sin límite de 30 días en la base, arranque en frío de segundos y no de minuto y medio.                                                                                                           |
-| **Desarrollo / staging** | Render (`render.yaml`) + Supabase Postgres                            | Backend compartido del equipo, para que mobile no dependa de túneles ni de que la laptop de alguien esté prendida (ver [`COMO-EMPEZAR.md`](./COMO-EMPEZAR.md)). **Se mantiene al día a propósito.** No está abandonado ni es aspiracional. |
-| **Local**                | `docker compose up`                                                   | Tu máquina.                                                                                                                                                                                                                                |
+| **Local**                | `docker compose up`                                                   | Tu máquina. Es el único entorno además de producción.                                                                                                                                                                                      |
 
 > **Estado actualizado:** existe el proyecto Blaze `explorarte-6335b` y su sitio Hosting
 > `https://explorarte-6335b.web.app`. Cloud Run, Cloud SQL, Storage y secretos deben verificarse
@@ -38,16 +42,16 @@ Lo que ya está en el código para que esto funcione sin tocar nada más:
   | Entorno        | `SPRING_DATASOURCE_URL`                                                                                                                  |
   | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
   | docker-compose | `jdbc:postgresql://db:5432/explorarte`                                                                                                   |
-  | Render         | _no se setea_ — se setea `DATABASE_URL` y `RenderDatabaseUrlEnvironmentPostProcessor` la traduce                                         |
   | Cloud SQL      | `jdbc:postgresql:///explorarte?cloudSqlInstance=<PROJECT>:<REGION>:<INSTANCE>&socketFactory=com.google.cloud.sql.postgres.SocketFactory` |
 
   La forma de Cloud SQL no lleva host ni puerto: el driver le entrega la conexión al socket
   factory, que abre el túnel TLS por su cuenta.
 
-  > ⚠️ **No setees `DATABASE_URL` en Cloud Run.** Tiene precedencia sobre `SPRING_DATASOURCE_URL`
-  > (`RenderDatabaseUrlEnvironmentPostProcessor` corre con `HIGHEST_PRECEDENCE`), así que una
-  > variable olvidada de una prueba anterior manda el tráfico de producción a la base de staging
-  > sin decir nada.
+  > `DATABASE_URL` ya no significa nada para la aplicación. La traducía un
+  > `EnvironmentPostProcessor` escrito para Render, que corría con `HIGHEST_PRECEDENCE` y por tanto
+  > le ganaba a `SPRING_DATASOURCE_URL`: una variable olvidada de una prueba anterior habría
+  > mandado el tráfico de producción a la base de staging sin decir nada. Se retiró junto con
+  > Render, y con él ese riesgo.
 
 - **GCP-04:** el almacenamiento ya es Cloud Storage, no Supabase. `SUPABASE_URL` y `SUPABASE_KEY`
   no existen como variables del backend.
@@ -150,8 +154,8 @@ fallido y el tráfico se queda en la revisión anterior — que en el primer des
 síntoma es un deploy que falla con "the user-provided container failed to start and listen on the
 port", y la causa está en los logs de arranque, no en el mensaje de Cloud Run.
 
-**`render.yaml:41-42` usa `JWT_SECRET: generateValue: true`. Eso no tiene equivalente en Cloud
-Run.** Render genera el valor al crear el servicio; Cloud Run no genera nada, hay que crear el
+**Cloud Run no genera secretos.** El `render.yaml` que existió hasta septiembre de 2026 usaba
+`JWT_SECRET: generateValue: true` y Render lo rellenaba al crear el servicio; aquí no, hay que crear el
 secreto antes y montarlo.
 
 ```bash
@@ -299,7 +303,7 @@ mismo servicio de Cloud Run que `/api/**` — **los dos, no uno en lugar del otr
 ```
 
 ✅ **Y su CSP ya lleva `https://storage.googleapis.com` en `img-src`, `media-src` y `connect-src`**,
-con la misma forma que el espejo de `render.yaml`. Una URL de medios responde 302 hacia Cloud
+Una URL de medios responde 302 hacia Cloud
 Storage, y **la CSP se aplica a la URL final de la redirección, no a la inicial**: sin esa entrada,
 las fotos de perfil y los videos se rompen en silencio — no hay error de red, solo una violación en
 la consola del navegador. Los `https://*.supabase.co` que hay hoy se pueden quitar cuando termine
@@ -402,7 +406,11 @@ Después: entrar a la web, hacer login con una cuenta real y subir un archivo de
 
 ## 7. Migrar los datos que ya existen
 
-Render/Supabase tiene datos reales. El orden importa.
+> **Hecho y cerrado.** Esta migración corrió una sola vez, cuando producción pasó de la Supabase
+> que usaba Render a Cloud SQL. Se conserva porque explica de dónde salieron los datos que hay hoy,
+> no porque quede algo que correr.
+
+La base de staging tenía datos reales. El orden importaba.
 
 ```bash
 # 1. Volcado de la base de staging. --no-owner y --no-acl porque los roles de
@@ -469,7 +477,7 @@ terminado.
 
 | Qué                                                              | Medición                                              | Origen                                                                                          |
 | ---------------------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Render, plan gratuito, primer request tras 15 min de inactividad | **más de 90 segundos** (timeout del test)             | Medido en la auditoría (SCALE-06). `render.yaml` documentaba "~30-60s" — ya está corregido ahí. |
+| Render, plan gratuito, primer request tras 15 min de inactividad | **más de 90 segundos** (timeout del test)             | Medido en la auditoría (SCALE-06). Es la razón por la que producción no se quedó ahí.           |
 | Tamaño del jar antes de este batch                               | 61,699,142 B (58.8 MB)                                | `mvn package` local                                                                             |
 | Tamaño del jar después                                           | 90,161,222 B (86.0 MB)                                | `mvn package` local                                                                             |
 | **Arranque del contenedor `prod` contra un Postgres limpio**     | **6.9 s** (`Started ApiApplication in 6.945 seconds`) | `docker run` local, 1 contenedor, incluye Flyway V1→V7                                          |
@@ -494,7 +502,7 @@ despliegue real:
 | Cloud Run, `min-instances=0`, sin `--cpu-boost` | ~10–20 s                           | Los 6.9 s medidos más el sandbox y menos CPU durante el arranque. |
 | Cloud Run, `min-instances=0`, con `--cpu-boost` | ~7–12 s                            | El flag ya está en el comando de §6.1.                            |
 | Cloud Run, `min-instances=1`                    | **~0 s**                           | Nunca hay arranque en frío para el primer usuario.                |
-| Render gratuito (hoy)                           | **>90 s medido**                   | El punto de comparación.                                          |
+| Render gratuito (el punto de partida)           | **>90 s medido**                   | El punto de comparación, ya retirado.                             |
 
 Es decir: incluso el peor caso de Cloud Run es entre **4 y 9 veces mejor** que lo que hay hoy. Pero
 `min-instances=0` **sí** parte de cero, así que el problema se reduce mucho y no desaparece.
@@ -534,21 +542,6 @@ de verdad, sin redeploy:
 ```bash
 gcloud run services update "$SERVICE" --region "$REGION" --min-instances=1
 ```
-
-### Mientras tanto, en Render
-
-Render se queda en el plan gratuito y por tanto se queda con sus 90 s. Dos mitigaciones que no
-cuestan dinero:
-
-- Un ping cada 10 minutos a `/actuator/health` (cron-job.org o similar) evita el dormido. Ojo: el
-  plan gratuito da 750 horas-instancia al mes y mantener un servicio despierto 24/7 consume 730, o
-  sea casi todo el presupuesto para un solo servicio.
-- Del lado del cliente, mostrar un estado explícito de "despertando el servidor" en vez de un
-  spinner genérico cuando la espera pasa de unos segundos. Eso es de otro lote (SCALE-06 depende de
-  PWA-1.2), pero es la mitad de la solución: 90 s con explicación se toleran, 90 s sin ella parecen
-  una app rota.
-
----
 
 ## 8.bis Qué se verificó de verdad, y qué encontró (GCP-07)
 
@@ -590,38 +583,8 @@ arrancaba en ningún entorno.
 
 Los tres están arreglados en este PR, y `ApplicationStartsTest` levanta ahora el contexto completo
 contra un Postgres real, así que los tres vuelven a aparecer como test rojo y no como despliegue
-fallido. El primero y el segundo rompían cualquier despliegue, incluido el de Render que está vivo
+fallido. El primero y el segundo rompían cualquier despliegue, incluido el de Render que existía
 hoy; el tercero rompía específicamente el primer despliegue en Cloud SQL.
-
----
-
-## 9. Render después de la migración
-
-Render sigue vivo como dev/staging y `render.yaml` se mantiene al día. Lo único que cambia con este
-batch es el almacenamiento: Render ya no sube a Supabase Storage.
-
-Render **no** corre dentro de Google Cloud, así que ADC no tiene un metadata server del que sacar
-credenciales. Hay que darle una key de service account explícita:
-
-```bash
-gcloud iam service-accounts create explorarte-render --display-name="Render staging"
-gcloud storage buckets add-iam-policy-binding "gs://$GCS_BUCKET_STAGING" \
-  --member="serviceAccount:explorarte-render@$PROJECT_ID.iam.gserviceaccount.com" \
-  --role=roles/storage.objectAdmin
-gcloud iam service-accounts keys create render-sa.json \
-  --iam-account="explorarte-render@$PROJECT_ID.iam.gserviceaccount.com"
-```
-
-El JSON se pega en la variable `GOOGLE_APPLICATION_CREDENTIALS_JSON` del dashboard de Render (ya
-declarada como `sync: false` en `render.yaml`) y se escribe a un archivo al arrancar, apuntando
-`GOOGLE_APPLICATION_CREDENTIALS` a él.
-
-> Esa key **sí** es material sensible, y es la única que sigue existiendo después de GCP-04. Existe
-> solo porque este entorno está fuera de Google Cloud. Dale únicamente `storage.objectAdmin` sobre
-> un bucket de staging, y rótala si alguien deja el equipo.
-
-Conviene un bucket aparte para staging: compartir el de producción significa que un admin probando
-en staging sube al mismo bucket que ven las docentes reales.
 
 ---
 

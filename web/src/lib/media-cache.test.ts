@@ -185,7 +185,7 @@ describe('media-cache · frescura (BUG-05)', () => {
   });
 
   it('sin metadatos del listado conserva la revalidación de una URL histórica', async () => {
-    const legacyUrl = 'https://explorarte-api.onrender.com/media/tools/manual.pdf';
+    const legacyUrl = 'https://otro-origen.example/media/tools/manual.pdf';
     fetchMock.mockResolvedValueOnce(fileResponse(100, { etag: '"v1"' }));
     await download('legacy', legacyUrl);
 

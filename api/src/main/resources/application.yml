@@ -6,8 +6,6 @@ spring:
     # GCP-01: one jar, three databases, no profile and no branch in the code —
     # only the value of this URL changes.
     #   docker-compose : jdbc:postgresql://db:5432/explorarte
-    #   Render         : DATABASE_URL is translated into these three properties
-    #                    by RenderDatabaseUrlEnvironmentPostProcessor
     #   Cloud SQL      : jdbc:postgresql:///explorarte
     #                      ?cloudSqlInstance=<PROJECT>:<REGION>:<INSTANCE>
     #                      &socketFactory=com.google.cloud.sql.postgres.SocketFactory

@@ -22,13 +22,15 @@ services:
     ports:
       - "${API_PORT:-8000}:8000"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-explorarte}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-explorarte}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-explorarte_dev_password}
-      # Si DATABASE_URL está definido en .env, el backend lo traduce y tiene
-      # PRECEDENCIA sobre los SPRING_DATASOURCE_* de arriba — así el stack local
-      # apunta a Supabase. Si está vacío, se usa el Postgres de Docker (servicio db).
-      DATABASE_URL: ${DATABASE_URL:-}
+      # Por defecto, el Postgres del propio compose. Para apuntar a otra base
+      # —una remota, la de alguien más— pon estas tres en tu .env y listo. Antes
+      # eso se hacía con DATABASE_URL, que un EnvironmentPostProcessor escrito
+      # para Render traducía a estas mismas tres propiedades; se retiró con
+      # Render, y con él la sorpresa de que una variable suelta le ganara a lo
+      # que dice este archivo.
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://db:5432/${POSTGRES_DB:-explorarte}}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-${POSTGRES_USER:-explorarte}}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-explorarte_dev_password}}
       # Sin valor por defecto a propósito (SEC-03): si JWT_SECRET no está en tu
       # .env, `docker compose up` falla con este mensaje en vez de arrancar la
       # API firmando con una clave que está publicada en el repo. Copia

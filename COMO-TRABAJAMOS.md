@@ -21,7 +21,6 @@ SueñosyLetras/
 |---|---|
 | Levantar el proyecto por primera vez | [`COMO-EMPEZAR.md`](./COMO-EMPEZAR.md) |
 | Entender el backend en Java (sin saber Java) | [`api/README.md`](./api/README.md) |
-| Conectar mobile a la API sin correr Docker local | [`COMO-EMPEZAR.md`](./COMO-EMPEZAR.md#opción-a-recomendada-usar-la-api-compartida-del-equipo-en-render) (API compartida en Render) |
 | Desplegar a producción (Firebase/Cloud Run) | [`DESPLIEGUE.md`](./DESPLIEGUE.md) |
 | Acceso offline a documentos/videos descargados | [`OFFLINE.md`](./OFFLINE.md) |
 | Ver qué endpoints existen y qué forma tienen | [`shared/openapi.yaml`](./shared/openapi.yaml) |
@@ -172,10 +171,9 @@ docker compose up --build
 | Entorno | Para qué | Dónde |
 |---|---|---|
 | **Docker (local)** | Cada dev trabaja en su propia máquina — backend + web + Postgres con `docker compose up --build`. Mobile corre con `npm start` fuera de Docker. | Tu laptop — ver [`COMO-EMPEZAR.md`](./COMO-EMPEZAR.md) |
-| **Render** | Backend + web compartidos del equipo, para probar contra datos reales (mobile de cualquiera, demos, QA) **sin tocar producción**. URL fija, no depende de que alguien tenga Docker corriendo. | `render.yaml` — ya desplegado, ver `COMO-EMPEZAR.md` (Opción A) |
-| **Firebase** | El entorno productivo real de la app (usuarios finales). Todavía no desplegado. | `web/firebase.json` + Cloud Run + Cloud SQL — plan completo en [`DESPLIEGUE.md`](./DESPLIEGUE.md) |
+| **Firebase** | El entorno productivo real, el que usan las docentes. | `web/firebase.json` + Cloud Run + Cloud SQL — runbook en [`DESPLIEGUE.md`](./DESPLIEGUE.md) |
 
-El código ya está preparado para moverse entre estos tres sin cambios: el backend lee toda su
-configuración de variables de entorno (nunca hardcodeada), respeta el `PORT` que inyecta Cloud
-Run, y tanto `render.yaml` como `web/firebase.json` ya están listos. Pasar de Render a Firebase
-para producción es una decisión del equipo (cuentas, presupuesto), no un cambio de código.
+Son dos, no tres: hubo un entorno compartido en Render y se retiró en septiembre de 2026 junto con
+la app móvil, que era su único motivo. El backend lee toda su configuración de variables de
+entorno, nunca hardcodeada, y respeta el `PORT` que inyecta Cloud Run, así que moverse entre local
+y producción no necesita ningún cambio de código.
