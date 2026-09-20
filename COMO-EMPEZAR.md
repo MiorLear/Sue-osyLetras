@@ -1,7 +1,7 @@
 # Cómo correr el proyecto en una computadora nueva (desde cero)
 
 Esta guía asume que **nunca has tocado este proyecto** y que estás en una computadora limpia.
-Sigue los pasos en orden — no necesitas saber Java, Docker ni Expo de antemano.
+Sigue los pasos en orden — no necesitas saber Java ni Docker de antemano.
 
 ---
 
@@ -13,7 +13,7 @@ Solo estas tres cosas (todas gratis, para Windows/Mac/Linux):
 |---|---|---|
 | **Git** | Descargar el código del repositorio | [git-scm.com](https://git-scm.com) |
 | **Docker Desktop** | Correr el backend (Java) + la web, sin instalar Java ni Postgres | [docker.com](https://www.docker.com/products/docker-desktop/) |
-| **Node.js 20** (ver `.nvmrc`) | Correr la app mobile (Expo) | [nodejs.org](https://nodejs.org) |
+| **Node.js 20** (ver `.nvmrc`) | Correr la PWA y sus tests fuera de Docker | [nodejs.org](https://nodejs.org) |
 
 Instala los tres, reinicia la computadora si el instalador lo pide, y ya puedes seguir.
 
@@ -91,108 +91,44 @@ Ver [`api/README.md`](./api/README.md) si quieres más detalle sobre el backend 
 
 ---
 
-## 3. Correr la app mobile (Expo)
+## 3. Trabajar en la PWA
 
-La app mobile **no** corre dentro de Docker — corre directo en tu computadora con Node, para
-que tu teléfono se pueda conectar por Wi-Fi al servidor de desarrollo.
+Con `docker compose up --build` corriendo ya tienes la PWA en http://localhost:5173, servida por
+Vite dentro de Docker y conectada a la API real. Para la mayoría del trabajo eso basta.
 
-En una terminal nueva (deja la de Docker corriendo):
+Si prefieres correrla fuera de Docker —recarga algo más rápida, y las herramientas de tu editor
+funcionando contra `web/`—:
 
 ```bash
-npm install
-npm start
+npm --prefix web run dev      # http://localhost:5173
 ```
 
-> ⚠️ **Este proyecto usa Expo SDK 54 a propósito** (no la versión más nueva). Las apps Expo Go
-> que se descargan de Play Store / App Store van un paso atrás de las versiones más recientes
-> del SDK — si alguien sube el proyecto a un SDK más nuevo, la mayoría del equipo va a ver el
-> error `Incompatible SDK version` al escanear el QR y no va a poder probar la app. Si en algún
-> momento hay que actualizar el SDK, primero confirma en [expo.dev/changelog](https://expo.dev/changelog)
-> qué versión ya está disponible en las tiendas para todos, y usa `npx expo install --fix`
-> después de cambiar la versión de `expo` en `package.json` (no edites cada paquete a mano).
+Y para probarla desde tu teléfono, abre esa misma URL cambiando `localhost` por la IP de tu PC en
+la Wi-Fi (`ipconfig` en Windows, Preferencias del Sistema → Red en Mac). Las dos máquinas tienen
+que estar en la misma red. Si no llega, casi siempre es el firewall de Windows bloqueando el puerto
+entrante: doble clic en [`scripts/setup-windows-firewall.cmd`](./scripts/setup-windows-firewall.cmd)
+—o `npm run setup:firewall`— lo resuelve, y solo afecta a tu máquina.
 
-Esto abre una pantalla en la terminal con un **código QR**. Tienes tres formas de verla:
+### Los tests
 
-- **En tu teléfono (lo más fácil):** instala la app **Expo Go** (búscala en App Store / Play
-  Store), ábrela y escanea el código QR. **Tu teléfono y tu computadora deben estar conectados
-  a la misma red Wi-Fi.**
-- **Emulador Android:** presiona `a` en la terminal (necesitas Android Studio ya configurado).
-- **En el navegador (vista rápida, no es 100% igual a mobile real):** presiona `w`.
-
-### Por defecto, mobile usa datos de ejemplo (no la API real)
-
-Así puedes empezar a ver la app de inmediato sin depender de que el backend esté corriendo.
-Para conectarlo a datos reales, levanta el backend en tu máquina.
-
-> **Aquí había una "Opción A": una API compartida del equipo en Render, para no depender de Docker
-> ni de tu Wi-Fi.** Se retiró el 20 de septiembre de 2026. Existía por la app móvil, y al quedar
-> todo en la PWA dejó de tener sentido mantener un segundo backend, con su propia base de datos y
-> sus 90 s de arranque en frío. Si lo que quieres es ver datos reales sin montar nada, abre
-> [explorarte.app](https://explorarte.app) — pero eso es producción, con las docentes dentro.
-
-#### Usar tu propio backend local (Docker)
-
-Sigue el paso 2 de arriba y edita `.env` con tu **IP local**:
-
-```
-EXPO_PUBLIC_API_URL=http://TU-IP-LOCAL:8000
+```bash
+npm --prefix web run test     # vitest
+npm --prefix web run e2e      # Playwright, contra el mock determinista
 ```
 
-> ⚠️ **No pongas `localhost`** — el teléfono no sabe qué es "localhost" en tu computadora.
-> Necesitas la IP de tu PC en la red Wi-Fi (algo como `192.168.1.23`). Para encontrarla:
-> - **Windows:** abre `cmd` y escribe `ipconfig`, busca "Dirección IPv4".
-> - **Mac:** Preferencias del Sistema → Red.
->
-> Si vas a probar en el navegador o un emulador en la misma máquina, `localhost` sí funciona.
+### Sobre la carpeta `src/`
 
-Después de editar `.env`, para que el cambio se aplique detén `npm start` (Ctrl+C) y vuelve a
-correrlo.
-
-##### Si tu teléfono no puede llegar a tu IP local
-
-A veces el firewall de Windows bloquea conexiones entrantes al puerto 8000 aunque el teléfono
-esté en la misma Wi-Fi (te va a salir `Network request failed` en la app). Desde que no hay
-backend compartido, esto hay que resolverlo:
-
-1. **Abrir el puerto en el firewall, solo para ti (Windows)** — doble clic en
-   [`scripts/setup-windows-firewall.cmd`](./scripts/setup-windows-firewall.cmd). Te va a pedir
-   permiso de administrador (una ventana de Windows, apretás "Sí") y configura todo solo — no
-   necesitas escribir ningún comando. Es seguro correrlo más de una vez.
-
-   Si prefieres la terminal: `npm run setup:firewall`.
-
-   Esto no afecta a nadie más del equipo — cada persona lo corre una vez en su propia máquina
-   si le hace falta. (Si el comando manual de PowerShell te sirve más:
-   `New-NetFirewallRule -DisplayName "ExplorArte API dev (8000)" -Direction Inbound -LocalPort 8000 -Protocol TCP -Action Allow -Profile Any`
-   — eso es exactamente lo que el script hace por ti.)
-
-2. **Un túnel público (ngrok/cloudflared)** — funciona desde cualquier red (hasta datos
-   móviles), sin tocar el firewall, pero es más trabajo que usar la Opción A:
-   ```bash
-   ngrok http 8000
-   ```
-   Te da una URL como `https://xxxx.ngrok-free.app` — ponla en `EXPO_PUBLIC_API_URL` en vez de
-   la IP local.
-
-   > ⚠️ **Esto expone tu API local a todo internet.** Antes de usar un túnel público, **cambia
-   > `JWT_SECRET` y `SEED_USER_PASSWORD` en tu `.env`** a valores random (no los que vienen en
-   > `.env.example`, que están documentados en este mismo README) — si no, cualquiera que
-   > encuentre la URL del túnel puede entrar como admin con la contraseña de ejemplo. Después de
-   > cambiarlos, resetea la base de datos (`docker compose down -v && docker compose up --build`)
-   > para que las cuentas de ejemplo se vuelvan a crear con la contraseña nueva. Cuando termines
-   > de probar, cierra el túnel (Ctrl+C) — no lo dejes corriendo.
+Ahí vive la app Expo/React Native original. **Ya no es lo que se publica** — el producto es la PWA.
+Sigue en el repositorio y sus tests siguen corriendo en CI, pero si acabas de llegar no necesitas
+instalar Expo Go ni Android Studio para trabajar en ExplorArte.
 
 ---
 
 ## Problemas comunes
 
-**Expo Go dice "Incompatible SDK version" al escanear el QR**
-Esto pasa cuando el proyecto usa una versión de Expo SDK más nueva que la que trae la app
-Expo Go que bajaste de Play Store/App Store (las tiendas van un paso atrás de los lanzamientos
-del SDK). No es que tengas una versión vieja — es que la tienda todavía no tiene la nueva.
-Este proyecto ya está fijado en **SDK 54**, que sí está disponible en ambas tiendas, así que
-si ves este error, probablemente tu `node_modules` está desactualizado: corre `npm install`
-de nuevo y vuelve a intentar `npm start`.
+**No veo la PWA en http://localhost:5173**
+Comprueba que `docker compose up --build` siga corriendo y sin errores en esa terminal. Si el
+contenedor `web` arrancó pero la página no carga, mira `npm run dev:stack:logs`.
 
 **"Docker Desktop no abre" / "no reconoce el comando `docker`"**
 Abre la aplicación Docker Desktop manualmente y espera a que el ícono de la ballena en la
@@ -212,11 +148,6 @@ docker compose up --build
 El `-v` borra también los datos guardados, así que la próxima vez que arranque, la API vuelve
 a precargar los datos de ejemplo desde cero.
 
-**El código QR de Expo no conecta con mi teléfono**
-Casi siempre es que el teléfono y la computadora no están en la misma red Wi-Fi, o que el
-firewall de Windows está bloqueando la conexión. Prueba conectando el teléfono a la misma red
-que la PC y desactivando temporalmente el firewall para confirmar.
-
 ---
 
 ## Resumen ultra-corto
@@ -225,9 +156,7 @@ que la PC y desactivando temporalmente el firewall para confirmar.
 git clone <URL-del-repositorio>
 cd SueñosyLetras
 cp .env.example .env
-docker compose up --build      # backend + web — déjalo corriendo
-
-# en otra terminal:
-npm install
-npm start                      # mobile — escanea el QR con Expo Go
+docker compose up --build      # API + PWA + base de datos
 ```
+
+Y abre http://localhost:5173.

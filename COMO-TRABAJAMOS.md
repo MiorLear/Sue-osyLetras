@@ -10,10 +10,11 @@ agregar una funcionalidad sin romper nada, y hacia dónde va el proyecto.
 
 ```
 SueñosyLetras/
-  src/              → App mobile (Expo Router). No corre en Docker.
-  web/              → App web de escritorio (Vite + React Router).
-  shared/           → El contrato de datos + cliente API. Lo usan mobile y web.
+  web/              → LA PWA. Es el producto: React 19 + Vite, en explorarte.app.
   api/              → Backend en Java (Spring Boot + PostgreSQL). Corre en Docker.
+  shared/           → El contrato de datos + cliente API. Lo usan la PWA y src/.
+  infra/            → Configuración de infraestructura versionada.
+  src/              → App Expo original. Ya no se publica.
   docker-compose.yml, .env.example  → Levantan db + api + web con un comando.
 ```
 
@@ -45,7 +46,7 @@ shared/openapi.yaml            ← la fuente de verdad de "qué forma tiene cada
 Las pantallas de mobile y web **nunca llaman `fetch` directamente** — siempre a través de
 `api.algo.metodo()` (ver `web/src/lib/api.ts` y `src/lib/api.ts`). Esto es lo que permite que
 cada pantalla decida, por módulo, si usa datos de mentira o la API real (ver
-`VITE_API_MOCK_MODULES` / `EXPO_PUBLIC_API_MOCK_MODULES` en `COMO-EMPEZAR.md`) sin cambiar una
+`VITE_API_MOCK_MODULES` / `EXPO_PUBLIC_API_MOCK_MODULES` en el `README.md`) sin cambiar una
 sola línea de la pantalla.
 
 ### Cómo agregar un endpoint nuevo (flujo completo)
@@ -117,60 +118,61 @@ otra convención de branches o de revisión, este es el lugar para actualizarla.
 
 ---
 
-## 5. Verificación antes de un PR (checklist rápido)
+## 5. Verificación antes de un PR
 
-No hay pipeline de CI todavía (ver sección de gaps abajo), así que esta verificación es manual:
+CI corre esto mismo en cada PR, en tres jobs — `API (Java 21)`, `JS/TS (Node 20)` y
+`Navegador real (Playwright)`. Correrlo antes ahorra la vuelta:
 
 ```bash
-# Backend
-cd api && ./mvnw -q compile
+# Backend — 169 tests, con Postgres embebido (no hace falta Docker)
+cd api && ./mvnw clean test
 
-# Shared
-cd shared && npm run build && npm run typecheck
+# Shared + PWA — 549 tests
+npm --prefix shared run build && npm --prefix shared run test
+npm --prefix web run test
+npm --prefix web run lint
+npm --prefix web run build
 
-# Web
-cd web && npm run build
-
-# Mobile
-npx tsc --noEmit -p tsconfig.json
-npx expo-doctor
+# Navegador real
+npm --prefix web run e2e
 
 # Todo junto (humo end-to-end)
 docker compose up --build
 # abre http://localhost:5173 y http://localhost:8000/swagger-ui.html
 ```
 
+> En Windows, `./mvnw` no encuentra Java si `JAVA_HOME` no está definida — y **sale con código 0**,
+> así que parece que los tests pasaron cuando no llegaron a correr. Comprueba que la salida traiga
+> `Tests run: N`.
+
+Los tres checks son obligatorios para mergear. En cuanto entran a `main`, CI dispara los dos
+despliegues; ver [`DESPLIEGUE.md`](./DESPLIEGUE.md) §6.
+
 ---
 
 ## 6. Gaps conocidos (para no fingir que no existen)
 
-- **No hay tests automatizados** — ni en el backend (JUnit) ni en el frontend (Vitest/Jest). Si
-  vas a agregar los primeros, lo más valioso ahorita sería: tests de los controllers del
-  backend (son los que tienen más lógica: likes por usuario, aprobación de roles, generación de
-  slugs de topics) y tests del `mock` client en `shared/` (para que web y mobile no diverjan del
-  contrato sin darse cuenta).
-- **No hay linter/formatter configurado a nivel de repo** — `npm run lint` en la raíz corre
-  `expo lint`, pero no hay convención impuesta para `web/` ni `api/` todavía.
-- **OTP y "olvidé mi contraseña" son stubs en el backend** (`api/src/main/java/com/explorarte/api/auth/AuthController.java`)
-  — no envían SMS/email real, solo loguean el código a consola. Hay que decidir un proveedor
-  real (Twilio, SendGrid, etc.) antes de ir a producción con ese flujo.
-- **El refactor de pantallas mobile a la API real es reciente** — vale la pena que alguien más
-  las pruebe a fondo contra el backend real (no solo el mock) antes de confiar 100% en ellas.
-- **CI/CD no existe** — ver [`DESPLIEGUE.md`](./DESPLIEGUE.md#posible-siguiente-paso-cicd) para
-  la idea de cómo se vería.
-- **Descarga offline de documentos/videos: la infraestructura ya existe, falta el contenido
-  real** — `src/lib/offlineStorage.ts` y `src/lib/useNetworkStatus.ts` ya funcionan, pero nadie
-  los usa todavía porque `ToolsContent.downloadables` sigue siendo solo texto, sin URLs de
-  archivos reales. Ver [`OFFLINE.md`](./OFFLINE.md) para el plan completo antes de construir la
-  UI de descarga.
+- **El acceso con Google solo usa `signInWithPopup`.** No hay `signInWithRedirect` en ninguna parte
+  del repositorio, y en los navegadores embebidos —abrir el enlace desde WhatsApp, que es como le
+  llega a mucha gente— los popups se bloquean. Está documentado con detalle en el issue #172.
+- **Contenido que falta en el CMS.** De las 43 actividades de producción, 10 tienen solo el título:
+  su texto no traía etiquetas de las que sacar propósito, duración o materiales, y rellenarlas sería
+  inventar material pedagógico. Y la tabla de videos de introducción está vacía, así que se ven los
+  cuatro que viajan con la app. Las dos cosas se resuelven desde `/admin`.
+- **`*.supabase.co` sigue en la CSP.** Quedó de cuando el almacenamiento era Supabase. Probablemente
+  ya no haga falta, pero quitarlo exige confirmar que no queda ninguna URL guardada apuntando ahí
+  —incluida `users.photo`, que no sale por ningún endpoint público—.
+- **La app Expo de `src/` sigue en el repositorio aunque ya no se publica.** Sus tests corren en CI y
+  su código comparte `shared/` con la PWA. Retirarla es una limpieza pendiente, no un accidente.
 
 ---
 
-## 7. Los tres entornos del proyecto
+
+## 7. Los dos entornos del proyecto
 
 | Entorno | Para qué | Dónde |
 |---|---|---|
-| **Docker (local)** | Cada dev trabaja en su propia máquina — backend + web + Postgres con `docker compose up --build`. Mobile corre con `npm start` fuera de Docker. | Tu laptop — ver [`COMO-EMPEZAR.md`](./COMO-EMPEZAR.md) |
+| **Docker (local)** | Cada dev trabaja en su propia máquina — backend + web + Postgres con `docker compose up --build`. | Tu laptop — ver [`COMO-EMPEZAR.md`](./COMO-EMPEZAR.md) |
 | **Firebase** | El entorno productivo real, el que usan las docentes. | `web/firebase.json` + Cloud Run + Cloud SQL — runbook en [`DESPLIEGUE.md`](./DESPLIEGUE.md) |
 
 Son dos, no tres: hubo un entorno compartido en Render y se retiró en septiembre de 2026 junto con

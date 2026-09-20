@@ -1,13 +1,15 @@
-# ExplorArte — Web
+# ExplorArte — la PWA
 
-Desktop web app for ExplorArte (Sueños y Letras), built with **Vite + React +
-TypeScript + React Router**. It mirrors the content of the 13 mobile screens but
-is laid out for **computers**: a persistent left **sidebar navigation**, full-width
-gradient banners, centered max-width content and responsive multi-column grids
-(the auth/onboarding screens are centered in a card). It shares types, design
-tokens and the API client with the mobile app via the sibling
-[`../shared`](../shared) package. It is responsive — below ~760px the sidebar
-collapses into a top bar.
+**Es el producto**, en producción en [explorarte.app](https://explorarte.app). Vite + React 19 +
+TypeScript + React Router, con `vite-plugin-pwa` para el service worker.
+
+Responsive de verdad, no una vista de escritorio: por encima de ~760px hay una barra lateral
+persistente y rejillas de varias columnas; por debajo, la barra se convierte en una superior y los
+módulos suben a pestañas. Lo que una docente descargue a propósito le funciona después sin conexión
+— ver [`../OFFLINE.md`](../OFFLINE.md).
+
+Comparte tipos, tokens de diseño y cliente de API con `src/` a través de
+[`../shared`](../shared).
 
 ## Run
 

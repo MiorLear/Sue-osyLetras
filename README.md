@@ -1,62 +1,67 @@
-# Sueños y Letras 📚
+# ExplorArte — Sueños y Letras 📚
 
-App móvil (React Native + Expo) de alfabetización infantil basada en módulos de emociones.
-Construida con **Expo SDK 54**, **Expo Router** (navegación por archivos), **react-native-svg** y **expo-linear-gradient**.
+**PWA para docentes**, en producción en **[explorarte.app](https://explorarte.app)**. ExplorArte es
+una metodología de Sueños y Letras para fortalecer la salud mental y el bienestar emocional en
+comunidades educativas a través de la lectura, el arte y experiencias participativas. La app le da a
+cada docente la biblioteca de emociones, la caja de herramientas, el material de aprendizaje y la
+comunidad — y todo lo que haya descargado le funciona sin conexión.
 
-> 🆕 **¿Es tu primera vez con este proyecto, en una computadora nueva?** Sigue
-> [`COMO-EMPEZAR.md`](./COMO-EMPEZAR.md) — guía paso a paso desde cero, sin dar por hecho que
-> conoces Docker, Java o Expo.
+> 🆕 **¿Primera vez, en una computadora nueva?** Sigue [`COMO-EMPEZAR.md`](./COMO-EMPEZAR.md) — paso
+> a paso desde cero, sin dar por hecho que conoces Docker ni Java.
 >
-> 🧭 **¿Ya lo tienes corriendo y quieres saber cómo trabajamos como equipo?** Ve a
-> [`COMO-TRABAJAMOS.md`](./COMO-TRABAJAMOS.md) (arquitectura, cómo agregar una funcionalidad,
-> convenciones). Para el despliegue —producción en Google Cloud— ve a
-> [`DESPLIEGUE.md`](./DESPLIEGUE.md), que es el runbook único. Para cómo funciona el acceso sin
-> internet a documentos y videos descargados, ve a [`OFFLINE.md`](./OFFLINE.md).
+> 🧭 **¿Ya lo tienes corriendo?** [`COMO-TRABAJAMOS.md`](./COMO-TRABAJAMOS.md) (arquitectura,
+> convenciones, cómo agregar una funcionalidad). Para desplegar,
+> [`DESPLIEGUE.md`](./DESPLIEGUE.md), que es el runbook único. Para el acceso sin internet a
+> documentos y videos, [`OFFLINE.md`](./OFFLINE.md).
+
+## Qué hay en el repo
+
+| Carpeta | Qué es |
+|---|---|
+| [`web/`](./web) | **La PWA.** React 19 + Vite + `vite-plugin-pwa`. Es lo que usan las docentes y lo que se despliega. |
+| [`api/`](./api) | La API REST en Java (Spring Boot) + Flyway. Corre en Cloud Run contra Cloud SQL. |
+| [`shared/`](./shared) | Tipos y cliente de API compartidos, más el cliente mock con datos de ejemplo. |
+| [`infra/`](./infra) | Configuración de infraestructura versionada (CORS del bucket de medios). |
+| [`scripts/`](./scripts) | Utilidades de mantenimiento y migraciones puntuales de datos. |
+| [`src/`](./src) | La app Expo/React Native original. **Ya no es lo que se publica**; el producto es la PWA. |
 
 ## Cómo levantar el proyecto
-
-```bash
-npm install        # solo la primera vez
-npm start          # arranca el servidor de desarrollo (Metro)
-```
-
-Luego:
-
-- **En tu teléfono (lo más fácil):** instala la app **Expo Go** (Android/iOS) y escanea el código QR que aparece en la terminal. Tu teléfono y la PC deben estar en la misma red Wi-Fi.
-- **Emulador Android:** presiona `a` en la terminal (requiere Android Studio configurado).
-- **Web (vista rápida):** presiona `w`.
-
-Por defecto, tanto mobile como web corren contra un **cliente mock en memoria** (sin backend,
-sin variables de entorno). Para conectarlos a la API real, sigue la siguiente sección.
-
-## Backend + web (Docker) — no necesitas instalar Java
-
-La API REST está hecha en **Java (Spring Boot)** y vive en [`api/`](./api). No necesitas tener
-Java, Maven ni PostgreSQL instalados — todo corre dentro de Docker.
 
 ```bash
 cp .env.example .env      # solo la primera vez — los valores por defecto ya funcionan
 docker compose up --build
 ```
 
+Y listo: http://localhost:5173.
+
+## Backend + web (Docker) — no necesitas instalar Java
+
+La API está hecha en **Java (Spring Boot)** y vive en [`api/`](./api). No necesitas tener Java, Maven
+ni PostgreSQL instalados — todo corre dentro de Docker.
+
 Esto levanta tres servicios:
 
 | Servicio | URL | Qué es |
 |---|---|---|
-| `web` | http://localhost:5173 | La app web (Vite), ya conectada a la API real |
+| `web` | http://localhost:5173 | La PWA (Vite), ya conectada a la API real |
 | `api` | http://localhost:8000 | La API Java, con datos de ejemplo precargados |
 | `api` (docs) | http://localhost:8000/swagger-ui.html | Explora y prueba cada endpoint sin leer una línea de Java |
-| `db` | localhost:5432 | PostgreSQL (Postgres), solo si necesitas conectarte con un cliente SQL |
+| `db` | localhost:5432 | PostgreSQL, solo si necesitas conectarte con un cliente SQL |
 
 Cuentas de ejemplo precargadas por la API:
 
 - `admin@explorarte.org` — administrador
 - `maria@ejemplo.com`, `ana@ejemplo.com`, `lucia@ejemplo.com`, `sofia@ejemplo.com` — docentes
 
-La contraseña de todas es la que pongas en `SEED_USER_PASSWORD` dentro de tu `.env`. **No se
-publica aquí**: este repositorio es público y una contraseña escrita en el README acaba sirviendo
-en algún entorno desplegado donde alguien la copió tal cual (SEC-02). Si dejas la variable vacía,
-la API no crea ninguna cuenta de ejemplo.
+La contraseña de todas es la que pongas en `SEED_USER_PASSWORD` dentro de tu `.env`. **No se publica
+aquí**: este repositorio es público y una contraseña escrita en el README acaba sirviendo en algún
+entorno desplegado donde alguien la copió tal cual (SEC-02). Si dejas la variable vacía, la API no
+crea ninguna cuenta de ejemplo — y por eso **producción no tiene ningún ADMIN de contraseña
+conocida**: ese rol se concede a una cuenta existente con
+[`scripts/promote-admin.sql`](./scripts/promote-admin.sql).
+
+Para apuntar a otra base de datos —una remota, la de alguien más— pon `SPRING_DATASOURCE_URL`,
+`SPRING_DATASOURCE_USERNAME` y `SPRING_DATASOURCE_PASSWORD` en tu `.env`.
 
 Comandos útiles (equivalentes a `docker compose ...`, agregados a `package.json`):
 
@@ -69,62 +74,44 @@ npm run dev:stack:logs        # sigue los logs de todos los servicios
 
 Ver [`api/README.md`](./api/README.md) para más detalle (hot reload, cómo resetear la BD, etc.).
 
-### Conectar mobile a la API real
-
-Mobile (Expo) sigue corriendo con `npm start`, **fuera** de Docker — así el teléfono puede
-conectarse directo a tu red vía QR, igual que hoy. Para que use la API real en vez del mock,
-copia `.env.example` a `.env` y ajusta:
+### Trabajar solo en la PWA
 
 ```bash
-# Si usas Expo Go en un teléfono físico, "localhost" no funciona — usa la IP
-# de tu PC en la red local (ej. http://192.168.1.23:8000). Si vas a probar en
-# el navegador o un emulador en la misma máquina, localhost sí funciona.
-EXPO_PUBLIC_API_URL=http://192.168.1.23:8000
+npm --prefix web run dev      # Vite en http://localhost:5173
+npm --prefix web run test     # vitest
+npm --prefix web run e2e      # Playwright contra el mock determinista
 ```
 
-Tanto mobile como web soportan además `EXPO_PUBLIC_API_MOCK_MODULES` /
-`VITE_API_MOCK_MODULES`: una lista separada por comas de módulos
-(`auth,emotions,posts,events,learning,tools,profile,misc,admin`) que se
-quedan en el mock aunque la URL de la API esté configurada — útil para seguir
-trabajando en una pantalla sin depender de que esa parte de la API ya esté lista.
+Sin `VITE_API_URL`, la PWA exige `VITE_API_MOCK=true` para arrancar contra el mock. Es explícito a
+propósito: una URL ausente nunca debe convertir una comprobación de contraseña en el demo sin
+credenciales. También existe `VITE_API_MOCK_MODULES`, una lista separada por comas
+(`auth,emotions,posts,events,learning,tools,profile,misc,admin`) que se queda en el mock aunque la
+URL esté configurada — útil para avanzar en una pantalla cuya parte de la API todavía no está.
 
-## Estructura
+## Despliegue
 
-```
-src/
-  app/                    # Rutas (Expo Router)
-    _layout.tsx           # Stack raíz
-    index.tsx             # Home  (/)
-    login.tsx             # /login
-    register.tsx          # /register
-    forgot-password.tsx   # /forgot-password
-    modules.tsx           # /modules
-    module/[id].tsx       # /module/felicidad, /module/enojo, ...
-    foro.tsx              # /foro  (acepta ?module=felicidad)
-    calendar.tsx          # /calendar
-    profile.tsx           # /profile
-    faq.tsx               # /faq
-  components/             # Logo, GradientHeader, BottomNav, Icon (SVG), UI
-  constants/theme.ts      # Paleta y datos de los módulos
-assets/logo.jpg           # Logo de la app
-design-reference/         # Mockups originales (.dc.html) — solo referencia
-```
+**Automático al mergear a `main`.** CI corre las pruebas y, si quedan en verde, dispara los dos
+despliegues sobre ese mismo commit:
 
-## Navegación
+| Workflow | Qué publica |
+|---|---|
+| `Deploy Firebase Hosting` | La PWA → Firebase Hosting |
+| `Deploy Cloud Run` | La API → Cloud Run, aplicando las migraciones de Flyway al arrancar |
 
-El flujo arranca en **Home** (`/`). Desde el perfil puedes "Cerrar sesión" para ir a **Login**,
-y desde Login/Registro se vuelve a Home. Las barras inferiores y botones replican el mapa de
-navegación de los diseños originales.
+Los dos esperan a CI con `workflow_run` en vez de dispararse con el push: desplegar en paralelo con
+los tests publica justo lo que acaba de romperse. Y los dos son la misma mitad de una sola cosa —
+publicar solo una ya dejó a la PWA hablando con un API sin la migración que necesitaba.
+
+El runbook completo, incluidos los despliegues a mano y el primer arranque, está en
+[`DESPLIEGUE.md`](./DESPLIEGUE.md).
 
 ## Notas
 
-- La pantalla de Perfil usa `expo-image-picker` para cambiar la foto (funciona en Expo Go).
-- El Calendario usa el **date/time picker nativo** (`@react-native-community/datetimepicker`)
-  para elegir fecha y hora de los eventos.
-- La pestaña **Video** de cada módulo reproduce el video que un admin haya subido para esa
-  pantalla desde el CMS web (`/admin/videos-intro`), con `expo-video`. Si no hay ninguno, la
-  tarjeta simplemente no se muestra (`src/components/video-placeholder.tsx`). Si el archivo ya se
-  descargó, se reproduce la copia local y funciona sin conexión.
-  <br>*(`assets/video/demo.mp4` sigue en el repo pero ya no lo usa ningún componente — son 14 MB
-  que se pueden borrar en una limpieza aparte.)*
-- Los íconos están reimplementados como SVG en `src/components/icon.tsx`.
+- El contenido pedagógico —emociones, actividades, herramientas, videos de introducción— lo cargan
+  las administradoras desde el CMS en `/admin`, no está en el código.
+- Los cuatro videos de introducción viajan dentro de la app (`web/public/videos/`) como respaldo
+  para cuando el CMS todavía no tiene uno. No entran en el precache: son 22 MB y nadie debe bajarlos
+  antes de poder abrir la app.
+- Los medios (fotos, PDFs, videos) viven en Cloud Storage y se sirven por `/media/**` en el propio
+  dominio. Que sean del mismo origen no es un detalle estético: desde otro origen, el redirect a la
+  URL firmada pierde la cabecera `Origin` y el navegador bloquea toda descarga.
