@@ -13,7 +13,6 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.PostLoad;
@@ -52,8 +51,24 @@ public class Topic implements Persistable<String> {
     @Transient
     private boolean isNew = true;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @JoinColumn(name = "topic_id")
+    /**
+     * Los subtemas, con {@code mappedBy} y no con {@code @JoinColumn}.
+     *
+     * <p>La diferencia no es cosmética. Con un {@code @OneToMany}
+     * unidireccional sobre {@code @JoinColumn}, la colección era dueña de
+     * {@code topic_id} y a la vez lo era el {@code @ManyToOne} de
+     * {@link SubTopic}: dos mapeos sobre la misma columna. Con esa ambigüedad,
+     * quitar un elemento de la colección no lo borraba, lo DESVINCULABA —
+     * {@code update topic_subtopics set topic_id=null, position=null}— y como
+     * la columna es NOT NULL, cada intento de editar o borrar un tema desde el
+     * CMS terminaba en una violación de integridad. Crear funcionaba, que es
+     * justo lo que hacía que el fallo pasara desapercibido.
+     *
+     * <p>Con {@code mappedBy} el dueño es el lado hijo, así que
+     * {@code orphanRemoval} borra de verdad en vez de desvincular. Lo cubre
+     * {@code LearningDeletionTest}.
+     */
+    @OneToMany(mappedBy = "topic", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @OrderColumn(name = "position")
     private List<SubTopic> subtopics = new ArrayList<>();
 
