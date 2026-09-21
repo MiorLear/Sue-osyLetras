@@ -95,7 +95,7 @@ class MigrationChainTest {
                     .isFalse();
         }
         assertThat(applied).containsExactly(
-                "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15");
+                "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16");
 
         // validate() vuelve a leer los checksums: si alguien editó una migración
         // ya aplicada en vez de agregar una nueva, esto es lo que lo dice — y en
