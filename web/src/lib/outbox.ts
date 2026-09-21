@@ -70,7 +70,9 @@ export type MutationKind =
   | 'event.remove'
   | 'post.create'
   | 'post.like'
-  | 'post.comment';
+  | 'post.comment'
+  | 'learning.step.complete'
+  | 'learning.step.uncomplete';
 
 export type Mutation =
   | { kind: 'profile.update'; input: UpdateProfileInput }
@@ -79,7 +81,12 @@ export type Mutation =
   | { kind: 'event.remove'; targetId: string }
   | { kind: 'post.create'; tempId: number; input: CreatePostInput }
   | { kind: 'post.like'; postId: number }
-  | { kind: 'post.comment'; postId: number; input: CreateCommentInput };
+  | { kind: 'post.comment'; postId: number; input: CreateCommentInput }
+  // Marcar y desmarcar una fase del mapa de Aprendiendo. Son dos clases y no
+  // un conmutador porque el servidor FIJA el estado (PUT/DELETE) en vez de
+  // invertirlo: reenviar cualquiera de las dos deja exactamente lo mismo.
+  | { kind: 'learning.step.complete'; topicId: string; stepKey: string }
+  | { kind: 'learning.step.uncomplete'; topicId: string; stepKey: string };
 
 /** Una fila tal como la ven las pantallas y la lista de cambios sin enviar. */
 export interface PendingMutation {
@@ -123,6 +130,12 @@ export function chainKeyOf(mutation: Mutation): string {
     case 'post.like':
     case 'post.comment':
       return `post:${mutation.postId}`;
+    // La cadena es la FASE, no el tema. Con la cadena por tema, una fase
+    // envenenada retendría a las otras dos, que es BUG-03 otra vez; y entre
+    // fases distintas no hay ninguna restricción de orden que conservar.
+    case 'learning.step.complete':
+    case 'learning.step.uncomplete':
+      return `learning-step:${mutation.topicId}:${mutation.stepKey}`;
   }
 }
 
@@ -150,7 +163,7 @@ export function toRecord(mutation: Mutation, userId: string): OutboxRecord {
 
 /**
  * Reensambla la mutación. Devuelve `null` si la fila no tiene forma de ninguna
- * de las siete clases: una guardada por una versión anterior de la app, o un
+ * de las clases conocidas: una guardada por una versión anterior de la app, o un
  * clon a medias. Vale más mandarla a la lista de fallidos que reventar la
  * pasada entera con ella.
  */
@@ -182,6 +195,14 @@ export function toMutation(record: OutboxRecord): Mutation | null {
     case 'post.comment':
       return has('postId', 'number') && has('input', 'object')
         ? ({ kind: 'post.comment', ...p } as Mutation)
+        : null;
+    case 'learning.step.complete':
+      return has('topicId', 'string') && has('stepKey', 'string')
+        ? ({ kind: 'learning.step.complete', ...p } as Mutation)
+        : null;
+    case 'learning.step.uncomplete':
+      return has('topicId', 'string') && has('stepKey', 'string')
+        ? ({ kind: 'learning.step.uncomplete', ...p } as Mutation)
         : null;
     default:
       return null;
@@ -290,6 +311,25 @@ export function coalesce(chain: OutboxRecord[], incoming: OutboxRecord): Coalesc
       const ops: CoalesceOp[] = chain
         .filter((r) => r.kind === 'event.update' && r.seq !== undefined)
         .map((r) => ({ type: 'delete', seq: r.seq! }) as CoalesceOp);
+      ops.push({ type: 'put', record: incoming });
+      return ops;
+    }
+
+    case 'learning.step.complete':
+    case 'learning.step.uncomplete': {
+      // Marcar y desmarcar sin conexión son UN estado final, no dos cambios.
+      //
+      // Y NO se anulan como el «me gusta»: allí el servidor CONMUTA, así que
+      // borrar las dos filas lo deja donde estaba; aquí el servidor FIJA
+      // (PUT/DELETE), de modo que lo último que pulsó la docente es
+      // exactamente lo que él tiene que acabar teniendo.
+      //
+      // Se REEMPLAZA (borrar + insertar, `seq` nuevo) y no se fusiona en el
+      // sitio: esta cadena no nace de ningún alta, así que no hay nada por
+      // delante a lo que pudiera adelantarse. Es la forma de `profile.update`.
+      const previous = find('learning.step.complete') ?? find('learning.step.uncomplete');
+      const ops: CoalesceOp[] = [];
+      if (previous?.seq !== undefined) ops.push({ type: 'delete', seq: previous.seq });
       ops.push({ type: 'put', record: incoming });
       return ops;
     }
@@ -461,6 +501,16 @@ export function enqueuePostLike(postId: number): Promise<void> {
 /** Comenta una publicación. */
 export function enqueuePostComment(postId: number, input: CreateCommentInput): Promise<void> {
   return enqueue({ kind: 'post.comment', postId, input });
+}
+
+/** Marca una fase del mapa de Aprendiendo como completada. */
+export function enqueueLearningStepComplete(topicId: string, stepKey: string): Promise<void> {
+  return enqueue({ kind: 'learning.step.complete', topicId, stepKey });
+}
+
+/** La desmarca. Junto con la anterior, la última gana: no se anulan. */
+export function enqueueLearningStepUncomplete(topicId: string, stepKey: string): Promise<void> {
+  return enqueue({ kind: 'learning.step.uncomplete', topicId, stepKey });
 }
 
 // ── remapeo de ids ───────────────────────────────────────────────────────────
@@ -666,6 +716,12 @@ async function dispatch(mutation: Mutation): Promise<DispatchOutcome> {
       return {};
     case 'post.comment':
       await api.posts.addComment(mutation.postId, mutation.input);
+      return {};
+    case 'learning.step.complete':
+      await api.learning.completeStep(mutation.topicId, mutation.stepKey);
+      return {};
+    case 'learning.step.uncomplete':
+      await api.learning.uncompleteStep(mutation.topicId, mutation.stepKey);
       return {};
   }
 }

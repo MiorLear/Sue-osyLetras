@@ -124,10 +124,10 @@ CI corre esto mismo en cada PR, en tres jobs — `API (Java 21)`, `JS/TS (Node 2
 `Navegador real (Playwright)`. Correrlo antes ahorra la vuelta:
 
 ```bash
-# Backend — 169 tests, con Postgres embebido (no hace falta Docker)
+# Backend — 172 tests, con Postgres embebido (no hace falta Docker)
 cd api && ./mvnw clean test
 
-# Shared + PWA — 549 tests
+# Shared + PWA — 695 tests
 npm --prefix shared run build && npm --prefix shared run test
 npm --prefix web run test
 npm --prefix web run lint
@@ -159,8 +159,9 @@ despliegues; ver [`DESPLIEGUE.md`](./DESPLIEGUE.md) §6.
   tiempo de espera, con el riesgo de mandar a Google a quien simplemente tardó en decidir.
 - **Contenido que falta en el CMS.** De las 43 actividades de producción, 10 tienen solo el título:
   su texto no traía etiquetas de las que sacar propósito, duración o materiales, y rellenarlas sería
-  inventar material pedagógico. Y la tabla de videos de introducción está vacía, así que se ven los
-  cuatro que viajan con la app. Las dos cosas se resuelven desde `/admin`.
+  inventar material pedagógico. Y **los videos** de introducción siguen sin subir, así que se ven los
+  cuatro que viajan con la app —el *texto* de esas introducciones sí es editable y el de Aprendiendo
+  viene cargado desde `V15`—. Las dos cosas se resuelven desde `/admin`.
 - **`*.supabase.co` sigue en la CSP.** Quedó de cuando el almacenamiento era Supabase. Probablemente
   ya no haga falta, pero quitarlo exige confirmar que no queda ninguna URL guardada apuntando ahí
   —incluida `users.photo`, que no sale por ningún endpoint público—.

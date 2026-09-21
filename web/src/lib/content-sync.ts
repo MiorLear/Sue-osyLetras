@@ -140,7 +140,7 @@ async function walkContent(write: Writer, result: SyncResult): Promise<void> {
     result.failures.push({ id: 'learning:topics', reason: reasonOf(e) });
   }
 
-  // Las tres pantallas donde la docente ESCRIBE. Faltaban, y eso dejaba la
+  // Las pantallas donde la docente ESCRIBE. Faltaban, y eso dejaba la
   // escritura sin conexión fuera de su alcance justo donde importa: quien
   // pierde la señal antes de abrir Comunidad se la encuentra vacía, y en una
   // pantalla vacía no hay nada que comentar ni a qué reaccionar. Van al final
@@ -165,6 +165,15 @@ async function walkContent(write: Writer, result: SyncResult): Promise<void> {
   } catch (e) {
     result.complete = false;
     result.failures.push({ id: 'profile', reason: reasonOf(e) });
+  }
+
+  // El avance por el mapa de fases. También es de la usuaria, no contenido
+  // común: sin él, abrir el mapa sin conexión mostraría todo por empezar.
+  try {
+    await write(cacheKeys.learningProgress(), await api.learning.progress());
+  } catch (e) {
+    result.complete = false;
+    result.failures.push({ id: 'learning:progress', reason: reasonOf(e) });
   }
 }
 

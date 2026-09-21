@@ -3,10 +3,14 @@ package com.explorarte.api.learning;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.domain.Persistable;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
@@ -31,6 +35,19 @@ public class Topic implements Persistable<String> {
 
     private String emoji;
     private String title;
+
+    /**
+     * Cómo se recorre el tema. Se guarda en MAYÚSCULAS porque
+     * {@code EnumType.STRING} persiste el {@code name()}, no el
+     * {@code @JsonValue}; el CHECK {@code topics_layout_known} de V12 valida
+     * exactamente esos tres valores.
+     */
+    @Enumerated(EnumType.STRING)
+    private TopicLayout layout = TopicLayout.ACCORDION;
+
+    /** La introducción del tema, antes de sus subtemas. Puede venir vacía. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<LearningBlock> intro = new ArrayList<>();
 
     @Transient
     private boolean isNew = true;
@@ -57,10 +74,16 @@ public class Topic implements Persistable<String> {
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
 
+    public TopicLayout getLayout() { return layout; }
+    public void setLayout(TopicLayout layout) { this.layout = layout; }
+
+    public List<LearningBlock> getIntro() { return intro; }
+    public void setIntro(List<LearningBlock> intro) { this.intro = intro; }
+
     public List<SubTopic> getSubtopics() { return subtopics; }
     public void setSubtopics(List<SubTopic> subtopics) { this.subtopics = subtopics; }
 
     public TopicDto toDto() {
-        return new TopicDto(id, emoji, title, subtopics.stream().map(SubTopic::toDto).toList());
+        return new TopicDto(id, emoji, title, layout, intro, subtopics.stream().map(SubTopic::toDto).toList());
     }
 }

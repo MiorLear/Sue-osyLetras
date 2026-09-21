@@ -1,10 +1,18 @@
 import { useNavigate } from 'react-router-dom';
 import { CacheAgeNote, ContentState } from '@/components/ContentState';
 import { Masthead } from '@/components/Masthead';
+import { ScreenIntroHero } from '@/components/ScreenIntroHero';
 import { VideoPlaceholder } from '@/components/VideoPlaceholder';
 import { api } from '@/lib/api';
 import { cacheKeys } from '@/lib/cache-keys';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
+
+/** Lo que la pantalla decia antes de que el texto fuera editable desde el CMS. */
+const FALLBACK_INTRO = [
+  'Las emociones forman parte de nuestra vida cotidiana. Reconocerlas, nombrarlas y comprenderlas es el primer paso para desarrollar bienestar emocional y construir relaciones saludables.',
+  'Esta sección reúne recursos para comprender distintas emociones y acompañar conversaciones significativas dentro del aula.',
+  'Explora actividades, lecturas y recursos diseñados para acompañar a tus estudiantes en el reconocimiento y gestión de sus emociones.',
+];
 
 export default function Emociones() {
   const navigate = useNavigate();
@@ -32,21 +40,13 @@ export default function Emociones() {
       />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, alignItems: 'stretch', marginBottom: 34 }}>
-        <div style={{ borderRadius: 24, padding: 'clamp(20px, 6vw, 32px)', background: '#fff', border: '1px solid var(--border)' }}>
-          <p style={{ fontSize: 15.5, lineHeight: 1.7, color: 'var(--text-body)' }}>
-            Las emociones forman parte de nuestra vida cotidiana. Reconocerlas, nombrarlas y comprenderlas es el primer
-            paso para desarrollar bienestar emocional y construir relaciones saludables.
-            <br /><br />
-            Esta sección reúne recursos para comprender distintas emociones y acompañar conversaciones significativas dentro del aula.
-            <br /><br />
-            Explora actividades, lecturas y recursos diseñados para acompañar a tus estudiantes en el reconocimiento y gestión de sus emociones.
-          </p>
+        <ScreenIntroHero variant="card" paragraphs={intro?.paragraphs} fallback={FALLBACK_INTRO}>
           {emotions && emotions.length > 0 ? (
             <div style={{ display: 'flex', gap: 18, marginTop: 22, paddingTop: 20, borderTop: '1px solid #F0E7D8' }}>
               <Stat n={emotions.length} label="emociones" color="var(--brand)" />
             </div>
           ) : null}
-        </div>
+        </ScreenIntroHero>
 
         <VideoPlaceholder caption="¿Por qué es importante reconocer y comprender las emociones?" video={intro?.video ?? null} duration="36 s" fallbackUrl="/videos/biblioteca.mp4" />
       </div>

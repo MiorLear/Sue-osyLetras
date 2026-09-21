@@ -24,9 +24,6 @@ import com.explorarte.api.emotions.EmotionActivity;
 import com.explorarte.api.emotions.EmotionContent;
 import com.explorarte.api.emotions.EmotionContentRepository;
 import com.explorarte.api.emotions.EmotionRepository;
-import com.explorarte.api.learning.SubTopic;
-import com.explorarte.api.learning.Topic;
-import com.explorarte.api.learning.TopicRepository;
 import com.explorarte.api.misc.School;
 import com.explorarte.api.misc.SchoolRepository;
 import com.explorarte.api.tools.ToolsContentEntity;
@@ -52,7 +49,6 @@ public class DataSeeder implements ApplicationRunner {
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final CalendarEventRepository calendarEventRepository;
-    private final TopicRepository topicRepository;
     private final ToolsContentRepository toolsContentRepository;
     private final SchoolRepository schoolRepository;
     private final PasswordEncoder passwordEncoder;
@@ -65,7 +61,6 @@ public class DataSeeder implements ApplicationRunner {
             PostRepository postRepository,
             CommentRepository commentRepository,
             CalendarEventRepository calendarEventRepository,
-            TopicRepository topicRepository,
             ToolsContentRepository toolsContentRepository,
             SchoolRepository schoolRepository,
             PasswordEncoder passwordEncoder,
@@ -76,7 +71,6 @@ public class DataSeeder implements ApplicationRunner {
         this.postRepository = postRepository;
         this.commentRepository = commentRepository;
         this.calendarEventRepository = calendarEventRepository;
-        this.topicRepository = topicRepository;
         this.toolsContentRepository = toolsContentRepository;
         this.schoolRepository = schoolRepository;
         this.passwordEncoder = passwordEncoder;
@@ -101,7 +95,6 @@ public class DataSeeder implements ApplicationRunner {
         seedUsers();
         seedSchools();
         seedEmotions();
-        seedTopics();
         seedTools();
         seedPosts();
         seedEvents();
@@ -243,57 +236,15 @@ public class DataSeeder implements ApplicationRunner {
         }
     }
 
-    private void seedTopics() {
-        if (topicRepository.count() > 0) return;
-
-        Topic autocuidado = new Topic();
-        autocuidado.setId("autocuidado");
-        autocuidado.setEmoji("🧘");
-        autocuidado.setTitle("Practicar autocuidado");
-        autocuidado.setSubtopics(List.of(
-                subtopic(autocuidado, "Cuidando mis emociones",
-                        "Reconocer lo que sentimos como docentes es el primer paso para acompañar a nuestras y nuestros estudiantes. Date permiso de nombrar tus emociones sin juzgarlas."),
-                subtopic(autocuidado, "Cuidando mi cuerpo",
-                        "El descanso, la alimentación y el movimiento sostienen tu bienestar. Pequeñas pausas durante la jornada ayudan a regular el estrés."),
-                subtopic(autocuidado, "Cuidando mi mente",
-                        "Practicar la atención plena, poner límites sanos y buscar apoyo cuando lo necesitas protege tu salud mental a largo plazo.")));
-        topicRepository.save(autocuidado);
-
-        Topic saludMental = new Topic();
-        saludMental.setId("salud-mental");
-        saludMental.setEmoji("🧠");
-        saludMental.setTitle("¿Por qué importa la salud mental en la infancia?");
-        saludMental.setSubtopics(List.of(
-                subtopic(saludMental, "¿Qué son las emociones?",
-                        "Las emociones son respuestas naturales que nos informan sobre lo que vivimos. No son buenas ni malas: todas tienen algo que decirnos."),
-                subtopic(saludMental, "Todas las emociones tienen una función",
-                        "El miedo nos protege, la tristeza nos invita a buscar consuelo, el enojo señala límites. Acompañar emociones es ayudar a comprender su mensaje.")));
-        topicRepository.save(saludMental);
-
-        Topic aula = new Topic();
-        aula.setId("aula");
-        aula.setEmoji("🏫");
-        aula.setTitle("Cómo acompañar emociones difíciles en el aula");
-        aula.setSubtopics(List.of(
-                subtopic(aula, "Estrategias prácticas para docentes",
-                        "Validar lo que siente el estudiante, ofrecer un espacio seguro y proponer recursos como la respiración o el dibujo ayudan a regular emociones intensas."),
-                subtopic(aula, "Qué hacer y qué evitar cuando un estudiante expresa emociones",
-                        "Escucha sin minimizar ni apresurar soluciones. Evita frases como \"no es para tanto\" y acompaña con presencia y calma."),
-                subtopic(aula, "Recomendaciones para promover espacios seguros y respetuosos",
-                        "Acuerdos de convivencia, rutinas predecibles y un clima de respeto permiten que niñas, niños y adolescentes se sientan en confianza para expresarse.")));
-        topicRepository.save(aula);
-    }
-
-    private SubTopic subtopic(Topic topic, String title, String body) {
-        SubTopic st = new SubTopic();
-        st.setTopic(topic);
-        st.setTitle(title);
-        st.setBody(body);
-        st.setPdfs(List.of());
-        st.setVideos(List.of());
-        st.setAudios(List.of());
-        return st;
-    }
+    // El contenido de Aprendiendo ya NO se siembra aqui.
+    //
+    // Lo escribe V15__learning_content_2026.sql, y con eso el guard
+    // `topicRepository.count() > 0` de este metodo nunca podria ser falso:
+    // Flyway corre antes que el contexto de Spring, asi que para cuando el
+    // seeder mira ya hay tres temas. El unico escenario donde llegaria a
+    // ejecutarse —una base donde alguien borro los temas a mano— es
+    // precisamente aquel en el que estaria equivocado, porque sembraria el
+    // resumen viejo contradiciendo a la migracion sin que nadie lo notara.
 
     private void seedTools() {
         if (toolsContentRepository.count() > 0) return;

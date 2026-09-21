@@ -35,6 +35,14 @@ export const cacheKeys = {
   tools: () => 'tools',
   /** Temas de Aprendiendo. */
   learningTopics: () => 'learning:topics',
+  /**
+   * Las fases que la docente lleva completadas.
+   *
+   * Viene del servidor, así que entra en STATIC_CACHE_KEYS y la sincronización
+   * la precarga como el resto. Es la única sin equivalente en RN: allá no hay
+   * mapa de fases.
+   */
+  learningProgress: () => 'learning:progress',
   /** Calendario completo. Una página o rango nunca debe usar esta clave. */
   events: () => 'events:all',
   /** Feed de Comunidad, una entrada por filtro. */
@@ -60,6 +68,7 @@ export const STATIC_CACHE_KEYS: readonly string[] = [
   cacheKeys.emotionsList(),
   cacheKeys.tools(),
   cacheKeys.learningTopics(),
+  cacheKeys.learningProgress(),
   cacheKeys.events(),
   cacheKeys.profile(),
   cacheKeys.screenIntro('home'),

@@ -15,6 +15,7 @@ import type {
   CreateTopicInput,
   Emotion,
   EmotionDetail,
+  LearningProgressEntry,
   LoginInput,
   MediaItem,
   Post,
@@ -24,6 +25,7 @@ import type {
   ToolsContent,
   UpdateEventInput,
   UpdateProfileInput,
+  UpdateScreenIntroInput,
   UpdateTopicInput,
   UserProfile,
   UserStatus,
@@ -185,6 +187,13 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
       updateTopic: (id: string, input: UpdateTopicInput) =>
         request<Topic>('PUT', `/learning/topics/${encodeURIComponent(id)}`, input),
       removeTopic: (id: string) => request<void>('DELETE', `/learning/topics/${encodeURIComponent(id)}`),
+      progress: () => request<LearningProgressEntry[]>('GET', '/learning/progress'),
+      completeStep: (topicId: string, stepKey: string) =>
+        request<void>('PUT', `/learning/progress/${encodeURIComponent(topicId)}/${encodeURIComponent(stepKey)}`),
+      uncompleteStep: (topicId: string, stepKey: string) =>
+        request<void>('DELETE', `/learning/progress/${encodeURIComponent(topicId)}/${encodeURIComponent(stepKey)}`),
+      resetProgress: (topicId: string) =>
+        request<void>('DELETE', `/learning/progress/${encodeURIComponent(topicId)}`),
     },
     tools: {
       get: () => request<ToolsContent>('GET', '/tools'),
@@ -214,8 +223,8 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
       list: () => request<ScreenIntroVideo[]>('GET', '/screen-intro-videos'),
       get: (screenKey: string) =>
         getOrNull<ScreenIntroVideo>(`/screen-intro-videos/${encodeURIComponent(screenKey)}`),
-      update: (screenKey: string, video: MediaItem) =>
-        request<ScreenIntroVideo>('PUT', `/screen-intro-videos/${encodeURIComponent(screenKey)}`, video),
+      update: (screenKey: string, input: UpdateScreenIntroInput) =>
+        request<ScreenIntroVideo>('PUT', `/screen-intro-videos/${encodeURIComponent(screenKey)}`, input),
       remove: (screenKey: string) =>
         request<void>('DELETE', `/screen-intro-videos/${encodeURIComponent(screenKey)}`),
     },

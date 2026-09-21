@@ -183,37 +183,436 @@ export const EVENTS: CalEvent[] = [
   { id: '6', title: 'Entregar informe mensual', type: 'tarea', date: '2026-06-09', startTime: '15:00', endTime: '15:30', reminder: 'ninguno', completed: false },
 ];
 
+/**
+ * Los tres temas de "Aprendiendo sobre bienestar emocional", con el contenido
+ * del documento de Sueños y Letras.
+ *
+ * Los `id` son los de siempre: el avance que una docente ya tenga guardado
+ * apunta a ellos, y a la `key` de cada subtema.
+ *
+ * Espejo de `V15__learning_content_2026.sql`, que es lo que ve el backend real.
+ * Si cambias uno, cambia el otro.
+ */
 export const TOPICS: Topic[] = [
   {
     id: 'autocuidado',
     emoji: '🧘',
     title: 'Practicar autocuidado',
+    layout: 'path',
+    intro: [
+      { kind: 'paragraph', text: 'Antes de cuidar a otros, también necesitamos aprender a cuidarnos.' },
+      {
+        kind: 'paragraph',
+        text: 'El autocuidado no consiste únicamente en descansar o relajarse. Es un conjunto de acciones cotidianas que fortalecen nuestro bienestar físico, emocional y mental.',
+      },
+      {
+        kind: 'paragraph',
+        text: 'Cuando una docente cuida de sí misma, también fortalece su capacidad para acompañar a sus estudiantes con mayor calma, empatía y presencia.',
+      },
+    ],
     subtopics: [
-      { title: 'Cuidando mis emociones', body: 'Reconocer lo que sentimos como docentes es el primer paso para acompañar a nuestras y nuestros estudiantes. Date permiso de nombrar tus emociones sin juzgarlas.', pdfs: [], videos: [], audios: [] },
-      { title: 'Cuidando mi cuerpo', body: 'El descanso, la alimentación y el movimiento sostienen tu bienestar. Pequeñas pausas durante la jornada ayudan a regular el estrés.', pdfs: [], videos: [], audios: [] },
-      { title: 'Cuidando mi mente', body: 'Practicar la atención plena, poner límites sanos y buscar apoyo cuando lo necesitas protege tu salud mental a largo plazo.', pdfs: [], videos: [], audios: [] },
+      {
+        key: 'cuidando-mis-emociones',
+        emoji: '🌸',
+        title: 'Cuidando mis emociones',
+        blocks: [
+          { kind: 'heading', text: '¿Por qué es importante?' },
+          {
+            kind: 'paragraph',
+            text: 'Las emociones forman parte de nuestra vida diaria. Reconocerlas, nombrarlas y comprenderlas nos permite responder de manera más consciente a los desafíos que enfrentamos.',
+          },
+          {
+            kind: 'paragraph',
+            text: 'El autocuidado emocional implica escuchar lo que sentimos sin juzgarnos y desarrollar estrategias saludables para expresar nuestras emociones.',
+          },
+          { kind: 'paragraph', text: 'No se trata de evitar emociones difíciles, sino de aprender a convivir con ellas.' },
+          {
+            kind: 'checklist',
+            title: 'Algunas prácticas que pueden ayudarte',
+            items: [
+              'Preguntarte diariamente: «¿Cómo me siento hoy?»',
+              'Identificar qué situaciones generan bienestar o malestar.',
+              'Hablar con alguien de confianza.',
+              'Escribir lo que sientes.',
+              'Permitirte descansar cuando lo necesitas.',
+              'Reconocer tus logros, incluso los pequeños.',
+            ],
+          },
+          {
+            kind: 'callout',
+            title: 'Recuerda',
+            text: 'Todas las emociones son válidas. Lo importante no es dejar de sentirlas, sino aprender a comprender lo que quieren comunicarnos.',
+          },
+          {
+            kind: 'reflection',
+            questions: [
+              '¿Qué emoción ha estado más presente en mí durante esta semana?',
+              '¿Qué necesito para cuidar mejor de mi bienestar emocional?',
+            ],
+          },
+        ],
+        pdfs: [],
+        videos: [],
+        audios: [],
+      },
+      {
+        key: 'cuidando-mi-cuerpo',
+        emoji: '🌿',
+        title: 'Cuidando mi cuerpo',
+        blocks: [
+          { kind: 'heading', text: '¿Por qué es importante?' },
+          { kind: 'paragraph', text: 'Nuestro cuerpo y nuestras emociones están profundamente conectados.' },
+          {
+            kind: 'paragraph',
+            text: 'Dormir poco, alimentarnos de manera inadecuada o vivir bajo estrés constante puede afectar nuestro bienestar emocional.',
+          },
+          {
+            kind: 'paragraph',
+            text: 'De la misma manera, cuando cuidamos nuestro cuerpo también fortalecemos nuestra salud mental.',
+          },
+          {
+            kind: 'checklist',
+            title: 'Algunas prácticas que pueden ayudarte',
+            items: [
+              'Dormir las horas necesarias.',
+              'Mantener una alimentación variada.',
+              'Mantenerte hidratado.',
+              'Realizar actividad física regularmente.',
+              'Tomar pausas durante la jornada.',
+              'Respirar profundamente varias veces al día.',
+              'Escuchar las señales de cansancio de tu cuerpo.',
+            ],
+          },
+          { kind: 'callout', title: 'Recuerda', text: 'Cuidar tu cuerpo también es una forma de cuidar tus emociones.' },
+          {
+            kind: 'reflection',
+            questions: ['¿Qué necesita hoy mi cuerpo?', '¿Qué pequeño hábito puedo fortalecer esta semana?'],
+          },
+        ],
+        pdfs: [],
+        videos: [],
+        audios: [],
+      },
+      {
+        key: 'cuidando-mi-mente',
+        emoji: '🧠',
+        title: 'Cuidando mi mente',
+        blocks: [
+          { kind: 'heading', text: '¿Por qué es importante?' },
+          { kind: 'paragraph', text: 'Nuestra mente necesita espacios para descansar, aprender y recuperar energía.' },
+          {
+            kind: 'paragraph',
+            text: 'Vivimos rodeados de estímulos constantes. Por eso, es importante crear momentos que favorezcan la concentración, la creatividad y el equilibrio emocional.',
+          },
+          {
+            kind: 'checklist',
+            title: 'Algunas prácticas que pueden ayudarte',
+            items: [
+              'Leer por placer.',
+              'Respirar conscientemente.',
+              'Reducir el tiempo frente a pantallas.',
+              'Practicar ejercicios de atención plena.',
+              'Dedicar tiempo a actividades que disfrutes.',
+              'Aprender algo nuevo.',
+              'Recordar que no necesitamos hacerlo todo perfectamente.',
+            ],
+          },
+          { kind: 'callout', title: 'Recuerda', text: 'Descansar también es parte del aprendizaje.' },
+          {
+            kind: 'reflection',
+            questions: ['¿Qué actividades ayudan a que mi mente descanse?', '¿Qué pensamientos me gustaría aprender a soltar?'],
+          },
+        ],
+        pdfs: [],
+        videos: [],
+        audios: [],
+      },
     ],
   },
   {
     id: 'salud-mental',
     emoji: '🧠',
     title: '¿Por qué importa la salud mental en la infancia?',
+    layout: 'slides',
+    intro: [
+      {
+        kind: 'paragraph',
+        text: 'La infancia y la adolescencia son etapas fundamentales para el desarrollo emocional, social y cognitivo.',
+      },
+      {
+        kind: 'paragraph',
+        text: 'Las experiencias que viven niñas, niños y adolescentes influyen en la manera en que comprenden el mundo, construyen relaciones y enfrentan los desafíos de la vida.',
+      },
+      {
+        kind: 'paragraph',
+        text: 'Promover la salud mental no significa esperar a que aparezcan dificultades. Significa crear entornos donde todas las personas puedan sentirse seguras, escuchadas, respetadas y acompañadas.',
+      },
+    ],
     subtopics: [
-      { title: '¿Qué son las emociones?', body: 'Las emociones son respuestas naturales que nos informan sobre lo que vivimos. No son buenas ni malas: todas tienen algo que decirnos.', pdfs: [], videos: [], audios: [] },
-      { title: 'Todas las emociones tienen una función', body: 'El miedo nos protege, la tristeza nos invita a buscar consuelo, el enojo señala límites. Acompañar emociones es ayudar a comprender su mensaje.', pdfs: [], videos: [], audios: [] },
+      {
+        key: 'que-favorece-el-bienestar-emocional',
+        emoji: '🌤️',
+        title: '¿Qué favorece el bienestar emocional?',
+        blocks: [
+          {
+            kind: 'paragraph',
+            text: 'Los estudios muestran que niñas, niños y adolescentes desarrollan mayor bienestar cuando cuentan con:',
+          },
+          {
+            kind: 'checklist',
+            title: 'Lo que sostiene el bienestar',
+            items: [
+              'Relaciones afectivas seguras.',
+              'Personas adultas que escuchan sin juzgar.',
+              'Espacios donde puedan expresar lo que sienten.',
+              'Rutinas estables.',
+              'Oportunidades para jugar, crear y participar.',
+              'Sentido de pertenencia dentro de la comunidad educativa.',
+            ],
+          },
+        ],
+        pdfs: [],
+        videos: [],
+        audios: [],
+      },
+      {
+        key: 'el-papel-de-la-escuela',
+        emoji: '🏫',
+        title: '¿Cuál es el papel de la escuela?',
+        blocks: [
+          {
+            kind: 'paragraph',
+            text: 'La escuela es uno de los espacios donde niñas, niños y adolescentes pasan gran parte de su tiempo.',
+          },
+          {
+            kind: 'paragraph',
+            text: 'Las docentes no reemplazan a profesionales de la salud mental, pero sí pueden convertirse en figuras significativas que promuevan ambientes protectores y favorezcan el desarrollo socioemocional.',
+          },
+          {
+            kind: 'paragraph',
+            text: 'Pequeñas acciones, como escuchar con atención, validar emociones o generar espacios de diálogo, pueden marcar una diferencia importante.',
+          },
+        ],
+        pdfs: [],
+        videos: [],
+        audios: [],
+      },
+      {
+        key: 'que-son-las-emociones',
+        emoji: '💛',
+        title: '¿Qué son las emociones?',
+        blocks: [
+          {
+            kind: 'paragraph',
+            text: 'Las emociones son respuestas naturales que aparecen ante diferentes situaciones de nuestra vida.',
+          },
+          {
+            kind: 'paragraph',
+            text: 'Nos ayudan a comprender lo que vivimos, tomar decisiones, protegernos y relacionarnos con otras personas.',
+          },
+          {
+            kind: 'paragraph',
+            text: 'Todas las personas experimentamos emociones. No existen emociones buenas o malas; cada una cumple una función importante.',
+          },
+          {
+            kind: 'paragraph',
+            text: 'Reconocerlas y expresarlas de manera saludable fortalece nuestro bienestar y nuestras relaciones.',
+          },
+        ],
+        pdfs: [],
+        videos: [],
+        audios: [],
+      },
+      {
+        key: 'todas-las-emociones-tienen-una-funcion',
+        emoji: '🧭',
+        title: 'Todas las emociones tienen una función',
+        blocks: [
+          { kind: 'paragraph', text: 'Cada emoción nos envía un mensaje.' },
+          {
+            kind: 'definitions',
+            title: 'El mensaje de cada emoción',
+            items: [
+              { term: 'La alegría', text: 'nos invita a compartir aquello que disfrutamos.' },
+              { term: 'La tristeza', text: 'nos ayuda a reconocer pérdidas y buscar apoyo.' },
+              { term: 'El miedo', text: 'nos protege frente al peligro.' },
+              { term: 'El enojo', text: 'nos muestra que algo nos incomoda o que nuestros límites han sido vulnerados.' },
+              {
+                term: 'La frustración',
+                text: 'aparece cuando algo no resulta como esperábamos y nos invita a buscar nuevas estrategias.',
+              },
+              {
+                term: 'La vergüenza',
+                text: 'nos ayuda a reflexionar sobre nuestras acciones, aunque cuando aparece de forma intensa puede afectar nuestra autoestima.',
+              },
+              {
+                term: 'La ansiedad',
+                text: 'prepara a nuestro cuerpo para responder ante situaciones desafiantes, aunque cuando permanece durante mucho tiempo puede generar malestar.',
+              },
+            ],
+          },
+          {
+            kind: 'paragraph',
+            text: 'Comprender el propósito de cada emoción nos ayuda a responder con mayor empatía hacia nosotros mismos y hacia los demás.',
+          },
+        ],
+        pdfs: [],
+        videos: [],
+        audios: [],
+      },
     ],
   },
   {
     id: 'aula',
     emoji: '🏫',
     title: 'Cómo acompañar emociones difíciles en el aula',
+    layout: 'slides',
+    intro: [
+      { kind: 'paragraph', text: 'Las emociones difíciles forman parte de la vida escolar.' },
+      {
+        kind: 'paragraph',
+        text: 'Como docentes, no siempre podremos resolver aquello que viven nuestros estudiantes, pero sí podemos ofrecer un espacio seguro donde se sientan escuchados, comprendidos y acompañados.',
+      },
+      {
+        kind: 'paragraph',
+        text: 'Muchas veces, lo que más necesita una niña, niño o adolescente no es una respuesta inmediata, sino la certeza de que no está enfrentando esa emoción en soledad.',
+      },
+    ],
     subtopics: [
-      { title: 'Estrategias prácticas para docentes', body: 'Validar lo que siente el estudiante, ofrecer un espacio seguro y proponer recursos como la respiración o el dibujo ayudan a regular emociones intensas.', pdfs: [], videos: [], audios: [] },
-      { title: 'Qué hacer y qué evitar cuando un estudiante expresa emociones', body: 'Escucha sin minimizar ni apresurar soluciones. Evita frases como "no es para tanto" y acompaña con presencia y calma.', pdfs: [], videos: [], audios: [] },
-      { title: 'Recomendaciones para promover espacios seguros y respetuosos', body: 'Acuerdos de convivencia, rutinas predecibles y un clima de respeto permiten que niñas, niños y adolescentes se sientan en confianza para expresarse.', pdfs: [], videos: [], audios: [] },
+      {
+        key: 'estrategias-practicas-para-docentes',
+        emoji: '🤝',
+        title: 'Estrategias prácticas para docentes',
+        blocks: [
+          { kind: 'heading', text: 'Escucha antes de intervenir' },
+          {
+            kind: 'paragraph',
+            text: 'Permite que el estudiante exprese lo que siente antes de ofrecer soluciones o consejos.',
+          },
+          { kind: 'heading', text: 'Valida la emoción' },
+          { kind: 'paragraph', text: 'Puedes decir:' },
+          { kind: 'quote', text: 'Entiendo que esto ha sido difícil para ti.' },
+          { kind: 'quote', text: 'Gracias por contarme cómo te sientes.' },
+          {
+            kind: 'paragraph',
+            text: 'Validar no significa estar de acuerdo con una conducta, sino reconocer la experiencia emocional de la persona.',
+          },
+          { kind: 'heading', text: 'Ayuda a poner nombre a la emoción' },
+          {
+            kind: 'paragraph',
+            text: 'Muchas veces las niñas y los niños sienten algo, pero no saben cómo expresarlo. Preguntas como:',
+          },
+          { kind: 'quote', text: '¿Cómo describirías lo que estás sintiendo?' },
+          { kind: 'quote', text: '¿Qué crees que necesita esa emoción?' },
+          { kind: 'paragraph', text: 'pueden ayudarles a comprender mejor su experiencia.' },
+          { kind: 'heading', text: 'Mantén la calma' },
+          { kind: 'paragraph', text: 'Las emociones son contagiosas.' },
+          {
+            kind: 'paragraph',
+            text: 'Cuando una persona adulta responde con serenidad, transmite seguridad al grupo.',
+          },
+          { kind: 'heading', text: 'Ofrece alternativas' },
+          { kind: 'paragraph', text: 'En lugar de decir únicamente «cálmate», puedes preguntar:' },
+          { kind: 'quote', text: '¿Qué podría ayudarte en este momento?' },
+          { kind: 'quote', text: '¿Prefieres respirar un momento, dibujar o conversar?' },
+        ],
+        pdfs: [],
+        videos: [],
+        audios: [],
+      },
+      {
+        key: 'que-hacer-cuando-expresa-una-emocion-dificil',
+        emoji: '✅',
+        title: 'Qué hacer cuando un estudiante expresa una emoción difícil',
+        blocks: [
+          {
+            kind: 'checklist',
+            title: 'Qué hacer',
+            items: [
+              'Escuchar con atención.',
+              'Agradecer la confianza.',
+              'Hablar en un lugar tranquilo cuando sea posible.',
+              'Validar la emoción.',
+              'Respetar los silencios.',
+              'Observar cambios persistentes en el comportamiento.',
+              'Buscar apoyo dentro de la institución cuando sea necesario.',
+            ],
+          },
+        ],
+        pdfs: [],
+        videos: [],
+        audios: [],
+      },
+      {
+        key: 'que-evitar',
+        emoji: '⚠️',
+        title: 'Qué evitar',
+        blocks: [
+          {
+            kind: 'avoidlist',
+            title: 'Qué evitar',
+            items: [
+              'Minimizar lo que siente: «No es para tanto».',
+              'Comparar su experiencia: «Hay personas que están peor».',
+              'Obligarle a hablar.',
+              'Ridiculizar o bromear sobre lo que expresa.',
+              'Prometer confidencialidad absoluta cuando la seguridad del estudiante pueda estar en riesgo.',
+            ],
+          },
+        ],
+        pdfs: [],
+        videos: [],
+        audios: [],
+      },
+      {
+        key: 'construyendo-espacios-emocionalmente-seguros',
+        emoji: '🌱',
+        title: 'Construyendo espacios emocionalmente seguros',
+        blocks: [
+          {
+            kind: 'paragraph',
+            text: 'Las comunidades educativas que promueven el bienestar emocional suelen compartir algunas características:',
+          },
+          {
+            kind: 'checklist',
+            title: 'Lo que tienen en común',
+            items: [
+              'Escuchan con respeto.',
+              'Reconocen la diversidad de experiencias.',
+              'Promueven la participación.',
+              'Valoran el error como parte del aprendizaje.',
+              'Favorecen relaciones basadas en la empatía y el cuidado mutuo.',
+            ],
+          },
+          {
+            kind: 'reflection',
+            questions: [
+              'Una conversación respetuosa puede convertirse en el primer paso para que una niña, un niño o un adolescente se sienta acompañado. ¿Qué conversación pendiente tengo con alguno de mis estudiantes?',
+            ],
+          },
+        ],
+        pdfs: [],
+        videos: [],
+        audios: [],
+      },
     ],
   },
 ];
+
+/**
+ * Los párrafos de introducción de cada pantalla, tal como los verá la docente
+ * hasta que la administradora los cambie desde el CMS.
+ *
+ * Solo `learning` viene del documento de Sueños y Letras; los otros tres son el
+ * texto que hasta ahora estaba escrito a mano en el JSX de cada pantalla.
+ */
+export const SCREEN_INTRO_PARAGRAPHS: Record<string, string[]> = {
+  learning: [
+    'Acompañar el bienestar emocional también implica seguir aprendiendo.',
+    'Esta sección busca fortalecer los conocimientos y herramientas de las docentes para acompañar procesos de bienestar emocional en sus comunidades educativas.',
+    'En esta sección encontrarás contenidos breves que te ayudarán a comprender mejor las emociones, fortalecer tu práctica educativa y construir espacios de aprendizaje más seguros, empáticos y respetuosos.',
+  ],
+};
 
 export const TOOLS: ToolsContent = {
   downloadables: [

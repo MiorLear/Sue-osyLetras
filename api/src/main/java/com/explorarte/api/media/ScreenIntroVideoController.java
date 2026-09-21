@@ -1,6 +1,7 @@
 package com.explorarte.api.media;
 
 import java.util.List;
+import java.util.Objects;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -40,20 +41,33 @@ public class ScreenIntroVideoController {
                 .toDto();
     }
 
+    /**
+     * Reemplaza la introduccion entera: texto y video.
+     *
+     * <p>Recibia un {@link MediaItem} pelado, y con esa forma no habia manera de
+     * decir "quita el archivo pero deja el texto": borrar el video se llevaba
+     * los parrafos por delante.
+     */
     @PutMapping("/screen-intro-videos/{screenKey}")
     public ScreenIntroVideoDto update(@PathVariable @NotBlank @Size(max = 40) String screenKey,
-            @Valid @RequestBody MediaItem video) {
-        mediaUrlPolicy.checkStorageUrl(video.url());
+            @Valid @RequestBody UpdateScreenIntroInput input) {
+        if (input.video() != null) {
+            mediaUrlPolicy.checkStorageUrl(input.video().url());
+        }
         ScreenIntroVideo entity = repository.findById(screenKey).orElseGet(() -> {
             ScreenIntroVideo v = new ScreenIntroVideo();
             v.setScreenKey(screenKey);
             return v;
         });
-        entity.setVideo(video);
+        entity.setVideo(input.video());
+        // La columna es NOT NULL con DEFAULT, y un DEFAULT solo actua cuando el
+        // INSERT no nombra la columna — Hibernate siempre la nombra.
+        entity.setParagraphs(Objects.requireNonNullElseGet(input.paragraphs(), List::of));
         repository.save(entity);
         return entity.toDto();
     }
 
+    /** Borra la introduccion entera. Para quitar solo el video, un PUT con video nulo. */
     @DeleteMapping("/screen-intro-videos/{screenKey}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void remove(@PathVariable @NotBlank @Size(max = 40) String screenKey) {

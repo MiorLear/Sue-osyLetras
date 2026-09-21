@@ -1974,3 +1974,82 @@ a {
   font-size: 13.5px;
   text-decoration: none;
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   APRENDIENDO — mapa de fases y mazo de tarjetas
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Texto solo para lectores de pantalla. Lo usa la región que anuncia el cambio
+   de tarjeta del carrusel; no existía en el proyecto. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Dos columnas en escritorio, una en móvil, sin una línea de JavaScript ni un
+   matchMedia: el panel va SIEMPRE después del mapa en el DOM, que además es el
+   orden de lectura correcto. En móvil queda debajo y el nodo hace scroll hasta
+   él; nada de modal, que a 360×360 —el viewport con el teclado abierto— es
+   justo lo que rompe. */
+.learning-path {
+  --path-node: 68px;
+  --path-label: 128px;
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) 1fr;
+  gap: 28px;
+  align-items: start;
+}
+.learning-path__panel {
+  position: sticky;
+  top: 24px;
+}
+.learning-path__node {
+  cursor: pointer;
+}
+.learning-path__dot {
+  transition:
+    background 0.25s,
+    box-shadow 0.25s,
+    border-color 0.25s;
+}
+
+@media (max-width: 760px) {
+  .learning-path {
+    --path-node: 60px;
+    --path-label: 112px;
+    grid-template-columns: 1fr;
+  }
+  .learning-path__panel {
+    position: static;
+  }
+}
+
+/* El mazo. `min-width: 0` en los hijos es lo que impide que una palabra larga
+   ensanche la pista y desborde la página a 360px. La altura es la del hijo más
+   alto, que evita el salto al pasar de tarjeta sin medir nada. */
+.slides-viewport {
+  overflow: hidden;
+  border-radius: 22px;
+  background: #fff;
+  border: 1px solid var(--border);
+  touch-action: pan-y;
+}
+.slides-track {
+  display: flex;
+  align-items: stretch;
+  transition: transform 0.32s cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: transform;
+}
+.slides-track > * {
+  flex: 0 0 100%;
+  min-width: 0;
+  padding: clamp(20px, 6vw, 34px);
+  min-height: min(56dvh, 420px);
+}

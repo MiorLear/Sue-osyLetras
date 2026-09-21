@@ -139,9 +139,74 @@ export type UpdateEventInput = Partial<Omit<CalEvent, 'id'>>;
 
 // ── Learning ──────────────────────────────────────────────────────────────────
 
+/**
+ * Un trozo de contenido de Aprendiendo, con su forma declarada.
+ *
+ * Era una sola cadena (`SubTopic.body`), y por eso la pantalla no podía enseñar
+ * más que un párrafo corrido. El material de las docentes no tiene esa forma:
+ * alterna explicaciones con listas de prácticas, cuadros de "Recuerda", frases
+ * que se pueden decir en el aula y preguntas para pensar después. Cada una de
+ * esas es un `kind` aquí, y el CMS las compone en el orden que quiera.
+ *
+ * El discriminante es `kind` —no `type`— por dos razones: es el que ya usa la
+ * unión cerrada del buzón de salida (`outbox.ts`), y `type` ya significa otra
+ * cosa en `CalEvent`.
+ *
+ * Quien pinte esto debe ignorar en silencio un `kind` que no conozca: el CMS
+ * puede ir por delante de la app instalada, y una pantalla en blanco es peor
+ * que un bloque de menos.
+ */
+export type LearningBlock =
+  /** Texto corrido. Los saltos de línea se respetan al pintarlo. */
+  | { kind: 'paragraph'; text: string }
+  /** Título de sección dentro del subtema ("¿Por qué es importante?"). */
+  | { kind: 'heading'; text: string }
+  /** Lista de cosas que hacer, con viñeta ✔. */
+  | { kind: 'checklist'; title: string; items: string[] }
+  /** Lista de cosas que evitar, con viñeta ✘. */
+  | { kind: 'avoidlist'; title: string; items: string[] }
+  /** El cuadro destacado. Sin título, se pinta como "Recuerda". */
+  | { kind: 'callout'; title: string; text: string }
+  /** Preguntas para pensar al cerrar ("Para reflexionar"). */
+  | { kind: 'reflection'; questions: string[] }
+  /** Una frase que la docente puede decir tal cual. Se pinta en cursiva. */
+  | { kind: 'quote'; text: string }
+  /** Término + explicación, en filas. "La alegría nos invita a compartir…". */
+  | { kind: 'definitions'; title: string; items: DefinitionItem[] };
+
+export interface DefinitionItem {
+  /** lo que va en negrita */
+  term: string;
+  text: string;
+}
+
+/**
+ * Cómo se recorre un tema. Lo elige la administradora desde el CMS, así que un
+ * tema nuevo no necesita código para presentarse de otra manera.
+ *
+ *  - `accordion`: subtemas que se despliegan. Es lo que había y sigue siendo el
+ *    valor por defecto.
+ *  - `path`: mapa de fases. La docente marca cada fase al completarla y el
+ *    avance se guarda en el servidor (ver `LearningProgressEntry`).
+ *  - `slides`: el contenido se pasa tarjeta a tarjeta.
+ */
+export type TopicLayout = 'accordion' | 'path' | 'slides';
+
 export interface SubTopic {
+  /**
+   * Clave estable del subtema dentro de su tema. Es la única ancla del avance
+   * guardado: ni la posición ni el id de la fila sirven, porque el PUT del CMS
+   * borra y reinserta la colección entera en cada guardado.
+   *
+   * Se genera del título la primera vez y **no se regenera al renombrar**:
+   * hacerlo desconectaría en silencio el avance de todas las docentes.
+   * Vacía al crear un subtema nuevo — el servidor la rellena.
+   */
+  key: string;
+  /** Emoji del nodo en el mapa de fases. Vacío en los temas que no lo usan. */
+  emoji: string;
   title: string;
-  body: string;
+  blocks: LearningBlock[];
   pdfs: MediaItem[];
   videos: MediaItem[];
   audios: MediaItem[];
@@ -151,11 +216,29 @@ export interface Topic {
   id: string;
   emoji: string;
   title: string;
+  layout: TopicLayout;
+  /** La introducción del tema, antes de sus subtemas. Puede venir vacía. */
+  intro: LearningBlock[];
   subtopics: SubTopic[];
 }
 
-/** Payload to create a learning topic (id is assigned by the server). */
-export type CreateTopicInput = Omit<Topic, 'id'>;
+/** Una fase que una docente ya marcó como completada. */
+export interface LearningProgressEntry {
+  topicId: string;
+  /** el `key` del subtema */
+  stepKey: string;
+  /** ISO 8601 */
+  completedAt: string;
+}
+
+/**
+ * Payload to create a learning topic (id is assigned by the server).
+ *
+ * `layout` e `intro` son opcionales: un tema nuevo se crea como acordeon sin
+ * introduccion, que es lo que el CMS ofrece por defecto, y se cambia despues.
+ */
+export type CreateTopicInput = Omit<Topic, 'id' | 'layout' | 'intro'> &
+  Partial<Pick<Topic, 'layout' | 'intro'>>;
 /** Payload to update a learning topic. */
 export type UpdateTopicInput = Partial<Omit<Topic, 'id'>>;
 
@@ -176,9 +259,31 @@ export interface ToolsContent {
 
 export type ScreenKey = 'home' | 'emotions' | 'learning' | 'tools';
 
+/**
+ * La cabecera editable de una pantalla: sus párrafos de introducción y el video
+ * que los acompaña.
+ *
+ * Empezó siendo solo el video —de ahí el nombre, que se conserva porque lo
+ * importan la PWA, la app de RN, el cliente HTTP y el mock—. El texto estaba
+ * escrito a mano en el JSX de cada pantalla, así que cambiar una frase exigía
+ * un despliegue. Ahora los dos viven aquí y los edita la administradora.
+ *
+ * Las dos partes son opcionales por separado: hay pantallas donde el texto es
+ * todo lo que hay, y el video puede subirse después.
+ */
 export interface ScreenIntroVideo {
   screenKey: string;
-  video: MediaItem;
+  video: MediaItem | null;
+  paragraphs: string[];
+}
+
+/**
+ * El cuerpo del PUT. Reemplaza el recurso entero a propósito: cuando el PUT
+ * recibía solo el `MediaItem`, quitar el video habría borrado los párrafos.
+ */
+export interface UpdateScreenIntroInput {
+  video: MediaItem | null;
+  paragraphs: string[];
 }
 
 // ── Profile / auth ────────────────────────────────────────────────────────────

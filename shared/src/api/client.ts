@@ -14,6 +14,7 @@ import type {
   CreateTopicInput,
   Emotion,
   EmotionDetail,
+  LearningProgressEntry,
   LoginInput,
   MediaItem,
   Post,
@@ -23,6 +24,7 @@ import type {
   ToolsContent,
   UpdateEventInput,
   UpdateProfileInput,
+  UpdateScreenIntroInput,
   UpdateTopicInput,
   UserProfile,
   UserStatus,
@@ -99,6 +101,22 @@ export interface LearningApi {
   updateTopic(id: string, input: UpdateTopicInput): Promise<Topic>;
   /** DELETE /learning/topics/:id — admin */
   removeTopic(id: string): Promise<void>;
+
+  // ── Avance de la docente conectada ──────────────────────────────────────
+  //
+  // Marcar y desmarcar son PUT y DELETE, no un POST que conmuta. La diferencia
+  // importa sin conexión: el buzón de salida reenvía lo que no llegó a irse, y
+  // reenviar un conmutador lo INVIERTE. Con estos dos verbos, reenviar dos
+  // veces deja exactamente el mismo estado.
+
+  /** GET /learning/progress */
+  progress(): Promise<LearningProgressEntry[]>;
+  /** PUT /learning/progress/:topicId/:stepKey */
+  completeStep(topicId: string, stepKey: string): Promise<void>;
+  /** DELETE /learning/progress/:topicId/:stepKey */
+  uncompleteStep(topicId: string, stepKey: string): Promise<void>;
+  /** DELETE /learning/progress/:topicId — empezar el tema de cero */
+  resetProgress(topicId: string): Promise<void>;
 }
 
 export interface ToolsApi {
@@ -153,9 +171,14 @@ export interface ScreenIntrosApi {
   list(): Promise<ScreenIntroVideo[]>;
   /** GET /screen-intro-videos/:screenKey */
   get(screenKey: string): Promise<ScreenIntroVideo | null>;
-  /** PUT /screen-intro-videos/:screenKey — admin */
-  update(screenKey: string, video: MediaItem): Promise<ScreenIntroVideo>;
-  /** DELETE /screen-intro-videos/:screenKey — admin */
+  /**
+   * PUT /screen-intro-videos/:screenKey — admin.
+   *
+   * Reemplaza el recurso entero, párrafos incluidos. Recibía solo el
+   * `MediaItem`, y con esa forma quitar el video habría borrado el texto.
+   */
+  update(screenKey: string, input: UpdateScreenIntroInput): Promise<ScreenIntroVideo>;
+  /** DELETE /screen-intro-videos/:screenKey — admin. Borra texto y video. */
   remove(screenKey: string): Promise<void>;
 }
 

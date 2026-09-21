@@ -109,6 +109,28 @@ const CONTROLES: {
   },
   { ruta: '/pendiente', rol: 'button', nombre: 'Volver al inicio de sesión' },
   { ruta: '/emociones/alegria', rol: 'button', nombre: 'Volver' },
+  // Aprendiendo: el nodo del mapa, el botón de completar una fase y los tres
+  // controles del mazo de tarjetas.
+  {
+    ruta: '/aprendiendo/autocuidado',
+    rol: 'button',
+    nombre: 'Fase 1: Cuidando mis emociones. En curso',
+    nota: 'nodo del mapa',
+  },
+  {
+    ruta: '/aprendiendo/autocuidado',
+    rol: 'button',
+    nombre: 'Marcar esta fase como completada',
+    prepara: async (page) => {
+      await page.getByRole('button', { name: /Fase 1:/ }).click();
+    },
+  },
+  { ruta: '/aprendiendo/aula', rol: 'button', nombre: 'Tarjeta siguiente' },
+  { ruta: '/aprendiendo/aula', rol: 'button', nombre: 'Tarjeta anterior' },
+  // Los puntos solo se dibujan hasta ocho tarjetas; pasadas esas se cambian por
+  // un contador de texto. «Aprendiendo » en el aula da nueve, así que el punto
+  // se audita en el tema que sí los enseña.
+  { ruta: '/aprendiendo/salud-mental', rol: 'button', nombre: 'Tarjeta 2 de 6', nota: 'punto del mazo' },
   // La barra de tabs del teléfono (PWA-1.4) ya nació con `min-height: 44px`.
   // Las pestañas son Inicio y los tres módulos de ExplorArte: el documento de
   // estructura los marca como principales y antes dos vivían detrás de "Más".

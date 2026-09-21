@@ -46,6 +46,7 @@ describe('las pantallas no escriben claves a mano', () => {
     'EmotionDetail.tsx',
     'Herramientas.tsx',
     'Aprendiendo.tsx',
+    'AprendiendoTema.tsx',
     'Comunidad.tsx',
     'Calendar.tsx',
     'Profile.tsx',

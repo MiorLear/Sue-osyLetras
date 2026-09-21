@@ -94,7 +94,8 @@ class MigrationChainTest {
                     .as("migration %s state", info.getVersion())
                     .isFalse();
         }
-        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11");
+        assertThat(applied).containsExactly(
+                "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15");
 
         // validate() vuelve a leer los checksums: si alguien editó una migración
         // ya aplicada en vez de agregar una nueva, esto es lo que lo dice — y en
@@ -306,7 +307,7 @@ class MigrationChainTest {
                 .isEqualTo(OWN_DOMAIN_PREFIX + "screen-intros/9f1c-intro.mp4");
         assertThat(scalar("SELECT stories->0->>'url' FROM emotion_content WHERE emotion_id = 'e-1'"))
                 .isEqualTo(OWN_DOMAIN_PREFIX + "emotions/9f1c-cuento.pdf");
-        assertThat(scalar("SELECT pdfs->0->>'url' FROM topic_subtopics WHERE id = 1"))
+        assertThat(scalar("SELECT pdfs->0->>'url' FROM topic_subtopics WHERE topic_id = 't-1'"))
                 .isEqualTo(OWN_DOMAIN_PREFIX + "learning/9f1c-guia.pdf");
         assertThat(scalar("SELECT manual_document->>'url' FROM tools_content WHERE id = 1"))
                 .isEqualTo(OWN_DOMAIN_PREFIX + "tools/9f1c-manual.pdf");
@@ -376,7 +377,7 @@ class MigrationChainTest {
         assertThat(scalar("SELECT attachments->0->>'updatedAt' FROM posts WHERE id = 1")).isNotBlank();
         assertThat(scalar("SELECT video->>'updatedAt' FROM screen_intro_videos WHERE screen_key = 'home'")).isNotBlank();
         assertThat(scalar("SELECT stories->0->>'updatedAt' FROM emotion_content WHERE emotion_id = 'e-1'")).isNotBlank();
-        assertThat(scalar("SELECT pdfs->0->>'updatedAt' FROM topic_subtopics WHERE id = 1")).isNotBlank();
+        assertThat(scalar("SELECT pdfs->0->>'updatedAt' FROM topic_subtopics WHERE topic_id = 't-1'")).isNotBlank();
         assertThat(scalar("SELECT manual_document->>'updatedAt' FROM tools_content WHERE id = 1")).isNotBlank();
         assertThat(scalar("SELECT attachments->0->>'etag' FROM posts WHERE id = 1")).isNull();
         assertThat(scalar("SELECT count(*) FROM information_schema.columns WHERE column_name IN ('updated_at', 'etag')"))
@@ -410,7 +411,7 @@ class MigrationChainTest {
                 .isEqualTo(NEW_PREFIX + "screen-intros/9f1c-intro.mp4");
         assertThat(scalar("SELECT stories->0->>'url' FROM emotion_content WHERE emotion_id = 'e-1'"))
                 .isEqualTo(NEW_PREFIX + "emotions/9f1c-cuento.pdf");
-        assertThat(scalar("SELECT pdfs->0->>'url' FROM topic_subtopics WHERE id = 1"))
+        assertThat(scalar("SELECT pdfs->0->>'url' FROM topic_subtopics WHERE topic_id = 't-1'"))
                 .isEqualTo(NEW_PREFIX + "learning/9f1c-guia.pdf");
         assertThat(scalar("SELECT manual_document->>'url' FROM tools_content WHERE id = 1"))
                 .isEqualTo(NEW_PREFIX + "tools/9f1c-manual.pdf");
@@ -428,10 +429,23 @@ class MigrationChainTest {
         seedRowsWithMediaPrefix(OLD_PREFIX);
     }
 
-    /** Las siete columnas con MediaItem dentro, sembradas con el prefijo que se
+    /**
+     * Las siete columnas con MediaItem dentro, sembradas con el prefijo que se
      * le pase. Lo comparten el script de Supabase y V11, que hacen lo mismo
-     * sobre las mismas columnas y se equivocarían igual si alguien renombra una. */
+     * sobre las mismas columnas y se equivocarían igual si alguien renombra una.
+     *
+     * <p>El subtema se inserta <b>sin id</b>. Con uno explícito la secuencia
+     * BIGSERIAL no avanza, así que el siguiente {@code nextval} devuelve 1 otra
+     * vez: en cuanto V15 inserta sus propias fases, la migración choca contra
+     * esta y falla dentro del test — y el que falla en producción es el arranque.
+     *
+     * <p>Y {@code subtopic_key} solo se nombra si ya existe: este helper se usa
+     * antes de V12 (que la crea) y también después de la cadena entera.
+     */
     private void seedRowsWithMediaPrefix(String prefix) throws SQLException {
+        boolean keyed = columnExists("topic_subtopics", "subtopic_key");
+        String keyColumn = keyed ? "subtopic_key, " : "";
+        String keyValue = keyed ? "'sub'," : "";
         execute("""
                 INSERT INTO users (id, name, lastname, email, password_hash, role, status, photo)
                 VALUES ('u-1', 'Ana', 'Perez', 'ana@example.com', 'x', 'TEACHER', 'APPROVED',
@@ -454,8 +468,8 @@ class MigrationChainTest {
                            "mimeType":"application/pdf","sizeBytes":10}]');
 
                 INSERT INTO topics (id, emoji, title) VALUES ('t-1', ':)', 'Tema');
-                INSERT INTO topic_subtopics (id, topic_id, position, title, body, pdfs)
-                VALUES (1, 't-1', 0, 'Sub', 'b',
+                INSERT INTO topic_subtopics (topic_id, position, title, body, %2$spdfs)
+                VALUES ('t-1', 0, 'Sub', 'b', %3$s
                         '[{"id":"9f1c","title":"guia.pdf","url":"%1$slearning/9f1c-guia.pdf",
                            "mimeType":"application/pdf","sizeBytes":10}]');
 
@@ -463,7 +477,7 @@ class MigrationChainTest {
                 VALUES (1,
                         '{"id":"9f1c","title":"manual.pdf","url":"%1$stools/9f1c-manual.pdf",
                           "mimeType":"application/pdf","sizeBytes":10}');
-                """.formatted(prefix));
+                """.formatted(prefix, keyColumn, keyValue));
     }
 
     /**
@@ -505,11 +519,14 @@ class MigrationChainTest {
         }
     }
 
-    private void assertColumnExists(String table, String column) throws SQLException {
-        String found = scalar("""
+    private boolean columnExists(String table, String column) throws SQLException {
+        return "1".equals(scalar("""
                 SELECT count(*) FROM information_schema.columns
                  WHERE table_name = '%s' AND column_name = '%s'
-                """.formatted(table, column));
-        assertThat(found).as("%s.%s", table, column).isEqualTo("1");
+                """.formatted(table, column)));
+    }
+
+    private void assertColumnExists(String table, String column) throws SQLException {
+        assertThat(columnExists(table, column)).as("%s.%s", table, column).isTrue();
     }
 }

@@ -51,6 +51,17 @@ public class SecurityConfig {
                         // public reads
                         .requestMatchers(HttpMethod.GET, "/emotions", "/emotions/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/learning/topics", "/learning/topics/**").permitAll()
+                        // El avance de una docente NO es contenido publico, y va
+                        // en una ruta hermana y no colgado de /learning/topics a
+                        // proposito: la regla de arriba se tragaria su lectura, y
+                        // la de mas abajo (PUT /learning/topics/** -> ADMIN)
+                        // dejaria a las docentes sin poder marcar una fase.
+                        // Explicito aunque anyRequest().authenticated() ya las
+                        // cubra, para que una futura regla de /learning/** no las
+                        // abra por accidente.
+                        .requestMatchers(HttpMethod.GET, "/learning/progress").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/learning/progress/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/learning/progress/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/tools", "/schools").permitAll()
                         .requestMatchers(HttpMethod.GET, "/screen-intro-videos", "/screen-intro-videos/**").permitAll()
                         // GCP-04: resolving a media URL to a signed Cloud Storage URL.

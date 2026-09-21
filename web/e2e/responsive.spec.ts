@@ -144,12 +144,20 @@ test.describe('legibilidad del contenido denso en teléfono', () => {
     expect(ancho).toBeGreaterThanOrEqual(260);
   });
 
-  test('Aprendiendo reduce la sangría del cuerpo abierto', async ({ page }) => {
-    await page.goto('/aprendiendo');
-    await page.getByRole('button', { name: /Cuidando mis emociones/ }).click();
-    const cuerpo = page.getByText(/Reconocer lo que sentimos como docentes/i).first();
+  /**
+   * Antes esto medía la sangría del acordeón dentro de `/aprendiendo`. El
+   * acordeón se mudó a `/aprendiendo/:topicId` y «Practicar autocuidado» pasó a
+   * recorrerse como mapa de fases, así que el sujeto cambió; la intención —que
+   * el teléfono no regale ancho en sangrías— es la misma, y ahora se mide donde
+   * el contenido vive de verdad: el panel de una fase abierta.
+   */
+  test('Aprendiendo no regala ancho en la fase abierta', async ({ page }) => {
+    await page.goto('/aprendiendo/autocuidado');
+    await page.getByRole('button', { name: /Fase 1: Cuidando mis emociones/ }).click();
+    const cuerpo = page.getByText(/Las emociones forman parte de nuestra vida diaria/i).first();
     await expect(cuerpo).toBeVisible();
-    const sangria = await cuerpo.evaluate((el) => parseFloat(getComputedStyle(el.parentElement!).paddingLeft));
+    const panel = page.locator('.learning-path__panel > div');
+    const sangria = await panel.evaluate((el) => parseFloat(getComputedStyle(el).paddingLeft));
     expect(sangria).toBeLessThan(58);
     expect(sangria).toBeGreaterThanOrEqual(18);
   });
