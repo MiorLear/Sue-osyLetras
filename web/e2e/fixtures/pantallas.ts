@@ -122,6 +122,37 @@ export const PANTALLAS: Pantalla[] = [
     ruta: '/aprendiendo',
     ancla: (page) => page.getByText('Practicar autocuidado'),
   },
+  // Las dos formas nuevas de recorrer un tema. Se miden aparte porque el mapa
+  // coloca sus nodos en porcentajes del ancho y el mazo desplaza una pista
+  // flexible: las dos cosas que peor caben a 360px.
+  {
+    nombre: 'Aprendiendo · mapa de fases',
+    ruta: '/aprendiendo/autocuidado',
+    ancla: (page) => page.getByRole('button', { name: /Fase 1:/ }),
+    variantes: [
+      {
+        nombre: 'fase abierta',
+        activa: async (page) => {
+          await page.getByRole('button', { name: /Fase 2:/ }).click();
+          await page.getByText(/Nuestro cuerpo y nuestras emociones/i).first().waitFor();
+        },
+      },
+    ],
+  },
+  {
+    nombre: 'Aprendiendo · tarjetas',
+    ruta: '/aprendiendo/aula',
+    ancla: (page) => page.getByRole('region', { name: /tarjetas/i }),
+    variantes: [
+      {
+        nombre: 'tercera tarjeta',
+        activa: async (page) => {
+          await page.getByRole('button', { name: 'Tarjeta siguiente' }).click();
+          await page.getByRole('button', { name: 'Tarjeta siguiente' }).click();
+        },
+      },
+    ],
+  },
   {
     nombre: 'Comunidad',
     ruta: '/comunidad',

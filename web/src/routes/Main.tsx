@@ -16,6 +16,11 @@ const CARDS: HubCard[] = [
   { emoji: '🌱', title: 'Aprendiendo sobre bienestar emocional', desc: 'Conceptos y estrategias para fortalecer el acompañamiento socioemocional.', cta: 'Explorar contenidos', href: '/aprendiendo', keywords: 'autocuidado salud mental infancia emociones difíciles estrategias aula', bg: '#F0FFF4', accent: '#2F855A' },
 ];
 
+/** Lo que la pantalla decia antes de que el texto fuera editable desde el CMS. */
+const FALLBACK_INTRO = [
+  'Hemos preparado este espacio para acompañarte con ideas, historias y herramientas para el bienestar emocional en el aula. Antes de comenzar, queremos darte la bienvenida.',
+];
+
 const greeting = (date: Date) => date.getHours() < 12 ? 'Buenos días,' : date.getHours() < 19 ? 'Buenas tardes,' : 'Buenas noches,';
 
 export default function Main() {
@@ -37,7 +42,14 @@ export default function Main() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))', gap: 24, alignItems: 'center' }}>
           <div>
             <div style={{ fontFamily: 'var(--font-serif)', fontSize: 25, fontWeight: 600, color: 'var(--text-dark)' }}>Bienvenida a ExplorArte 💛</div>
-            <p style={{ marginTop: 9, fontSize: 14, lineHeight: 1.65, color: 'var(--text-body)' }}>Hemos preparado este espacio para acompañarte con ideas, historias y herramientas para el bienestar emocional en el aula. Antes de comenzar, queremos darte la bienvenida.</p>
+            {/* El texto de bienvenida también sale del CMS. Va inline y no por
+                `ScreenIntroHero` porque aquí la tarjeta ya existe, con el video
+                al lado, y no es la caja que ese componente dibuja. */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 9 }}>
+              {(intro?.paragraphs?.filter((p) => p.trim()).length ? intro.paragraphs : FALLBACK_INTRO).map((p, i) => (
+                <p key={i} style={{ fontSize: 14, lineHeight: 1.65, color: 'var(--text-body)' }}>{p}</p>
+              ))}
+            </div>
           </div>
           <VideoPlaceholder caption="Ver video de bienvenida" video={intro?.video ?? null} duration="1 min 34 s" fallbackUrl="/videos/inicio.mp4" />
         </div>

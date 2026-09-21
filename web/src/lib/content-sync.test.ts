@@ -15,7 +15,7 @@ const api = vi.hoisted(() => ({
   screenIntros: { get: vi.fn() },
   emotions: { list: vi.fn(), get: vi.fn() },
   tools: { get: vi.fn() },
-  learning: { topics: vi.fn() },
+  learning: { topics: vi.fn(), progress: vi.fn() },
   posts: { list: vi.fn() },
   events: { list: vi.fn() },
   profile: { get: vi.fn() },
@@ -73,6 +73,7 @@ function happyApi() {
     bibliography: [],
   });
   api.learning.topics.mockResolvedValue([]);
+  api.learning.progress.mockResolvedValue([]);
   api.posts.list.mockResolvedValue([]);
   api.events.list.mockResolvedValue([]);
   api.profile.get.mockResolvedValue({ id: 'ana', name: 'Ana' });
@@ -107,11 +108,14 @@ describe('content-sync · la pasada automática', () => {
         'emotion:alegria',
         'tools',
         'learning:topics',
-        // Las tres pantallas donde se escribe: sin ellas cacheadas, escribir
+        // Las pantallas donde se escribe: sin ellas cacheadas, escribir
         // sin conexion es inalcanzable para quien no las abrio antes con red.
         'posts:todos',
         cacheKeys.events(),
         'profile:me',
+        // Y el avance por el mapa de fases, que tambien es de la usuaria: sin
+        // el, abrir el mapa sin conexion lo mostraria todo por empezar.
+        cacheKeys.learningProgress(),
       ]),
     );
     expect(result.complete).toBe(true);

@@ -385,6 +385,134 @@ paths:
       responses:
         '204': { description: Deleted }
 
+  /learning/progress:
+    get:
+      tags: [Learning]
+      summary: Phases the signed-in teacher has completed
+      description: >
+        Per-user state, so unlike the topics themselves it needs a token. It
+        lives beside /learning/topics rather than under it on purpose: the
+        public-read rule for GET /learning/topics/** would otherwise expose one
+        teacher's progress to anyone.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/LearningProgressEntry' }
+
+  /learning/progress/{topicId}/{stepKey}:
+    put:
+      tags: [Learning]
+      summary: Mark a phase as completed (idempotent)
+      description: >
+        PUT and DELETE rather than one toggling POST. The apps queue writes made
+        offline and replay them later, and replaying a toggle inverts it; these
+        two can be replayed any number of times and land on the same state.
+      parameters:
+        - in: path
+          name: topicId
+          required: true
+          schema: { type: string }
+        - in: path
+          name: stepKey
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Marked }
+        '404': { description: No such topic, or the key is not one of its subtopics }
+    delete:
+      tags: [Learning]
+      summary: Unmark a phase (idempotent)
+      parameters:
+        - in: path
+          name: topicId
+          required: true
+          schema: { type: string }
+        - in: path
+          name: stepKey
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Unmarked }
+
+  /learning/progress/{topicId}:
+    delete:
+      tags: [Learning]
+      summary: Start a topic over - clears every completed phase in it
+      parameters:
+        - in: path
+          name: topicId
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Cleared }
+
+  /screen-intro-videos:
+    get:
+      tags: [Content]
+      summary: Intro paragraphs and video for every screen
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ScreenIntroVideo' }
+
+  /screen-intro-videos/{screenKey}:
+    get:
+      tags: [Content]
+      summary: Intro for one screen
+      parameters:
+        - in: path
+          name: screenKey
+          required: true
+          schema: { type: string, enum: [home, emotions, learning, tools] }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScreenIntroVideo' }
+        '404': { description: That screen has no intro yet }
+    put:
+      tags: [Admin]
+      summary: Replace a screen's intro (admin)
+      description: >
+        Replaces the whole resource, paragraphs included. It used to take a bare
+        MediaItem, and with that shape removing the video would have wiped the
+        text along with it.
+      parameters:
+        - in: path
+          name: screenKey
+          required: true
+          schema: { type: string, enum: [home, emotions, learning, tools] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateScreenIntroInput' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScreenIntroVideo' }
+    delete:
+      tags: [Admin]
+      summary: Delete a screen's intro entirely - text and video (admin)
+      parameters:
+        - in: path
+          name: screenKey
+          required: true
+          schema: { type: string, enum: [home, emotions, learning, tools] }
+      responses:
+        '204': { description: Deleted }
+
   /tools:
     get:
       tags: [Tools]
@@ -612,22 +740,130 @@ components:
         endTime: { type: string }
         reminder: { type: string }
         completed: { type: boolean }
+    DefinitionItem:
+      type: object
+      required: [term, text]
+      properties:
+        term: { type: string, description: 'Rendered in bold.' }
+        text: { type: string }
+    ParagraphBlock:
+      type: object
+      required: [kind, text]
+      properties:
+        kind: { type: string, enum: [paragraph] }
+        text: { type: string }
+    HeadingBlock:
+      type: object
+      required: [kind, text]
+      properties:
+        kind: { type: string, enum: [heading] }
+        text: { type: string }
+    ChecklistBlock:
+      type: object
+      required: [kind, title, items]
+      properties:
+        kind: { type: string, enum: [checklist] }
+        title: { type: string }
+        items: { type: array, items: { type: string } }
+    AvoidListBlock:
+      type: object
+      required: [kind, title, items]
+      properties:
+        kind: { type: string, enum: [avoidlist] }
+        title: { type: string }
+        items: { type: array, items: { type: string } }
+    CalloutBlock:
+      type: object
+      required: [kind, title, text]
+      properties:
+        kind: { type: string, enum: [callout] }
+        title: { type: string, description: 'Falls back to "Recuerda" when empty.' }
+        text: { type: string }
+    ReflectionBlock:
+      type: object
+      required: [kind, questions]
+      properties:
+        kind: { type: string, enum: [reflection] }
+        questions: { type: array, items: { type: string } }
+    QuoteBlock:
+      type: object
+      required: [kind, text]
+      properties:
+        kind: { type: string, enum: [quote] }
+        text: { type: string }
+    DefinitionsBlock:
+      type: object
+      required: [kind, title, items]
+      properties:
+        kind: { type: string, enum: [definitions] }
+        title: { type: string }
+        items: { type: array, items: { $ref: '#/components/schemas/DefinitionItem' } }
+    LearningBlock:
+      description: >
+        One piece of learning content, with its shape declared. A subtopic used
+        to be a single plain string, which is why the screen could only ever
+        show one running paragraph; the teachers' material alternates
+        explanations with practice lists, "remember" boxes, lines they can say
+        out loud and questions to think about afterwards.
+
+        Clients must ignore an unknown kind rather than fail: the CMS can run
+        ahead of an installed app, and a missing block beats a blank screen.
+      oneOf:
+        - $ref: '#/components/schemas/ParagraphBlock'
+        - $ref: '#/components/schemas/HeadingBlock'
+        - $ref: '#/components/schemas/ChecklistBlock'
+        - $ref: '#/components/schemas/AvoidListBlock'
+        - $ref: '#/components/schemas/CalloutBlock'
+        - $ref: '#/components/schemas/ReflectionBlock'
+        - $ref: '#/components/schemas/QuoteBlock'
+        - $ref: '#/components/schemas/DefinitionsBlock'
+      discriminator:
+        propertyName: kind
+        mapping:
+          paragraph: '#/components/schemas/ParagraphBlock'
+          heading: '#/components/schemas/HeadingBlock'
+          checklist: '#/components/schemas/ChecklistBlock'
+          avoidlist: '#/components/schemas/AvoidListBlock'
+          callout: '#/components/schemas/CalloutBlock'
+          reflection: '#/components/schemas/ReflectionBlock'
+          quote: '#/components/schemas/QuoteBlock'
+          definitions: '#/components/schemas/DefinitionsBlock'
     SubTopic:
       type: object
-      required: [title, body]
+      required: [key, title, blocks]
       properties:
+        key:
+          type: string
+          description: >
+            Stable slug within the topic, and the only anchor the saved progress
+            has. Neither the position nor the row id would do: the admin PUT
+            clears and re-inserts the whole collection on every save. Generated
+            from the title once and never regenerated on rename - doing so would
+            silently detach every teacher's progress. Send it empty when
+            creating a subtopic and the server fills it in.
+        emoji: { type: string, description: 'Node in the phase map; empty in layouts that do not use one.' }
         title: { type: string }
-        body: { type: string }
+        blocks: { type: array, items: { $ref: '#/components/schemas/LearningBlock' } }
         pdfs: { type: array, items: { $ref: '#/components/schemas/MediaItem' } }
         videos: { type: array, items: { $ref: '#/components/schemas/MediaItem' } }
         audios: { type: array, items: { $ref: '#/components/schemas/MediaItem' } }
+    TopicLayout:
+      type: string
+      enum: [accordion, path, slides]
+      default: accordion
+      description: >
+        How a topic is walked through, chosen by the admin in the CMS so a new
+        topic needs no code to present itself differently. "path" is the phase
+        map, and its progress is saved per teacher.
     Topic:
       type: object
-      required: [id, emoji, title, subtopics]
+      required: [id, emoji, title, layout, intro, subtopics]
       properties:
         id: { type: string }
         emoji: { type: string }
         title: { type: string }
+        layout: { $ref: '#/components/schemas/TopicLayout' }
+        intro: { type: array, items: { $ref: '#/components/schemas/LearningBlock' } }
         subtopics:
           type: array
           items: { $ref: '#/components/schemas/SubTopic' }
@@ -637,6 +873,8 @@ components:
       properties:
         emoji: { type: string }
         title: { type: string }
+        layout: { $ref: '#/components/schemas/TopicLayout' }
+        intro: { type: array, items: { $ref: '#/components/schemas/LearningBlock' } }
         subtopics:
           type: array
           items: { $ref: '#/components/schemas/SubTopic' }
@@ -645,9 +883,18 @@ components:
       properties:
         emoji: { type: string }
         title: { type: string }
+        layout: { $ref: '#/components/schemas/TopicLayout' }
+        intro: { type: array, items: { $ref: '#/components/schemas/LearningBlock' } }
         subtopics:
           type: array
           items: { $ref: '#/components/schemas/SubTopic' }
+    LearningProgressEntry:
+      type: object
+      required: [topicId, stepKey, completedAt]
+      properties:
+        topicId: { type: string }
+        stepKey: { type: string, description: "The subtopic's key." }
+        completedAt: { type: string, format: date-time }
     ToolsContent:
       type: object
       required: [downloadables, bibliography]
@@ -660,11 +907,30 @@ components:
             - $ref: '#/components/schemas/MediaItem'
         activityGuides: { type: array, items: { $ref: '#/components/schemas/MediaItem' } }
     ScreenIntroVideo:
+      description: >
+        A screen's editable header: its intro paragraphs and the video that goes
+        with them. It started out as just the video - hence the name, kept
+        because the PWA, the RN app, the HTTP client and the mock all import it.
+        The text used to be hard-coded in each screen's JSX, so changing a
+        sentence meant a deploy. Both parts are independently optional.
       type: object
-      required: [screenKey, video]
+      required: [screenKey, video, paragraphs]
       properties:
-        screenKey: { type: string }
-        video: { $ref: '#/components/schemas/MediaItem' }
+        screenKey: { type: string, enum: [home, emotions, learning, tools] }
+        video:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/MediaItem'
+        paragraphs: { type: array, items: { type: string } }
+    UpdateScreenIntroInput:
+      type: object
+      required: [video, paragraphs]
+      properties:
+        video:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/MediaItem'
+        paragraphs: { type: array, items: { type: string } }
     UserProfile:
       type: object
       required: [id, name, lastname, email, phone, institucion, ubicacion, role, status]

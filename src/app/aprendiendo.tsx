@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { blocksToText } from '@explorarte/shared';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -100,7 +101,7 @@ export default function AprendiendoBienestarScreen() {
                           borderTopColor: colors.borderSoft,
                         }}>
                         <Text style={{ marginTop: 10, fontSize: 12.5, color: colors.textBody, lineHeight: 20 }}>
-                          {sub.body}
+                          {blocksToText(sub.blocks)}
                         </Text>
                         {[...sub.pdfs, ...sub.videos, ...sub.audios].length > 0 ? (
                           <View style={{ marginTop: 12, gap: 8 }}>

@@ -26,12 +26,21 @@ export function AdminModal({ title, onClose, children, footer }: {
   );
 }
 
-/** Editable list of plain strings (rows with add / remove). */
-export function StringListEditor({ label, items, onChange, placeholder }: {
+/**
+ * Editable list of plain strings (rows with add / remove).
+ *
+ * Con `multiline`, cada fila es un textarea en vez de un input. Hacía falta
+ * para los párrafos de introducción de una pantalla, que son de varias líneas;
+ * duplicar el componente por eso habría sido peor, y el editor de bloques lo
+ * reaprovecha para los puntos de una lista.
+ */
+export function StringListEditor({ label, items, onChange, placeholder, multiline = false, addLabel = 'Agregar' }: {
   label: string;
   items: string[];
   onChange: (items: string[]) => void;
   placeholder?: string;
+  multiline?: boolean;
+  addLabel?: string;
 }) {
   const setAt = (i: number, v: string) => onChange(items.map((x, idx) => (idx === i ? v : x)));
   const removeAt = (i: number) => onChange(items.filter((_, idx) => idx !== i));
@@ -42,15 +51,24 @@ export function StringListEditor({ label, items, onChange, placeholder }: {
       <label className="field-label">{label}</label>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {items.map((item, i) => (
-          <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <input className="input" value={item} placeholder={placeholder} onChange={(e) => setAt(i, e.target.value)} />
+          <div key={i} style={{ display: 'flex', gap: 8, alignItems: multiline ? 'flex-start' : 'center' }}>
+            {multiline ? (
+              <textarea
+                value={item}
+                placeholder={placeholder}
+                onChange={(e) => setAt(i, e.target.value)}
+                style={{ width: '100%', minHeight: 78, padding: '10px 14px', borderRadius: 12, fontSize: 13.5, color: 'var(--text-dark)', lineHeight: 1.5, background: '#fff', border: '1.5px solid var(--border-input)', outline: 'none', resize: 'vertical' }}
+              />
+            ) : (
+              <input className="input" value={item} placeholder={placeholder} onChange={(e) => setAt(i, e.target.value)} />
+            )}
             <button onClick={() => removeAt(i)} aria-label="Eliminar" style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBEAE6', border: '1px solid #F1CFC6' }}>
               <Icon name="trash" size={15} color="var(--danger)" />
             </button>
           </div>
         ))}
         <button onClick={add} style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 13px', borderRadius: 10, background: '#fff', border: '1.5px dashed var(--border-input)', color: 'var(--brand-dark)', fontSize: 13, fontWeight: 700 }}>
-          <Icon name="plus" size={14} color="var(--brand-dark)" /> Agregar
+          <Icon name="plus" size={14} color="var(--brand-dark)" /> {addLabel}
         </button>
       </div>
     </div>

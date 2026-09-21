@@ -13,6 +13,14 @@ import { toMutation, type Mutation } from '@/lib/outbox';
 export interface Lookup {
   events?: Pick<CalEvent, 'id' | 'title'>[];
   posts?: Pick<Post, 'id' | 'text'>[];
+  /**
+   * Las fases de Aprendiendo, aplanadas: un tema y una fase por fila.
+   *
+   * Plana y no anidada porque así se construye de un `flatMap` sobre lo que ya
+   * hay en la caché de `learning:topics`, y porque la búsqueda es por el par
+   * (tema, fase), no por tema.
+   */
+  learningSteps?: { topicId: string; stepKey: string; title: string; topicTitle: string }[];
 }
 
 const MONTHS = [
@@ -31,6 +39,10 @@ function eventTitle(lookup: Lookup, id: string): string | null {
 
 function postText(lookup: Lookup, id: number): string | null {
   return lookup.posts?.find((p) => p.id === id)?.text ?? null;
+}
+
+function learningStep(lookup: Lookup, topicId: string, stepKey: string) {
+  return lookup.learningSteps?.find((s) => s.topicId === topicId && s.stepKey === stepKey) ?? null;
 }
 
 /** "12 de marzo, 10:00", a partir de la fecha ISO del formulario. */
@@ -105,6 +117,15 @@ export function describeMutation(mutation: Mutation, lookup: Lookup = {}): Probl
     }
     case 'post.comment':
       return { title: `Comentario: «${shorten(mutation.input.text)}»` };
+    case 'learning.step.complete':
+    case 'learning.step.uncomplete': {
+      const fase = learningStep(lookup, mutation.topicId, mutation.stepKey);
+      const acción = mutation.kind === 'learning.step.complete' ? 'completada' : 'pendiente';
+      return {
+        title: fase ? `Marcar «${fase.title}» como ${acción}` : `Marcar una fase como ${acción}`,
+        detail: fase?.topicTitle,
+      };
+    }
   }
 }
 

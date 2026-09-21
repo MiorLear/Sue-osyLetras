@@ -48,6 +48,16 @@ describe('outbox · chainKey', () => {
     expect(chainKeyOf({ kind: 'post.create', tempId: 5, input: { text: 'x' } })).toBe('post:5');
     expect(chainKeyOf({ kind: 'post.like', postId: 7 })).toBe('post:7');
     expect(chainKeyOf({ kind: 'post.comment', postId: 7, input: { text: 'a' } })).toBe('post:7');
+    expect(chainKeyOf({ kind: 'learning.step.complete', topicId: 'autocuidado', stepKey: 'cuerpo' }))
+      .toBe('learning-step:autocuidado:cuerpo');
+    expect(chainKeyOf({ kind: 'learning.step.uncomplete', topicId: 'autocuidado', stepKey: 'cuerpo' }))
+      .toBe('learning-step:autocuidado:cuerpo');
+  });
+
+  it('dos fases del mismo tema son dos cadenas: una envenenada no retiene a la otra', () => {
+    const a = chainKeyOf({ kind: 'learning.step.complete', topicId: 't', stepKey: 'uno' });
+    const b = chainKeyOf({ kind: 'learning.step.complete', topicId: 't', stepKey: 'dos' });
+    expect(a).not.toBe(b);
   });
 
   it('dos eventos distintos son dos cadenas independientes', () => {
@@ -71,6 +81,32 @@ describe('outbox · fusión de cambios (pura)', () => {
     const previous = record({ kind: 'post.like', postId: 7 }, 4);
     const next = record({ kind: 'post.like', postId: 7 });
     expect(coalesce([previous], next)).toEqual([{ type: 'delete', seq: 4 }]);
+  });
+
+  /**
+   * El contraste con el «me gusta», que es donde está el matiz.
+   *
+   * Allí el servidor CONMUTA, así que borrar las dos filas lo deja donde
+   * estaba y anularlas es correcto. Aquí el servidor FIJA el estado (PUT o
+   * DELETE), de modo que lo último que pulsó la docente es exactamente lo que
+   * él tiene que acabar teniendo: queda UNA fila, con el valor final.
+   */
+  it('marcar y desmarcar una fase deja un solo cambio, con el estado final', () => {
+    const previous = record({ kind: 'learning.step.complete', topicId: 't', stepKey: 'uno' }, 9);
+    const next = record({ kind: 'learning.step.uncomplete', topicId: 't', stepKey: 'uno' });
+    expect(coalesce([previous], next)).toEqual([
+      { type: 'delete', seq: 9 },
+      { type: 'put', record: next },
+    ]);
+  });
+
+  it('marcar dos veces tampoco apila dos filas', () => {
+    const previous = record({ kind: 'learning.step.complete', topicId: 't', stepKey: 'uno' }, 3);
+    const next = record({ kind: 'learning.step.complete', topicId: 't', stepKey: 'uno' });
+    expect(coalesce([previous], next)).toEqual([
+      { type: 'delete', seq: 3 },
+      { type: 'put', record: next },
+    ]);
   });
 
   it('dos comentarios son dos comentarios', () => {

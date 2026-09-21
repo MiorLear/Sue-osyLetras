@@ -14,6 +14,7 @@ import Emociones from './routes/Emociones';
 import EmotionDetail from './routes/EmotionDetail';
 import Herramientas from './routes/Herramientas';
 import Aprendiendo from './routes/Aprendiendo';
+import AprendiendoTema from './routes/AprendiendoTema';
 import Comunidad from './routes/Comunidad';
 import CalendarScreen from './routes/Calendar';
 import Descargas from './routes/Descargas';
@@ -67,6 +68,7 @@ export function App() {
         <Route path="/emociones/:id" element={<EmotionDetail />} />
         <Route path="/herramientas" element={<Herramientas />} />
         <Route path="/aprendiendo" element={<Aprendiendo />} />
+        <Route path="/aprendiendo/:topicId" element={<AprendiendoTema />} />
         <Route path="/comunidad" element={<Comunidad />} />
         <Route path="/calendar" element={<CalendarScreen />} />
         <Route path="/descargas" element={<Descargas />} />

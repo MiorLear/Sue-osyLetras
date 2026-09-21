@@ -17,7 +17,6 @@ import com.explorarte.api.community.CommentRepository;
 import com.explorarte.api.community.PostRepository;
 import com.explorarte.api.emotions.EmotionContentRepository;
 import com.explorarte.api.emotions.EmotionRepository;
-import com.explorarte.api.learning.TopicRepository;
 import com.explorarte.api.misc.SchoolRepository;
 import com.explorarte.api.tools.ToolsContentRepository;
 import com.explorarte.api.user.User;
@@ -42,8 +41,6 @@ class DataSeederGateTest {
         when(posts.count()).thenReturn(1L);
         CalendarEventRepository events = mock(CalendarEventRepository.class);
         when(events.count()).thenReturn(1L);
-        TopicRepository topics = mock(TopicRepository.class);
-        when(topics.count()).thenReturn(1L);
         ToolsContentRepository tools = mock(ToolsContentRepository.class);
         when(tools.count()).thenReturn(1L);
         SchoolRepository schools = mock(SchoolRepository.class);
@@ -54,7 +51,7 @@ class DataSeederGateTest {
 
         return new DataSeeder(
                 userRepository, emotions, mock(EmotionContentRepository.class), posts,
-                mock(CommentRepository.class), events, topics, tools, schools, encoder, seedPassword);
+                mock(CommentRepository.class), events, tools, schools, encoder, seedPassword);
     }
 
     @Test

@@ -1,10 +1,16 @@
 import { CacheAgeNote, ContentState } from '@/components/ContentState';
 import { DownloadableMediaItem, MediaList } from '@/components/DownloadableMediaItem';
 import { Masthead } from '@/components/Masthead';
+import { ScreenIntroHero } from '@/components/ScreenIntroHero';
 import { VideoPlaceholder } from '@/components/VideoPlaceholder';
 import { api } from '@/lib/api';
 import { cacheKeys } from '@/lib/cache-keys';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
+
+/** Lo que la pantalla decia antes de que el texto fuera editable desde el CMS. */
+const FALLBACK_INTRO = [
+  'Encuentra materiales prácticos para implementar la metodología ExplorArte y fortalecer el bienestar emocional en tu comunidad educativa.',
+];
 
 export default function Herramientas() {
   const {
@@ -30,13 +36,7 @@ export default function Herramientas() {
 
       <CacheAgeNote status={status} ageMs={ageMs} />
 
-      {/* Introducción del documento de estructura. */}
-      <div style={{ borderRadius: 24, padding: 'clamp(20px, 6vw, 32px)', background: '#fff', border: '1px solid var(--border)', marginBottom: 16 }}>
-        <p style={{ fontSize: 15.5, lineHeight: 1.7, color: 'var(--text-body)' }}>
-          Encuentra materiales prácticos para implementar la metodología ExplorArte y fortalecer el
-          bienestar emocional en tu comunidad educativa.
-        </p>
-      </div>
+      <ScreenIntroHero variant="card" paragraphs={intro?.paragraphs} fallback={FALLBACK_INTRO} marginBottom={16} />
 
       <div style={{ marginBottom: 16 }}>
         <VideoPlaceholder caption="Cómo utilizar los recursos disponibles" video={intro?.video ?? null} duration="44 s" fallbackUrl="/videos/herramientas.mp4" />

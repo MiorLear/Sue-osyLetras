@@ -14,6 +14,7 @@ import type {
   Emotion,
   EmotionContent,
   EmotionDetail,
+  LearningProgressEntry,
   LoginInput,
   MediaItem,
   Post,
@@ -23,6 +24,7 @@ import type {
   ToolsContent,
   UpdateEventInput,
   UpdateProfileInput,
+  UpdateScreenIntroInput,
   UpdateTopicInput,
   UserProfile,
   UserStatus,
@@ -34,6 +36,7 @@ import {
   EVENTS,
   POSTS,
   PROFILE,
+  SCREEN_INTRO_PARAGRAPHS,
   TOOLS,
   TOPICS,
   USERS,
@@ -42,6 +45,40 @@ import {
 /** small artificial latency so the UI exercises its loading states */
 const delay = (ms = 120) => new Promise((r) => setTimeout(r, ms));
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
+
+/** El mismo slug que genera el backend: sin acentos, sin signos, sin bordes. */
+function slugify(title: string): string {
+  const flat = (title || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  const slug = flat
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48)
+    .replace(/-+$/g, '');
+  return slug || 'paso';
+}
+
+/**
+ * Rellena las claves que lleguen vacías y desambigua las repetidas.
+ *
+ * Solo toca las vacías: una clave ya asignada es el ancla del avance guardado,
+ * y regenerarla al renombrar el subtema desconectaría en silencio lo que cada
+ * docente lleva hecho. Es la misma regla que aplica el backend.
+ */
+function withKeys<T extends { key: string; title: string }>(subtopics: T[]): T[] {
+  const taken = new Set(subtopics.map((s) => s.key).filter(Boolean));
+  return subtopics.map((s) => {
+    if (s.key) return s;
+    const base = slugify(s.title);
+    let candidate = base;
+    let n = 2;
+    while (taken.has(candidate)) candidate = `${base}-${n++}`;
+    taken.add(candidate);
+    return { ...s, key: candidate };
+  });
+}
 
 export function createMockClient(): ApiClient {
   // mutable in-memory stores seeded from the static data
@@ -52,7 +89,21 @@ export function createMockClient(): ApiClient {
   const topics: Topic[] = clone(TOPICS);
   const users: UserProfile[] = clone(USERS);
   let tools: ToolsContent = clone(TOOLS);
-  const screenIntros: Record<string, ScreenIntroVideo> = {};
+  const screenIntros: Record<string, ScreenIntroVideo> = Object.fromEntries(
+    Object.entries(SCREEN_INTRO_PARAGRAPHS).map(([screenKey, paragraphs]) => [
+      screenKey,
+      { screenKey, video: null, paragraphs: [...paragraphs] },
+    ]),
+  );
+  /**
+   * El avance de la docente, indexado por `${topicId}::${stepKey}`.
+   *
+   * Un Map y no una lista porque las tres operaciones son por clave, y porque
+   * así marcar dos veces no puede dejar dos filas — que es exactamente la
+   * garantía que el backend real da con una clave primaria compuesta.
+   */
+  const progress = new Map<string, LearningProgressEntry>();
+  const progressId = (topicId: string, stepKey: string) => `${topicId}::${stepKey}`;
 
   // the user resolved at login/register; profile.get() returns this one
   let currentUser: UserProfile = clone(PROFILE);
@@ -230,7 +281,14 @@ export function createMockClient(): ApiClient {
       },
       async createTopic(input: CreateTopicInput): Promise<Topic> {
         await delay(40);
-        const nt: Topic = { ...clone(input), id: 't-' + Date.now() };
+        const draft = clone(input);
+        const nt: Topic = {
+          ...draft,
+          id: 't-' + Date.now(),
+          layout: draft.layout ?? 'accordion',
+          intro: draft.intro ?? [],
+        };
+        nt.subtopics = withKeys(nt.subtopics);
         topics.push(nt);
         return clone(nt);
       },
@@ -239,12 +297,37 @@ export function createMockClient(): ApiClient {
         const t = topics.find((x) => x.id === id);
         if (!t) throw new Error('Topic not found');
         Object.assign(t, clone(input));
+        t.subtopics = withKeys(t.subtopics);
         return clone(t);
       },
       async removeTopic(id: string): Promise<void> {
         await delay(40);
         const i = topics.findIndex((x) => x.id === id);
         if (i >= 0) topics.splice(i, 1);
+      },
+
+      async progress(): Promise<LearningProgressEntry[]> {
+        await delay();
+        return clone([...progress.values()]);
+      },
+      async completeStep(topicId: string, stepKey: string): Promise<void> {
+        await delay(40);
+        // Idempotente a propósito: el buzón de salida reenvía lo que no llegó a
+        // irse, y marcar dos veces tiene que dar lo mismo que marcar una.
+        const id = progressId(topicId, stepKey);
+        if (!progress.has(id)) {
+          progress.set(id, { topicId, stepKey, completedAt: new Date().toISOString() });
+        }
+      },
+      async uncompleteStep(topicId: string, stepKey: string): Promise<void> {
+        await delay(40);
+        progress.delete(progressId(topicId, stepKey));
+      },
+      async resetProgress(topicId: string): Promise<void> {
+        await delay(40);
+        for (const [id, entry] of progress) {
+          if (entry.topicId === topicId) progress.delete(id);
+        }
       },
     },
 
@@ -350,9 +433,15 @@ export function createMockClient(): ApiClient {
         await delay();
         return screenIntros[screenKey] ? clone(screenIntros[screenKey]) : null;
       },
-      async update(screenKey: string, video: MediaItem): Promise<ScreenIntroVideo> {
+      async update(screenKey: string, input: UpdateScreenIntroInput): Promise<ScreenIntroVideo> {
         await delay(40);
-        const entry: ScreenIntroVideo = { screenKey, video };
+        // Reemplaza el recurso entero, texto y video: con la forma anterior
+        // —solo el MediaItem— quitar el video habría borrado los párrafos.
+        const entry: ScreenIntroVideo = {
+          screenKey,
+          video: input.video,
+          paragraphs: [...input.paragraphs],
+        };
         screenIntros[screenKey] = entry;
         return clone(entry);
       },

@@ -35,6 +35,16 @@ export interface PendingIndex {
   eventsRemoved: ReadonlySet<string>;
   /** Hay una edición de perfil en cola. */
   profile: boolean;
+  /**
+   * Fases del mapa de Aprendiendo con un cambio en cola, por
+   * `${topicId}::${stepKey}` y con el estado que la docente dejó: `true`
+   * completada, `false` desmarcada.
+   *
+   * Un Map y no un Set porque aquí lo pendiente no es "hay algo" sino "qué
+   * dijo": la pantalla lo superpone sobre lo que dice el servidor, y sin el
+   * valor no podría distinguir un desmarcado pendiente de uno ya aplicado.
+   */
+  learningSteps: ReadonlyMap<string, boolean>;
 }
 
 const EMPTY: PendingIndex = {
@@ -45,6 +55,7 @@ const EMPTY: PendingIndex = {
   events: new Set(),
   eventsRemoved: new Set(),
   profile: false,
+  learningSteps: new Map(),
 };
 
 /** Puro: se prueba sin base de datos. */
@@ -54,6 +65,7 @@ export function buildIndex(pending: PendingMutation[]): PendingIndex {
   const comments = new Set<number>();
   const events = new Set<string>();
   const eventsRemoved = new Set<string>();
+  const learningSteps = new Map<string, boolean>();
   let profile = false;
 
   for (const { mutation } of pending) {
@@ -79,9 +91,17 @@ export function buildIndex(pending: PendingMutation[]): PendingIndex {
       case 'event.remove':
         eventsRemoved.add(mutation.targetId);
         break;
+      // El coalescer deja una sola fila por fase, así que el recorrido no
+      // puede ver dos y quedarse con la equivocada.
+      case 'learning.step.complete':
+        learningSteps.set(`${mutation.topicId}::${mutation.stepKey}`, true);
+        break;
+      case 'learning.step.uncomplete':
+        learningSteps.set(`${mutation.topicId}::${mutation.stepKey}`, false);
+        break;
     }
   }
-  return { count: pending.length, posts, likes, comments, events, eventsRemoved, profile };
+  return { count: pending.length, posts, likes, comments, events, eventsRemoved, profile, learningSteps };
 }
 
 let index: PendingIndex = EMPTY;
