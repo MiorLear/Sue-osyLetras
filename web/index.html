@@ -31,9 +31,82 @@
       crossorigin />
     <link rel="preload" as="font" type="font/woff2" href="/fonts/newsreader-latin.woff2" crossorigin />
     <title>ExplorArte · Sueños y Letras</title>
+    <!-- Esqueleto de arranque. Va aqui, en el HTML, y no en React: lo que
+         tapa es justo el hueco ANTES de que exista React. Hasta ahora el body
+         era un div vacio, asi que todo lo que la usuaria veia mientras cargaba
+         el JS (y, si el API iba lento, bastante despues) era blanco liso.
+
+         Reglas que no se pueden romper:
+         - Sin JavaScript. La CSP de firebase.json permite estilos en linea
+           ('unsafe-inline' en style-src) pero NO scripts en linea.
+         - Todo vive dentro de #root. createRoot() reemplaza los hijos del
+           contenedor en su primer commit, asi que esto se borra solo. Algo
+           puesto fuera de #root no se borraria nunca y taparia los clicks.
+         - Colores a pelo (#2fa7a0, #faf6ef, de tokens.css): tokens.css llega
+           con el bundle, es decir mas tarde que esto. -->
+    <style>
+      #boot {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        background: #faf6ef;
+        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      }
+      #boot .mark {
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        background: #2fa7a0;
+        opacity: 0.9;
+        animation: boot-pulse 1.4s ease-in-out infinite;
+      }
+      #boot .bar {
+        width: 132px;
+        height: 8px;
+        border-radius: 999px;
+        background: #e4ddd0;
+        overflow: hidden;
+      }
+      #boot .bar::after {
+        content: '';
+        display: block;
+        width: 40%;
+        height: 100%;
+        border-radius: 999px;
+        background: #2fa7a0;
+        animation: boot-slide 1.4s ease-in-out infinite;
+      }
+      #boot p {
+        margin: 0;
+        font-size: 14px;
+        color: #6b6256;
+      }
+      @keyframes boot-pulse {
+        0%, 100% { transform: scale(1); opacity: 0.9; }
+        50% { transform: scale(0.92); opacity: 0.6; }
+      }
+      @keyframes boot-slide {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(330%); }
+      }
+      /* Un arranque no es sitio para pelear con quien pidio menos movimiento. */
+      @media (prefers-reduced-motion: reduce) {
+        #boot .mark, #boot .bar::after { animation: none; }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="boot" role="status" aria-live="polite">
+        <div class="mark" aria-hidden="true"></div>
+        <div class="bar" aria-hidden="true"></div>
+        <p>Abriendo ExplorArte…</p>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

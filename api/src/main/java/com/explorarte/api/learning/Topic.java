@@ -3,6 +3,7 @@ package com.explorarte.api.learning;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.springframework.data.domain.Persistable;
@@ -70,6 +71,16 @@ public class Topic implements Persistable<String> {
      */
     @OneToMany(mappedBy = "topic", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @OrderColumn(name = "position")
+    // EAGER + findAll() son 1+N: una consulta por tema solo para sus subtemas.
+    // @BatchSize los pide de diez en diez con un IN, asi que el listado del CMS
+    // y el de Aprendiendo bajan de 1+N a dos consultas.
+    //
+    // Sigue siendo EAGER a proposito. Pasar a LAZY seria la solucion "de libro",
+    // pero aqui rompe: application.yml tiene open-in-view: false, y
+    // LearningController.create()/update() llaman a topic.toDto(), que recorre
+    // subtopics YA FUERA de la transaccion. Con LAZY eso es un
+    // LazyInitializationException en produccion, no un test en rojo.
+    @BatchSize(size = 10)
     private List<SubTopic> subtopics = new ArrayList<>();
 
     @Override

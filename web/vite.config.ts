@@ -30,12 +30,47 @@ export default defineConfig({
         // data are deliberately absent: media is runtime-cached by a later
         // ticket and API responses are never cached by the worker at all.
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest,woff2}'],
-        // If admin screens become lazy chunks (SCALE-07), exclude them here:
-        // the CMS is desktop-only and does not need to work offline.
-        // globIgnores: ['assets/admin-*.js'],
+        // Ya son chunks perezosos, asi que la salida que este comentario
+        // anticipaba esta tomada: el CMS es de escritorio y no necesita
+        // funcionar sin conexion. Precachearlo solo gastaba datos de la docente
+        // en seis pantallas que nunca abre.
+        globIgnores: ['assets/Admin*.js'],
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        // Sin esto no habia ni una sola division: las 22 rutas, la consola de
+        // admin y firebase/auth vivian en un unico index-*.js de 657 KB que
+        // toda visita descargaba entera antes de pintar nada.
+        manualChunks(id) {
+          // Vite normaliza los ids a barras normales, tambien en Windows.
+          const path = id;
+          // El CMS NO se agrupa a mano. Se intento, y el resultado fue peor:
+          // Rollup metia en ese chunk tambien codigo compartido que el entry
+          // necesita, asi que el entry acababa importandolo de forma ESTATICA.
+          // Sin conexion eso era fatal — el chunk no esta precacheado a
+          // proposito, la peticion fallaba al arrancar y la app se quedaba
+          // clavada en el esqueleto. Lo caza offline.spec.ts. Dejando que
+          // Rollup nombre los chunks perezosos (Admin*.js), cada pantalla del
+          // CMS va por su lado y nada de eso cuelga del arranque.
+          if (path.includes('/node_modules/firebase/') || path.includes('/node_modules/@firebase/')) {
+            return 'firebase';
+          }
+          if (
+            path.includes('/node_modules/react/') ||
+            path.includes('/node_modules/react-dom/') ||
+            path.includes('/node_modules/react-router') ||
+            path.includes('/node_modules/scheduler/')
+          ) {
+            return 'vendor';
+          }
+          return undefined;
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       '@explorarte/shared': fileURLToPath(new URL('../shared/src/index.ts', import.meta.url)),

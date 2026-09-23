@@ -84,23 +84,46 @@ describe('useNetworkStatus · portal cautivo', () => {
 
     expect(navigator.onLine).toBe(true);
     const { result } = renderHook(() => useIsOnline());
-    await waitFor(() => expect(result.current).toBe(false));
-  });
+    // Dos fallos, no uno: el primero deja el estado en 'unknown' y programa un
+    // reintento a los ~3 s, y es ese segundo el que confirma que no hay red.
+    await waitFor(() => expect(result.current).toBe(false), { timeout: 8000 });
+  }, 10_000);
 
-  it('trata como offline un sondeo que expira', async () => {
+  it('un sondeo que expira NO cuenta como falta de red', async () => {
+    // Lo que lanza fetch cuando el AbortController corta: un error llamado
+    // AbortError. Que el backend tarde de mas no dice que no haya red, dice que
+    // va lento — un arranque en frio de Cloud Run son ~13 s. Tratarlo como
+    // offline era justo el fallo que hacia que explorarte.app anunciara "sin
+    // conexion" con la red perfecta, y de paso tiraba la respuesta buena que
+    // venia en camino.
+    const aborted = new Error('The operation was aborted');
+    aborted.name = 'AbortError';
     vi.stubGlobal(
       'fetch',
-      vi.fn(
-        (_url: string, init?: RequestInit) =>
-          new Promise((_resolve, reject) => {
-            init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
-          }),
-      ),
+      vi.fn(async () => {
+        throw aborted;
+      }),
     );
     __resetNetworkStatus();
 
-    await expect(checkReachability(true)).resolves.toBe(false);
-  }, 10_000);
+    await expect(checkReachability(true)).resolves.toBe(true);
+    expect(isOnline()).toBe(true);
+  });
+
+  it('un unico fallo de conexion tampoco basta para anunciar "sin conexion"', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('Failed to fetch');
+      }),
+    );
+    __resetNetworkStatus();
+
+    // Un tropiezo suelto se queda en 'unknown', que cuenta como online. Hace
+    // falta que el reintento lo confirme (ver el caso de CORS de arriba).
+    await expect(checkReachability(true)).resolves.toBe(true);
+    expect(isOnline()).toBe(true);
+  });
 
   it('cualquier respuesta que pase CORS cuenta como alcanzable, incluso un 503', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 503 })));

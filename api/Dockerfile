@@ -37,4 +37,24 @@ FROM eclipse-temurin:21-jre AS prod
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8000
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Arranque, no rendimiento en regimen: el servicio corre con min-instances=0, asi
+# que lo que la docente espera es el arranque en frio, y medido en Cloud Run son
+# ~12,8 s (contra 6,9 s en local). Con una instancia viva la API responde en
+# 0,19 s, o sea que el arranque es practicamente toda la espera que se percibe.
+#
+#   -XX:TieredStopAtLevel=1  se queda en C1 y no compila con C2. Recorta una
+#       parte grande del arranque de Spring Boot a cambio de menos rendimiento
+#       sostenido. Es el intercambio correcto MIENTRAS min-instances siga en 0;
+#       si algun dia se pone en 1, hay que quitar esta bandera, porque entonces
+#       la instancia vive y lo que importa pasa a ser justo lo contrario.
+#   -XX:+UseSerialGC  el GC que toca con 1 vCPU. G1 monta hilos y estructuras
+#       que aqui no se amortizan, y gasta mas memoria nativa.
+#   -XX:MaxRAMPercentage=75  explicito en vez de a merced de la ergonomia, que
+#       decide leyendo las CPUs disponibles durante el --cpu-boost, es decir mas
+#       de las que habra despues.
+#
+# AppCDS queda fuera a proposito: el archivo hay que generarlo en una pasada de
+# entrenamiento, y aqui esa pasada necesitaria la base de datos (Flyway corre al
+# arrancar). Con AutoCreateSharedArchive no sirve de nada, porque cada contenedor
+# de Cloud Run nace de la imagen y el archivo no sobrevive.
+ENTRYPOINT ["java", "-XX:TieredStopAtLevel=1", "-XX:+UseSerialGC", "-XX:MaxRAMPercentage=75", "-jar", "app.jar"]

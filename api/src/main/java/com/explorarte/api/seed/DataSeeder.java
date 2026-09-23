@@ -10,7 +10,6 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.explorarte.api.calendar.CalendarEvent;
 import com.explorarte.api.calendar.CalendarEventRepository;
@@ -89,15 +88,58 @@ public class DataSeeder implements ApplicationRunner {
         return defaultPassword.length() >= MIN_SEED_PASSWORD_LENGTH;
     }
 
+    /**
+     * Cada paso corre aislado: en su propia transaccion y con su propio catch.
+     *
+     * Antes el metodo entero era {@code @Transactional}, y eso tenia dos
+     * consecuencias que juntas tumbaron la API el 21-sep-2026. La primera es
+     * que el insert de {@link #seedEvents()} no fallaba dentro del metodo sino
+     * al hacer commit al salir de aqui, fuera del alcance de cualquier catch
+     * que se pusiera dentro. La segunda es que, al ser esto un
+     * {@link ApplicationRunner}, la excepcion subia hasta Spring y mataba el
+     * contexto cuando Tomcat ya aceptaba peticiones: el contenedor arrancaba,
+     * atendia durante un segundo y se caia con exit(1). Cloud Run levantaba
+     * otro, y asi en bucle, de modo que casi cada peticion pagaba un arranque
+     * en frio de 13 s.
+     *
+     * Sembrar datos de ejemplo no puede impedir que la API arranque. Sin la
+     * anotacion envolvente cada {@code saveAll} de Spring Data abre y cierra su
+     * propia transaccion, asi que un fallo se lanza donde se puede atrapar y no
+     * arrastra a los demas pasos.
+     */
     @Override
-    @Transactional
     public void run(ApplicationArguments args) {
-        seedUsers();
-        seedSchools();
-        seedEmotions();
-        seedTools();
-        seedPosts();
-        seedEvents();
+        seed("users", this::seedUsers);
+        seed("schools", this::seedSchools);
+        seed("emotions", this::seedEmotions);
+        seed("tools", this::seedTools);
+        seed("posts", this::seedPosts);
+        seed("events", this::seedEvents);
+    }
+
+    private void seed(String step, Runnable action) {
+        try {
+            action.run();
+        } catch (RuntimeException e) {
+            log.error("Fallo el sembrado de '{}'. La API sigue arrancando sin esos datos.", step, e);
+        }
+    }
+
+    /**
+     * GCP-07 bis: las filas de ejemplo apuntan por clave foranea a las cuentas
+     * de ejemplo, y {@link #seedUsers()} solo las crea cuando se inyecta
+     * SEED_USER_PASSWORD (SEC-02). Preguntar "hay usuarios?" no es la misma
+     * pregunta: en produccion hay docentes reales y ninguna cuenta de ejemplo,
+     * y esa es justo la combinacion que reventaba la FK.
+     */
+    private boolean demoUsersMissing(String... ids) {
+        for (String id : ids) {
+            if (!userRepository.existsById(id)) {
+                log.info("Omitiendo datos de ejemplo: la cuenta {} no existe.", id);
+                return true;
+            }
+        }
+        return false;
     }
 
     private void seedUsers() {
@@ -273,10 +315,7 @@ public class DataSeeder implements ApplicationRunner {
         // ejemplo, y rompía el primer arranque contra una base vacía —exactamente
         // el primer despliegue en Cloud SQL—. Se detectó levantando la imagen de
         // producción contra un Postgres limpio.
-        if (userRepository.count() == 0) {
-            log.info("Skipping demo posts/events: there are no users to attribute them to.");
-            return;
-        }
+        if (demoUsersMissing("u-ana", "u-lucia", "u-sofia", "u-maria", "u-admin")) return;
 
         Post p1 = post("u-ana", "Maestra Ana", "@ana_maestro", true, "#7C3AED", "alegria",
                 "¡Trabajamos la alegría con mi grupo! 🎉 Los niños aprendieron palabras nuevas: alegría, sonrisa, abrazo... ¿Cuál es su favorita? 📚", 12, 2);
@@ -331,9 +370,9 @@ public class DataSeeder implements ApplicationRunner {
 
     private void seedEvents() {
         if (calendarEventRepository.count() > 0) return;
-        // Mismo motivo que en seedPosts(): owner es una FK a users.
-        if (userRepository.count() == 0) return;
         String owner = "u-maria";
+        // Mismo motivo que en seedPosts(): owner es una FK a users.
+        if (demoUsersMissing(owner)) return;
         calendarEventRepository.saveAll(List.of(
                 event(owner, "Sesión de lectura Grupo 1", EventType.SESION, LocalDate.of(2026, 6, 4), "10:00", "11:00", "30 minutos antes", null),
                 event(owner, "Preparar material del módulo", EventType.TAREA, LocalDate.of(2026, 6, 4), "13:00", "13:30", "ninguno", false),

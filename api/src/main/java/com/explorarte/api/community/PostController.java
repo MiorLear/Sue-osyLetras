@@ -1,6 +1,9 @@
 package com.explorarte.api.community;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -72,7 +75,7 @@ public class PostController {
                 : postRepository.findByModule(emotion, pageable);
 
         String userId = currentUserIdOrNull();
-        List<PostDto> items = posts.getContent().stream().map(p -> toDto(p, userId)).toList();
+        List<PostDto> items = toDtos(posts.getContent(), userId);
         return Pagination.isRequested(page, size) ? PageResponse.of(posts, items) : items;
     }
 
@@ -152,11 +155,49 @@ public class PostController {
         }
     }
 
+    /**
+     * El feed entero con tres consultas, pasara lo que pase: una de posts, una
+     * de comentarios y una de "me gusta".
+     *
+     * Antes se llamaba a {@link #toDto(Post, String)} dentro de un map, y cada
+     * llamada hacia dos consultas mas. Sin paginar el tope son
+     * {@link Pagination#LEGACY_CAP} filas, o sea hasta 401 consultas para
+     * dibujar una pantalla. No se notaba con un pu&ntilde;ado de publicaciones; se
+     * iba a notar, y cada vez mas, segun la comunidad creciera.
+     */
+    private List<PostDto> toDtos(List<Post> posts, String requestingUserId) {
+        if (posts.isEmpty()) return List.of();
+
+        List<Long> ids = posts.stream().map(Post::getId).toList();
+
+        Map<Long, List<CommentDto>> commentsByPost = commentRepository
+                .findByPostIdInOrderByPostIdAscCreatedAtAsc(ids).stream()
+                .collect(Collectors.groupingBy(
+                        Comment::getPostId,
+                        Collectors.mapping(Comment::toDto, Collectors.toList())));
+
+        Set<Long> liked = requestingUserId == null
+                ? Set.of()
+                : Set.copyOf(postLikeRepository.findLikedPostIds(requestingUserId, ids));
+
+        return posts.stream()
+                .map(post -> toDto(
+                        post,
+                        liked.contains(post.getId()),
+                        commentsByPost.getOrDefault(post.getId(), List.of())))
+                .toList();
+    }
+
+    /** Un solo post, para cuando acaba de crearse o de cambiar. */
     private PostDto toDto(Post post, String requestingUserId) {
         boolean liked = requestingUserId != null
                 && postLikeRepository.findByPostIdAndUserId(post.getId(), requestingUserId).isPresent();
         List<CommentDto> comments = commentRepository.findByPostIdOrderByCreatedAtAsc(post.getId())
                 .stream().map(Comment::toDto).toList();
+        return toDto(post, liked, comments);
+    }
+
+    private PostDto toDto(Post post, boolean liked, List<CommentDto> comments) {
         return new PostDto(
                 post.getId(), post.getUserName(), post.getHandle(), post.isVerified(),
                 RelativeTime.from(post.getCreatedAt()), post.getAvatarBg(), post.getModule(), post.getText(),

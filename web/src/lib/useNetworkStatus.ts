@@ -16,12 +16,32 @@ import { useSyncExternalStore } from 'react';
 // our origin, so `fetch` rejects and we correctly conclude "not really online".
 // A same-origin probe could not do this: the service worker might answer it
 // from the cache and report success while offline.
+//
+// Salvedad: en produccion VITE_API_URL es `/api` (mismo origen, via el rewrite
+// de firebase.json), asi que esa garantia de CORS ya no aplica ahi. Lo que
+// impide el falso positivo es el NAVIGATION_DENYLIST del worker, que le prohibe
+// responder a /api/**. Se documenta porque el parrafo de arriba, tal cual, dejo
+// de ser cierto para el despliegue real.
 
-const PROBE_TIMEOUT_MS = 4000;
+// 20 s, no 4. Con 4 s el sondeo abortaba SIEMPRE contra un Cloud Run frio, que
+// tarda ~13 s en arrancar, y el catch lo interpretaba como "no hay red": la app
+// anunciaba "sin conexion" con la red perfecta, tiraba la peticion buena que
+// venia en camino y no mostraba nada hasta el siguiente sondeo, 30 s despues.
+// Un arranque en frio es lentitud, no ausencia de red, y el sondeo tiene que
+// poder esperarlo.
+const PROBE_TIMEOUT_MS = 20_000;
 /** How long a probe result is trusted before it is worth re-checking. */
 const PROBE_TTL_MS = 15_000;
 /** Background re-check cadence, only while the tab is visible. */
 const PROBE_INTERVAL_MS = 30_000;
+/**
+ * Cuantos fallos seguidos hacen falta para declarar "sin conexion". Uno solo no
+ * basta: es la diferencia entre un tropiezo puntual y una red que de verdad no
+ * esta. El segundo intento no espera al intervalo largo, ver PROBE_RETRY_MS.
+ */
+const FAILURES_BEFORE_OFFLINE = 2;
+/** Reintento rapido tras el primer fallo, para confirmar o descartar. */
+const PROBE_RETRY_MS = 3000;
 
 function probeUrl(): string | null {
   const env = import.meta.env as Record<string, string | undefined>;
@@ -88,6 +108,18 @@ export function getNetworkState(): NetworkState {
 }
 
 let inFlight: Promise<boolean> | null = null;
+let consecutiveFailures = 0;
+let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Reintenta pronto tras un primer fallo, en vez de esperar al intervalo de 30 s. */
+function scheduleConfirmProbe(): void {
+  clearTimeout(retryTimer);
+  retryTimer = setTimeout(() => {
+    if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+      void checkReachability(true);
+    }
+  }, PROBE_RETRY_MS);
+}
 
 /**
  * Runs one reachability probe. Concurrent callers share the same request, and
@@ -127,11 +159,29 @@ export function checkReachability(force = false): Promise<boolean> {
     .then(() => {
       // Any CORS-passing response proves we reached the real backend — even a
       // 404 or a 503. We are testing the path, not the endpoint's health.
+      consecutiveFailures = 0;
+      clearTimeout(retryTimer);
       setState({ reachable: 'reachable', checking: false, lastCheckedAt: Date.now() });
       return true;
     })
-    .catch(() => {
-      // Network error, timeout, or a CORS rejection (the captive portal case).
+    .catch((err: unknown) => {
+      // Agotar el tiempo no prueba nada: el backend puede estar arrancando. Se
+      // deja en 'unknown' —que cuenta como online— y `lastCheckedAt: null`
+      // fuerza a que el siguiente sondeo se haga de verdad en vez de reutilizar
+      // este resultado.
+      if (err instanceof Error && err.name === 'AbortError') {
+        setState({ reachable: 'unknown', checking: false, lastCheckedAt: null });
+        return computeOnline(state);
+      }
+      // Fallo de conexion o rechazo de CORS (el caso del portal cautivo). Eso
+      // si es sintoma de red caida, pero un unico tropiezo no basta para
+      // anunciarlo: se confirma con un segundo intento a los pocos segundos.
+      consecutiveFailures += 1;
+      if (consecutiveFailures < FAILURES_BEFORE_OFFLINE) {
+        setState({ reachable: 'unknown', checking: false, lastCheckedAt: null });
+        scheduleConfirmProbe();
+        return computeOnline(state);
+      }
       setState({ reachable: 'unreachable', checking: false, lastCheckedAt: Date.now() });
       return false;
     })
@@ -151,11 +201,16 @@ let interval: ReturnType<typeof setInterval> | undefined;
 function onOnline(): void {
   // The link is back, but that says nothing about the upstream — re-probe
   // before promising the user anything.
+  consecutiveFailures = 0;
   setState({ connected: true, reachable: 'unknown', lastCheckedAt: null });
   void checkReachability(true);
 }
 
 function onOffline(): void {
+  // Esto lo dice el sistema operativo, no un sondeo: es autoritativo y no pasa
+  // por la regla de los dos fallos.
+  clearTimeout(retryTimer);
+  consecutiveFailures = 0;
   setState({ connected: false, reachable: 'unreachable', lastCheckedAt: Date.now() });
 }
 
@@ -184,6 +239,7 @@ function stop(): void {
   window.removeEventListener('offline', onOffline);
   document.removeEventListener('visibilitychange', onVisibilityChange);
   clearInterval(interval);
+  clearTimeout(retryTimer);
 }
 
 function subscribe(cb: () => void): () => void {
@@ -235,6 +291,8 @@ export function useNetworkStatus(): NetworkState & { online: boolean } {
 export function __resetNetworkStatus(): void {
   stop();
   inFlight = null;
+  consecutiveFailures = 0;
+  clearTimeout(retryTimer);
   state = {
     connected: typeof navigator === 'undefined' ? true : navigator.onLine,
     reachable: 'unknown',
