@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { readCacheEntry, writeCache } from '@/lib/offline-cache';
+import { getCacheUser, readCacheEntry, writeCache } from '@/lib/offline-cache';
 import {
   OfflineEmptyError,
   SessionExpiredError,
@@ -67,6 +67,49 @@ export interface OfflineAsyncOptions {
   noStore?: boolean;
 }
 
+/**
+ * Peticiones en vuelo, compartidas entre quien pida lo mismo a la vez.
+ *
+ * Dos componentes montados en el mismo tick que piden la misma clave hacian dos
+ * viajes identicos a la red. Ahora el segundo se engancha al primero.
+ *
+ * La clave lleva delante el ambito de usuaria, no solo la cacheKey. En una
+ * tablet compartida eso es lo que impide que la peticion lanzada bajo una
+ * docente sea reutilizada por la siguiente: si cambia la sesion, cambia la
+ * clave, y no hay forma de que se crucen. Es la misma razon por la que
+ * offline-cache guarda cada fila bajo su usuaria.
+ */
+const inFlight = new Map<string, Promise<unknown>>();
+
+function shared<T>(cacheKey: string, loader: () => Promise<T>): Promise<T> {
+  const scoped = `${getCacheUser()}::${cacheKey}`;
+  const existing = inFlight.get(scoped) as Promise<T> | undefined;
+  if (existing) return existing;
+
+  const pending = loader();
+  const forget = () => {
+    inFlight.delete(scoped);
+  };
+  // then(forget, forget) y no finally(): asi la rama derivada queda resuelta
+  // pase lo que pase y un rechazo no se cuenta como no atrapado. Quien llamo
+  // recibe `pending` tal cual y lo maneja con su propio try/catch.
+  void pending.then(forget, forget);
+  inFlight.set(scoped, pending);
+  return pending;
+}
+
+/**
+ * Test-only. Normalmente no hace falta: cada entrada se borra sola cuando su
+ * promesa se resuelve o falla. Esta aqui para un test que deje una colgada.
+ *
+ * Ojo: NO conviene llamarlo desde src/test/setup.ts. Importar este modulo alli
+ * lo carga antes que los ficheros de test, y entonces los `vi.mock` de
+ * offline-cache que estos declaran ya no le aplican.
+ */
+export function __resetInFlight(): void {
+  inFlight.clear();
+}
+
 export function useOfflineAsync<T>(
   cacheKey: string,
   loader: () => Promise<T>,
@@ -80,6 +123,23 @@ export function useOfflineAsync<T>(
     useAsyncMachine<T>();
   const [fetchedAt, setFetchedAt] = useState<number | undefined>(undefined);
   const [fromCache, setFromCache] = useState(false);
+
+  // Recuperar la red sí merece revalidar, pero por la vía de `reload()`, que
+  // sube el nonce: una invalidación explícita y deliberada.
+  //
+  // Antes `online` estaba en las dependencias del efecto de abajo, y eso hacía
+  // algo muy distinto de lo que parecía. Cualquier cambio de `online` —incluido
+  // pasar a false— reejecutaba el efecto, y su cleanup ponía `active = false`,
+  // de modo que la petición que ya venía en camino llegaba y se TIRABA. Con un
+  // sondeo que se rendía a los 4 s contra un backend que tardaba 13 en
+  // arrancar, el resultado bueno se descartaba siempre y la pantalla se quedaba
+  // en "sin conexión" con la red perfecta. Sacar `online` de las dependencias
+  // deja que esa respuesta tardía se aproveche.
+  const wasOnline = useRef(online);
+  useEffect(() => {
+    if (online && !wasOnline.current) reload();
+    wasOnline.current = online;
+  }, [online, reload]);
 
   useEffect(() => {
     let active = true;
@@ -107,7 +167,7 @@ export function useOfflineAsync<T>(
       // every screen load.)
       if (online) {
         try {
-          const fresh = await loader();
+          const fresh = await shared(cacheKey, loader);
           if (!active) return;
           setData(fresh);
           setFetchedAt(Date.now());
@@ -151,8 +211,9 @@ export function useOfflineAsync<T>(
     return () => {
       active = false;
     };
+    // `online` a proposito NO esta aqui: ver el efecto de arriba.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cacheKey, online, nonce, ...deps]);
+  }, [cacheKey, nonce, ...deps]);
 
   const ageMs = fetchedAt === undefined ? undefined : Math.max(0, Date.now() - fetchedAt);
   const isStale = ageMs !== undefined && ageMs > maxAgeMs;

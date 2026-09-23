@@ -97,84 +97,100 @@ export async function collectMediaItems(): Promise<MediaItem[]> {
 
 type Writer = (key: string, value: unknown) => Promise<void>;
 
-/** Recorre los endpoints de lectura. Un fallo salta ese trozo, no la pasada. */
+/** Tope de peticiones a la vez. Ver walkContent. */
+const WALK_CONCURRENCY = 6;
+
+/** Recorre `items` con `limit` tareas a la vez, en orden de llegada. */
+async function mapPool<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      await fn(items[next++]);
+    }
+  });
+  await Promise.all(workers);
+}
+
+/**
+ * Recorre los endpoints de lectura. Un fallo salta ese trozo, no la pasada.
+ *
+ * Va en dos olas con un tope de {@link WALK_CONCURRENCY} peticiones a la vez.
+ * Antes era una fila india de ~18 `await`, uno detras de otro, y eso convertia
+ * cualquier lentitud del servidor en esa lentitud multiplicada por 18. Con el
+ * API sano la diferencia ya se nota; con el API arrancando en frio era la
+ * diferencia entre esperar y rendirse.
+ *
+ * El tope no es decorativo: soltar las 18 de golpe contra una instancia fria
+ * solo consigue que se encolen todas tras el mismo arranque, y en datos moviles
+ * es ademas un golpe innecesario. Seis es el punto razonable.
+ */
 async function walkContent(write: Writer, result: SyncResult): Promise<void> {
-  for (const screen of SCREEN_KEYS) {
+  const step = async (id: string, run: () => Promise<void>): Promise<void> => {
     try {
-      const intro = await api.screenIntros.get(screen);
-      await write(cacheKeys.screenIntro(screen), intro);
+      await run();
     } catch (e) {
       result.complete = false;
-      result.failures.push({ id: `screen-intro:${screen}`, reason: reasonOf(e) });
+      result.failures.push({ id, reason: reasonOf(e) });
     }
-  }
+  };
 
-  try {
-    const emotions = await api.emotions.list();
-    await write(cacheKeys.emotionsList(), emotions);
-    for (const emotion of emotions) {
-      try {
-        const detail = await api.emotions.get(emotion.id);
-        await write(cacheKeys.emotion(emotion.id), detail);
-      } catch (e) {
-        result.complete = false;
-        result.failures.push({ id: `emotion:${emotion.id}`, reason: reasonOf(e) });
-      }
-    }
-  } catch (e) {
-    result.complete = false;
-    result.failures.push({ id: 'emotions:list', reason: reasonOf(e) });
-  }
+  // Ola 1: todo lo que no depende de ninguna otra respuesta.
+  //
+  // Entre ellas van las tres pantallas donde la docente ESCRIBE (comunidad,
+  // calendario y perfil). Faltaban, y eso dejaba la escritura sin conexion
+  // fuera de su alcance justo donde importa: quien pierde la senal antes de
+  // abrir Comunidad se la encuentra vacia, y en una pantalla vacia no hay nada
+  // que comentar ni a que reaccionar. Antes iban las ultimas a proposito, para
+  // que un corte a medias se llevara esto y no la biblioteca comun; ahora todo
+  // se intenta siempre, asi que ese orden ya no significa nada.
+  let emotions: Awaited<ReturnType<typeof api.emotions.list>> = [];
+  const independent: (() => Promise<void>)[] = [
+    ...SCREEN_KEYS.map((screen) => () =>
+      step(`screen-intro:${screen}`, async () => {
+        await write(cacheKeys.screenIntro(screen), await api.screenIntros.get(screen));
+      }),
+    ),
+    () =>
+      step('emotions:list', async () => {
+        emotions = await api.emotions.list();
+        await write(cacheKeys.emotionsList(), emotions);
+      }),
+    () =>
+      step('tools', async () => {
+        await write(cacheKeys.tools(), await api.tools.get());
+      }),
+    () =>
+      step('learning:topics', async () => {
+        await write(cacheKeys.learningTopics(), await api.learning.topics());
+      }),
+    () =>
+      step('posts', async () => {
+        await write(cacheKeys.posts(undefined), await api.posts.list());
+      }),
+    () =>
+      step('events', async () => {
+        await write(cacheKeys.events(), await api.events.list());
+      }),
+    () =>
+      step('profile', async () => {
+        await write(cacheKeys.profile(), await api.profile.get());
+      }),
+    // El avance por el mapa de fases. Tambien es de la usuaria, no contenido
+    // comun: sin el, abrir el mapa sin conexion mostraria todo por empezar.
+    () =>
+      step('learning:progress', async () => {
+        await write(cacheKeys.learningProgress(), await api.learning.progress());
+      }),
+  ];
+  await mapPool(independent, WALK_CONCURRENCY, (task) => task());
 
-  try {
-    await write(cacheKeys.tools(), await api.tools.get());
-  } catch (e) {
-    result.complete = false;
-    result.failures.push({ id: 'tools', reason: reasonOf(e) });
-  }
-
-  try {
-    await write(cacheKeys.learningTopics(), await api.learning.topics());
-  } catch (e) {
-    result.complete = false;
-    result.failures.push({ id: 'learning:topics', reason: reasonOf(e) });
-  }
-
-  // Las pantallas donde la docente ESCRIBE. Faltaban, y eso dejaba la
-  // escritura sin conexión fuera de su alcance justo donde importa: quien
-  // pierde la señal antes de abrir Comunidad se la encuentra vacía, y en una
-  // pantalla vacía no hay nada que comentar ni a qué reaccionar. Van al final
-  // porque son de la usuaria y no contenido común: si algo se queda a medias,
-  // que sea esto y no la biblioteca que comparten todas.
-  try {
-    await write(cacheKeys.posts(undefined), await api.posts.list());
-  } catch (e) {
-    result.complete = false;
-    result.failures.push({ id: 'posts', reason: reasonOf(e) });
-  }
-
-  try {
-    await write(cacheKeys.events(), await api.events.list());
-  } catch (e) {
-    result.complete = false;
-    result.failures.push({ id: 'events', reason: reasonOf(e) });
-  }
-
-  try {
-    await write(cacheKeys.profile(), await api.profile.get());
-  } catch (e) {
-    result.complete = false;
-    result.failures.push({ id: 'profile', reason: reasonOf(e) });
-  }
-
-  // El avance por el mapa de fases. También es de la usuaria, no contenido
-  // común: sin él, abrir el mapa sin conexión mostraría todo por empezar.
-  try {
-    await write(cacheKeys.learningProgress(), await api.learning.progress());
-  } catch (e) {
-    result.complete = false;
-    result.failures.push({ id: 'learning:progress', reason: reasonOf(e) });
-  }
+  // Ola 2: un detalle por emocion. Si la lista fallo, `emotions` sigue vacia y
+  // esto no hace nada, igual que cuando el bucle colgaba del try de la lista.
+  await mapPool(emotions, WALK_CONCURRENCY, (emotion) =>
+    step(`emotion:${emotion.id}`, async () => {
+      await write(cacheKeys.emotion(emotion.id), await api.emotions.get(emotion.id));
+    }),
+  );
 }
 
 function reasonOf(e: unknown): string {

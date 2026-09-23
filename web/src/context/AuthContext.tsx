@@ -14,6 +14,13 @@ interface AuthState {
   user: UserProfile | null;
   authed: boolean;
   isAdmin: boolean;
+  /**
+   * Si el perfil ya se resolvio contra el servidor. Falso mientras solo tenemos
+   * lo que habia en cache (o nada). Lo mira RequireRole: sin esto, una admin que
+   * entra directa a /admin saldria rebotada a /main solo porque su rol todavia
+   * no ha llegado.
+   */
+  profileResolved: boolean;
   /** mark the session as logged in with the authenticated user */
   signIn: (result: AuthResult) => Promise<void>;
   signOut: () => Promise<void>;
@@ -26,6 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<UserProfile | null>(null);
   const [authed, setAuthed] = useState(false);
   const [ready, setReady] = useState(false);
+  const [profileResolved, setProfileResolved] = useState(false);
 
   // IndexedDB is asynchronous. Hold the route tree until the token and cache
   // scope are restored, otherwise a reload flashes the onboarding screen and
@@ -35,13 +43,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void (async () => {
       const session = await restoreAuthToken();
       if (!session || cancelled) {
-        if (!cancelled) setReady(true);
+        if (!cancelled) {
+          setReady(true);
+          setProfileResolved(true);
+        }
         return;
       }
       setCacheUser(session.userId);
       setAuthed(true);
       const cached = await readCache<UserProfile>(cacheKeys.profile());
-      if (!cancelled && cached) setUserState(cached);
+      if (!cancelled) {
+        if (cached) setUserState(cached);
+        // Aqui, y no al final. Para este punto ya sabemos todo lo que el gate
+        // necesitaba saber —hay sesion, de quien es y que habia guardado— y
+        // todo ello salio de IndexedDB en milisegundos. Lo unico que falta es
+        // la red, y esperarla era lo que dejaba la pantalla en blanco: con el
+        // API cayendose en bucle, `await api.profile.get()` tardaba 13 s y
+        // durante esos 13 s esto devolvia null, o sea nada en absoluto.
+        setReady(true);
+      }
       try {
         const fresh = await api.profile.get();
         if (!cancelled) {
@@ -60,7 +80,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearSavedActivities();
         }
       } finally {
-        if (!cancelled) setReady(true);
+        if (!cancelled) {
+          setReady(true);
+          setProfileResolved(true);
+        }
       }
     })();
     return () => {
@@ -80,6 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await writeCache(cacheKeys.profile(), result.user);
     setUserState(result.user);
     setAuthed(true);
+    setProfileResolved(true);
     // El ámbito de todo lo guardado sin conexión dependía solo del respaldo a
     // localStorage. Fijarlo explícitamente cierra la ventana entre iniciar
     // sesión y que el perfil esté escrito, y hace que los contadores se
@@ -114,7 +138,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, authed, isAdmin: user?.role === 'admin', signIn, signOut, setUser }}>
+      value={{
+        user,
+        authed,
+        isAdmin: user?.role === 'admin',
+        profileResolved,
+        signIn,
+        signOut,
+        setUser,
+      }}>
       {children}
     </AuthContext.Provider>
   );

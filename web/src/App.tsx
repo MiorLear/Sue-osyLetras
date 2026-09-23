@@ -1,12 +1,18 @@
+import { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import type { UserRole } from '@explorarte/shared';
 import { useAuth } from './context/AuthContext';
 import { TabsLayout } from './components/TabsLayout';
 import { OfflineBanner } from './components/OfflineBanner';
+import { ContentState } from './components/ContentState';
 
 import Onboarding from './routes/Onboarding';
-import Login from './routes/Login';
-import Register from './routes/Register';
+// Login y Register son los unicos que tiran de firebase/auth, el paquete mas
+// pesado del arbol. Cargarlos aparte lo saca del arranque: quien abre la app y
+// ve la pantalla de bienvenida ya no descarga el SDK entero de Firebase para
+// mirar un texto. Llega cuando hace falta, al ir a entrar.
+const Login = lazy(() => import('./routes/Login'));
+const Register = lazy(() => import('./routes/Register'));
 import ForgotPassword from './routes/ForgotPassword';
 import PendingApproval from './routes/PendingApproval';
 import Main from './routes/Main';
@@ -22,12 +28,16 @@ import Profile from './routes/Profile';
 import Sobre from './routes/Sobre';
 import SyncProblemas from './routes/SyncProblemas';
 
-import AdminDashboard from './routes/admin/AdminDashboard';
-import AdminUsuarios from './routes/admin/AdminUsuarios';
-import AdminEmociones from './routes/admin/AdminEmociones';
-import AdminHerramientas from './routes/admin/AdminHerramientas';
-import AdminAprendiendo from './routes/admin/AdminAprendiendo';
-import AdminIntroVideos from './routes/admin/AdminIntroVideos';
+// La consola del CMS: seis pantallas que solo abre el equipo de Sueños y
+// Letras, desde escritorio. Iban en el mismo archivo que todo lo demas, asi que
+// cada docente las descargaba en el movil para no abrirlas jamas. vite.config
+// las agrupa en un unico chunk 'admin' y el service worker no lo precachea.
+const AdminDashboard = lazy(() => import('./routes/admin/AdminDashboard'));
+const AdminUsuarios = lazy(() => import('./routes/admin/AdminUsuarios'));
+const AdminEmociones = lazy(() => import('./routes/admin/AdminEmociones'));
+const AdminHerramientas = lazy(() => import('./routes/admin/AdminHerramientas'));
+const AdminAprendiendo = lazy(() => import('./routes/admin/AdminAprendiendo'));
+const AdminIntroVideos = lazy(() => import('./routes/admin/AdminIntroVideos'));
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { authed } = useAuth();
@@ -35,8 +45,13 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 }
 
 function RequireRole({ role, children }: { role: UserRole; children: React.ReactNode }) {
-  const { authed, user } = useAuth();
+  const { authed, user, profileResolved } = useAuth();
   if (!authed) return <Navigate to="/" replace />;
+  // Tener sesion pero no perfil todavia no es "no eres admin": es "aun no lo
+  // se". Desde que AuthProvider pinta en cuanto la cache responde, esa ventana
+  // existe de verdad, y redirigir en ella echaria de /admin a quien si tiene el
+  // rol solo porque su perfil venia en camino.
+  if (!user && !profileResolved) return <ContentState status="loading" />;
   if (user?.role !== role) return <Navigate to="/main" replace />;
   return <>{children}</>;
 }
@@ -47,6 +62,10 @@ export function App() {
       {/* Overlay: renders nothing when online and idle, so it never reflows
           the routes below. */}
       <OfflineBanner />
+      {/* Un solo limite para todas las rutas perezosas. Las de docente siguen
+          siendo estaticas a proposito (ver vite.config.ts), asi que esto solo
+          se ve al entrar en /login, /register o el CMS. */}
+      <Suspense fallback={<ContentState status="loading" />}>
       <Routes>
       {/* pre-login */}
       <Route path="/" element={<Onboarding />} />
@@ -87,6 +106,7 @@ export function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </>
   );
 }
