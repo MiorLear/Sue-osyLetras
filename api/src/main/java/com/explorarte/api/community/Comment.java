@@ -57,6 +57,6 @@ public class Comment {
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 
     public CommentDto toDto() {
-        return new CommentDto(userName, initials, avatarBg, RelativeTime.from(createdAt), text);
+        return new CommentDto(id, userName, initials, avatarBg, RelativeTime.from(createdAt), text);
     }
 }

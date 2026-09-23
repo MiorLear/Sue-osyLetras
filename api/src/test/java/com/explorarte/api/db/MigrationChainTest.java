@@ -95,7 +95,7 @@ class MigrationChainTest {
                     .isFalse();
         }
         assertThat(applied).containsExactly(
-                "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16");
+                "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17");
 
         // validate() vuelve a leer los checksums: si alguien editó una migración
         // ya aplicada en vez de agregar una nueva, esto es lo que lo dice — y en
@@ -421,6 +421,51 @@ class MigrationChainTest {
                 .isEqualTo("ficha.pdf");
         assertThat(scalar("SELECT attachments->0->>'id' FROM posts WHERE id = 1"))
                 .isEqualTo("9f1c");
+    }
+
+    /**
+     * V17 — la Caja de herramientas pasa a estantes. Lo que ya estaba subido
+     * tiene que aparecer como libros en el mismo orden en que se veia, y la
+     * bibliografia "Titulo — Autor" se parte en sus dos campos sin perder nada.
+     */
+    @Test
+    void turnsTheToolsListsIntoShelvesAndTheBibliographyIntoEntries() throws SQLException {
+        Flyway throughV16 = Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/migration")
+                .target("16")
+                .cleanDisabled(false)
+                .load();
+        throughV16.clean();
+        throughV16.migrate();
+
+        execute("""
+                INSERT INTO tools_content (id, manual_document, activity_guides, downloadables, bibliography)
+                VALUES (1,
+                    '{"id":"m1","title":"Manual","url":"https://explorarte.app/media/tools/m1.pdf","mimeType":"application/pdf","sizeBytes":1}',
+                    '[{"id":"g1","title":"Guia 1","url":"https://explorarte.app/media/tools/g1.pdf","mimeType":"application/pdf","sizeBytes":1},
+                      {"id":"g2","title":"Guia 2","url":"https://explorarte.app/media/tools/g2.pdf","mimeType":"application/pdf","sizeBytes":1}]',
+                    '[{"id":"","title":"","url":""}]',
+                    '["El cerebro del niño — Daniel J. Siegel", "Sin autor", "  "]');
+                """);
+
+        flyway().migrate();
+
+        assertThat(scalar("SELECT jsonb_array_length(shelves) FROM tools_content")).isEqualTo("3");
+        assertThat(scalar("SELECT shelves->0->>'title' FROM tools_content")).isEqualTo("Manual ExplorArte");
+        assertThat(scalar("SELECT shelves->0->'books'->0->'file'->>'id' FROM tools_content")).isEqualTo("m1");
+        assertThat(scalar("SELECT shelves->0->'books'->0->>'title' FROM tools_content")).isEqualTo("Manual");
+        assertThat(scalar("SELECT shelves->1->'books'->1->>'id' FROM tools_content")).isEqualTo("g2");
+        // La fila vacia que dejaba el editor viejo no se vuelve un libro sin archivo.
+        assertThat(scalar("SELECT jsonb_array_length(shelves->2->'books') FROM tools_content")).isEqualTo("0");
+        // Sin portada: la automatica la genera el navegador, no la migracion.
+        assertThat(scalar("SELECT jsonb_typeof(shelves->0->'books'->0->'autoCover') FROM tools_content")).isEqualTo("null");
+
+        assertThat(scalar("SELECT jsonb_array_length(bibliography_items) FROM tools_content")).isEqualTo("2");
+        assertThat(scalar("SELECT bibliography_items->0->>'title' FROM tools_content")).isEqualTo("El cerebro del niño");
+        assertThat(scalar("SELECT bibliography_items->0->>'author' FROM tools_content")).isEqualTo("Daniel J. Siegel");
+        assertThat(scalar("SELECT bibliography_items->1->>'title' FROM tools_content")).isEqualTo("Sin autor");
+        assertThat(scalar("SELECT bibliography_items->1->>'author' FROM tools_content")).isNull();
     }
 
     // --- helpers -----------------------------------------------------------

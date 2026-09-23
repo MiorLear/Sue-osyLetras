@@ -49,6 +49,13 @@ public class ToolsContentEntity implements Persistable<Short> {
     @JdbcTypeCode(SqlTypes.JSON)
     private List<MediaItem> activityGuides;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<ToolShelf> shelves = List.of();
+
+    @Column(name = "bibliography_items")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<BibliographyEntry> bibliographyItems = List.of();
+
     @Override
     public Short getId() { return id; }
     public void setId(Short id) { this.id = id; }
@@ -65,7 +72,15 @@ public class ToolsContentEntity implements Persistable<Short> {
     public List<MediaItem> getActivityGuides() { return activityGuides; }
     public void setActivityGuides(List<MediaItem> activityGuides) { this.activityGuides = activityGuides; }
 
+    public List<ToolShelf> getShelves() { return shelves; }
+    public void setShelves(List<ToolShelf> shelves) { this.shelves = shelves; }
+
+    public List<BibliographyEntry> getBibliographyItems() { return bibliographyItems; }
+    public void setBibliographyItems(List<BibliographyEntry> bibliographyItems) { this.bibliographyItems = bibliographyItems; }
+
+    /** Las columnas viejas (downloadables, bibliography, ...) ya no se leen: V17
+     * las copio a estas dos, y la forma vieja de la respuesta se deriva de aqui. */
     public ToolsContentDto toDto() {
-        return new ToolsContentDto(downloadables, bibliography, manualDocument, activityGuides);
+        return ToolsContentMapper.toDto(shelves, bibliographyItems);
     }
 }

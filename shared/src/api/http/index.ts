@@ -23,6 +23,7 @@ import type {
   ScreenIntroVideo,
   Topic,
   ToolsContent,
+  ToolsUpdateInput,
   UpdateEventInput,
   UpdateProfileInput,
   UpdateScreenIntroInput,
@@ -174,6 +175,9 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
       toggleLike: (id: number) => request<Post>('POST', `/posts/${id}/like`),
       addComment: (id: number, input: CreateCommentInput) =>
         request<Comment>('POST', `/posts/${id}/comments`, input),
+      remove: (id: number) => request<void>('DELETE', `/posts/${id}`),
+      removeComment: (id: number, commentId: number) =>
+        request<void>('DELETE', `/posts/${id}/comments/${commentId}`),
     },
     events: {
       list: listAllEvents,
@@ -197,7 +201,7 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
     },
     tools: {
       get: () => request<ToolsContent>('GET', '/tools'),
-      update: (input: ToolsContent) => request<ToolsContent>('PUT', '/tools', input),
+      update: (input: ToolsUpdateInput) => request<ToolsContent>('PUT', '/tools', input),
     },
     profile: {
       get: () => request<UserProfile>('GET', '/me'),

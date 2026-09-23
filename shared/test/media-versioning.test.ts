@@ -5,7 +5,7 @@ import { TOOLS } from '../src/api/mock/seed.js';
 
 describe('MediaItem version metadata', () => {
   it('is included in seeded mock media', () => {
-    expect(TOOLS.downloadables[0]).toMatchObject({
+    expect(TOOLS.shelves[0].books[0].file).toMatchObject({
       updatedAt: expect.any(String),
       etag: expect.any(String),
     });

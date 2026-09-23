@@ -149,15 +149,15 @@ export default function CajaDeHerramientasScreen() {
         {tools ? (
           <>
             <SectionCard emoji="📖" title="Manual ExplorArte" subtitle="Documento principal de la metodología.">
-              <ManualButton manual={tools.manualDocument} />
+              <ManualButton manual={tools.manualDocument ?? null} />
             </SectionCard>
 
             <SectionCard emoji="📋" title="Guías de actividades" subtitle="Materiales complementarios para docentes.">
-              {tools.activityGuides.length === 0 ? (
+              {(tools.activityGuides ?? []).length === 0 ? (
                 <Text style={{ fontSize: 12.5, color: colors.textBody }}>Aún no hay guías subidas.</Text>
               ) : (
                 <View style={{ gap: 8 }}>
-                  {tools.activityGuides.map((item) => (
+                  {(tools.activityGuides ?? []).map((item) => (
                     <DownloadableMediaItem key={item.id} item={item} />
                   ))}
                 </View>
@@ -165,11 +165,11 @@ export default function CajaDeHerramientasScreen() {
             </SectionCard>
 
             <SectionCard emoji="📥" title="Recursos descargables">
-              {tools.downloadables.length === 0 ? (
+              {(tools.downloadables ?? []).length === 0 ? (
                 <Text style={{ fontSize: 12.5, color: colors.textBody }}>Aún no hay recursos subidos.</Text>
               ) : (
                 <View style={{ gap: 8 }}>
-                  {tools.downloadables.map((item) => (
+                  {(tools.downloadables ?? []).map((item) => (
                     <DownloadableMediaItem key={item.id} item={item} />
                   ))}
                 </View>
@@ -180,11 +180,11 @@ export default function CajaDeHerramientasScreen() {
               emoji="📚"
               title="Bibliografía recomendada"
               subtitle="Selección de lecturas para profundizar en bienestar emocional, desarrollo socioemocional y educación.">
-              {tools.bibliography.length === 0 ? (
+              {(tools.bibliography ?? []).length === 0 ? (
                 <Text style={{ fontSize: 12.5, color: colors.textBody }}>Aún no hay bibliografía sugerida.</Text>
               ) : (
                 <View style={{ gap: 8 }}>
-                  {tools.bibliography.map((b) => (
+                  {(tools.bibliography ?? []).map((b) => (
                     <View key={b} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                       <Icon name="book-open" size={15} color={colors.brand} />
                       <Text style={{ flex: 1, fontSize: 12.5, color: colors.textBody, lineHeight: 18 }}>{b}</Text>

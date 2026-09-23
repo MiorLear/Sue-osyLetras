@@ -1,0 +1,474 @@
+/* ════════════════════════════════════════════════════════════════════
+   BIBLIOTECA — Caja de herramientas
+   Estantes con libros de pie sobre una repisa de madera, la bibliografía
+   sugerida y el lector a pantalla completa (BookReader).
+   ════════════════════════════════════════════════════════════════════ */
+.library {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  margin-bottom: 30px;
+}
+.library__empty {
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+.library__section {
+  margin-bottom: 12px;
+}
+.library__lede {
+  margin: 4px 0 16px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-body);
+}
+
+.shelf__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.shelf__title {
+  font-family: var(--font-serif);
+  font-size: 21px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+.shelf__count {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Cada libro trae su tramo de repisa, que se une con el del vecino: así, en
+   escritorio, cuando los libros saltan de línea cada fila tiene la suya. */
+.shelf__row {
+  --book-w: 150px;
+  --ledge: 14px;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 22px;
+  padding: 16px 18px 0;
+  border-radius: 18px;
+  background: var(--card-warm);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.shelf__slot {
+  position: relative;
+  width: var(--book-w);
+  padding-bottom: calc(var(--ledge) + 14px);
+  margin-bottom: 4px;
+}
+.shelf__slot::after {
+  content: '';
+  position: absolute;
+  left: -12px;
+  right: -12px;
+  bottom: 0;
+  height: var(--ledge);
+  background: linear-gradient(180deg, #c99a6b 0%, #a8784c 55%, #8a5f3a 100%);
+  box-shadow: 0 6px 10px -4px rgba(90, 55, 25, 0.45);
+  z-index: 0;
+}
+
+.book {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  width: 100%;
+  min-height: 44px;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  perspective: 700px;
+}
+.book__title {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-dark);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.book__author {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.book-cover {
+  position: relative;
+  display: block;
+  aspect-ratio: 3 / 4;
+  border-radius: 3px 8px 8px 3px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.08),
+    0 10px 18px -8px rgba(40, 30, 20, 0.45);
+  transform-origin: left center;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.book:hover .book-cover,
+.book:focus-visible .book-cover {
+  transform: rotateY(-14deg) translateY(-4px);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.08),
+    10px 18px 24px -10px rgba(40, 30, 20, 0.5);
+}
+.book:focus-visible {
+  outline: none;
+}
+.book:focus-visible .book-cover {
+  outline: 3px solid var(--brand);
+  outline-offset: 3px;
+}
+.book-cover__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* El lomo: un pliegue oscuro a la izquierda con su brillo. */
+.book-cover__spine {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 12px;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.28), rgba(255, 255, 255, 0.18) 45%, rgba(0, 0, 0, 0.08));
+  pointer-events: none;
+}
+.book-cover__cloth {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 12px 12px 22px;
+  color: #fff;
+}
+.book-cover__title {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.book-cover__author {
+  font-size: 11px;
+  opacity: 0.85;
+}
+.book-cover__badge {
+  margin-top: auto;
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  background: rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+/* En el teléfono el estante se desliza de lado, con los libros encajando. */
+@media (max-width: 760px) {
+  .shelf__row {
+    --book-w: 118px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    padding: 14px 14px 0;
+    gap: 0 16px;
+    scrollbar-width: none;
+  }
+  .shelf__row::-webkit-scrollbar {
+    display: none;
+  }
+  .shelf__slot {
+    flex: 0 0 var(--book-w);
+    scroll-snap-align: start;
+  }
+  .book-cover__title {
+    font-size: 14px;
+  }
+}
+
+/* ── bibliografía sugerida ── */
+.biblio {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
+  gap: 14px;
+}
+.biblio__card {
+  display: flex;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid var(--border);
+}
+.biblio__img {
+  flex: 0 0 76px;
+  width: 76px;
+  aspect-ratio: 2 / 3;
+  height: auto;
+  align-self: flex-start;
+  object-fit: cover;
+  border-radius: 3px 6px 6px 3px;
+  box-shadow: 0 8px 14px -8px rgba(40, 30, 20, 0.5);
+  background: #fff;
+}
+.biblio__img--cloth {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+}
+.biblio__body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.biblio__title {
+  font-family: var(--font-serif);
+  font-size: 16.5px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text-dark);
+}
+.biblio__author {
+  font-size: 12.5px;
+  color: var(--text-body);
+}
+.biblio__link {
+  margin-top: auto;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 44px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand-dark);
+  text-decoration: none;
+}
+.biblio__link:hover {
+  text-decoration: underline;
+}
+
+/* ── lector ── */
+.reader {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(ellipse at center, #2c3a38 0%, #152120 100%);
+  color: #fff;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px)
+    env(safe-area-inset-left, 0px);
+}
+.reader__bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 10px 18px;
+}
+.reader__heading {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.reader__title {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.reader__author {
+  font-size: 12px;
+  opacity: 0.7;
+}
+.reader__icon-btn {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.12);
+  border: 0;
+  cursor: pointer;
+}
+.reader__stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 56px;
+}
+.reader__host {
+  width: 100%;
+  height: 100%;
+  max-width: 1400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.reader__host[hidden] {
+  display: none;
+}
+.reader__book {
+  width: 100%;
+  height: 100%;
+}
+.reader__page {
+  background: #fff;
+  overflow: hidden;
+}
+.reader__page canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #fff;
+}
+.reader__turn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 64px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: 0;
+  cursor: pointer;
+}
+.reader__turn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+.reader__turn--prev {
+  left: 6px;
+}
+.reader__turn--next {
+  right: 6px;
+}
+.reader__state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 340px;
+  margin: auto;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.reader__hint {
+  opacity: 0.7;
+  font-size: 12.5px;
+}
+.reader__spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #fff;
+  animation: reader-spin 0.9s linear infinite;
+}
+@keyframes reader-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.reader__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 16px 14px;
+}
+.reader__progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+}
+.reader__progress input[type='range'] {
+  flex: 1;
+  min-height: 44px;
+  accent-color: var(--brand);
+}
+.reader__count {
+  font-size: 12.5px;
+  opacity: 0.8;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.reader__actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.reader__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 22px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+}
+.reader__action:disabled {
+  opacity: 0.5;
+}
+@media (max-width: 520px) {
+  .reader__stage {
+    padding: 4px 6px;
+  }
+  /* En el teléfono se pasa de página arrastrando o con el deslizador. */
+  .reader__turn {
+    display: none;
+  }
+  .reader__action {
+    padding: 0 12px;
+    font-size: 12px;
+  }
+}

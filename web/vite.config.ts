@@ -29,7 +29,11 @@ export default defineConfig({
         // Everything the shell needs for a cold offline start. Media and API
         // data are deliberately absent: media is runtime-cached by a later
         // ticket and API responses are never cached by the worker at all.
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest,woff2}'],
+        // `mjs` por el worker de pdf.js, que Vite emite con esa extensión: sin
+        // él en el precache, un libro ya descargado no se podría leer sin red.
+        globPatterns: ['**/*.{js,mjs,css,html,svg,png,ico,webmanifest,woff2}'],
+        // El worker de pdf.js pasa de 1 MB; el tope por defecto (2 MiB) queda justo.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         // Ya son chunks perezosos, asi que la salida que este comentario
         // anticipaba esta tomada: el CMS es de escritorio y no necesita
         // funcionar sin conexion. Precachearlo solo gastaba datos de la docente

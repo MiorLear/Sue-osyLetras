@@ -7,13 +7,19 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.explorarte.api.media.MediaUrlPolicy;
+
+import jakarta.validation.Valid;
+
 @RestController
 public class ToolsController {
 
     private final ToolsContentRepository toolsContentRepository;
+    private final MediaUrlPolicy mediaUrlPolicy;
 
-    public ToolsController(ToolsContentRepository toolsContentRepository) {
+    public ToolsController(ToolsContentRepository toolsContentRepository, MediaUrlPolicy mediaUrlPolicy) {
         this.toolsContentRepository = toolsContentRepository;
+        this.mediaUrlPolicy = mediaUrlPolicy;
     }
 
     @GetMapping("/tools")
@@ -24,13 +30,15 @@ public class ToolsController {
     }
 
     @PutMapping("/tools")
-    public ToolsContentDto update(@RequestBody ToolsContentDto input) {
+    public ToolsContentDto update(@Valid @RequestBody ToolsUpdateInput input) {
+        // Los libros y las portadas se abren con <img src>, pdf.js y openFile:
+        // solo se guardan URLs de nuestro almacenamiento (como SEC-15 en posts).
+        ToolsContentMapper.checkUrls(input, mediaUrlPolicy);
+
         ToolsContentEntity entity = toolsContentRepository.findById(ToolsContentEntity.SINGLETON_ID)
                 .orElseGet(ToolsContentEntity::new);
-        entity.setDownloadables(input.downloadables());
-        entity.setBibliography(input.bibliography());
-        entity.setManualDocument(input.manualDocument());
-        entity.setActivityGuides(input.activityGuides());
+        entity.setShelves(input.shelves());
+        entity.setBibliographyItems(input.bibliographyItems());
         toolsContentRepository.save(entity);
         return entity.toDto();
     }

@@ -4,6 +4,7 @@ import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
 import { PendingBadge } from '@/components/PendingBadge';
 import { toast } from '@/components/toast-store';
+import { confirmDialog } from '@/components/confirm-store';
 import { CacheAgeNote, ContentState } from '@/components/ContentState';
 import { api } from '@/lib/api';
 import { cacheKeys } from '@/lib/cache-keys';
@@ -34,7 +35,7 @@ const SHARE_BULLETS = [
 ];
 
 export default function Comunidad() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const myInitials = user
     ? ((user.name.charAt(0) || '') + (user.lastname.charAt(0) || '')).toUpperCase()
     : 'MR';
@@ -86,6 +87,7 @@ export default function Comunidad() {
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [likingId, setLikingId] = useState<number | null>(null);
   const [sendingComment, setSendingComment] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [commentErrors, setCommentErrors] = useState<Record<number, string>>({});
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeText, setComposeText] = useState('');
@@ -218,6 +220,41 @@ export default function Comunidad() {
       setSendingComment(null);
     }
   };
+
+  // Moderación (solo admin). No se encola: borrar algo que otra persona está
+  // leyendo tiene que pasar ya o no pasar, y sin red se le dice.
+  const moderate = async (key: string, title: string, run: () => Promise<void>, done: () => void) => {
+    if (deleting) return;
+    if (!online) {
+      toast.info('Para eliminar necesitas conexión.', { title: 'Sin conexión' });
+      return;
+    }
+    const ok = await confirmDialog({ title, message: 'Esta acción no se puede deshacer.', confirmLabel: 'Eliminar', tone: 'danger' });
+    if (!ok) return;
+    setDeleting(key);
+    try {
+      await run();
+      done();
+    } catch (e) {
+      if (isDeadSession(e)) return;
+      toast.error('No se pudo eliminar. Inténtalo de nuevo.');
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const deletePost = (id: number) =>
+    moderate(`p${id}`, '¿Eliminar esta publicación?', () => api.posts.remove(id), () => {
+      setPosts((ps) => ps.filter((p) => p.id !== id));
+      if (openThread === id) setOpenThread(null);
+      toast.success('Publicación eliminada.');
+    });
+
+  const deleteComment = (postId: number, commentId: number) =>
+    moderate(`c${commentId}`, '¿Eliminar este comentario?', () => api.posts.removeComment(postId, commentId), () => {
+      setPosts((ps) => ps.map((p) => (p.id === postId ? { ...p, comments: p.comments.filter((c) => c.id !== commentId) } : p)));
+      toast.success('Comentario eliminado.');
+    });
 
   const submitPost = async () => {
     const text = composeText.trim();
@@ -420,6 +457,17 @@ export default function Comunidad() {
                         label={`${liked ? 'Quitar me gusta' : 'Me gusta'}${pending.likes.has(p.id) ? ', pendiente de enviar' : ''}`}
                         onClick={() => toggleLike(p.id)}
                       />
+                      {isAdmin && !isDraft ? (
+                        <button
+                          className="tap-44"
+                          onClick={() => deletePost(p.id)}
+                          disabled={deleting === `p${p.id}`}
+                          aria-label="Eliminar publicación"
+                          title="Eliminar publicación"
+                          style={{ marginLeft: 'auto', padding: '0 8px' }}>
+                          <Icon name="trash" size={15} color="var(--danger)" />
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -428,13 +476,23 @@ export default function Comunidad() {
               {threadOpen ? (
                 <div style={{ padding: '12px 20px 18px', background: '#FBF7F0', borderTop: '1px solid var(--border)' }}>
                   {comments.map((c, i) => (
-                    <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                    <div key={c.id ?? `q${i}`} style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
                       <span style={{ width: 28, height: 28, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: c.avatarBg, color: '#fff', fontSize: 9, fontWeight: 800, flexShrink: 0 }}>{c.initials}</span>
                       <div style={{ flex: 1, background: '#fff', borderRadius: 12, padding: '8px 12px', border: '1px solid var(--border)' }}>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, flexWrap: 'wrap' }}>
                           <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-dark)' }}>{c.user}</span>
                           <span style={{ fontSize: 10.5, color: 'var(--text-faint)' }}>· {c.time}</span>
                           {i >= p.comments.length ? <PendingBadge label="Sin enviar" /> : null}
+                          {isAdmin && c.id != null && i < p.comments.length ? (
+                            <button
+                              onClick={() => deleteComment(p.id, c.id!)}
+                              disabled={deleting === `c${c.id}`}
+                              aria-label="Eliminar comentario"
+                              title="Eliminar comentario"
+                              style={{ marginLeft: 'auto', width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <Icon name="trash" size={13} color="var(--danger)" />
+                            </button>
+                          ) : null}
                         </div>
                         <p style={{ marginTop: 2, fontSize: 12.5, color: 'var(--text-body)', lineHeight: 1.4 }}>{c.text}</p>
                       </div>

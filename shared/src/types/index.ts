@@ -81,6 +81,8 @@ export interface EmotionDetail extends Emotion {
 // ── Community ─────────────────────────────────────────────────────────────────
 
 export interface Comment {
+  /** server id; absent on a comment still waiting in the offline queue */
+  id?: number;
   user: string;
   initials: string;
   avatarBg: string;
@@ -244,16 +246,51 @@ export type UpdateTopicInput = Partial<Omit<Topic, 'id'>>;
 
 // ── Teacher toolkit ─────────────────────────────────────────────────────────
 
-export interface ToolsContent {
-  /** downloadable resources list (PDFs/docs) */
-  downloadables: MediaItem[];
-  /** recommended bibliography titles */
-  bibliography: string[];
-  /** the single featured "Manual ExplorArte" document, or null if not uploaded yet */
-  manualDocument: MediaItem | null;
-  /** the featured "Guías de actividades" documents */
-  activityGuides: MediaItem[];
+/** A file on a library shelf. The cover shown is `cover ?? autoCover ?? placeholder`. */
+export interface ToolBook {
+  id: string;
+  title: string;
+  author?: string | null;
+  file: MediaItem;
+  /** cover image uploaded by an admin */
+  cover: MediaItem | null;
+  /** first page of the PDF, rendered in the admin's browser when the file is uploaded */
+  autoCover: MediaItem | null;
 }
+
+/** An admin-managed category of the library. */
+export interface ToolShelf {
+  id: string;
+  title: string;
+  books: ToolBook[];
+}
+
+/** A recommended book: its cover image and a link to its page elsewhere. */
+export interface BibliographyEntry {
+  id: string;
+  title: string;
+  author?: string | null;
+  image: MediaItem | null;
+  /** the book's page (publisher, store…), http(s) */
+  url: string | null;
+}
+
+export interface ToolsContent {
+  shelves: ToolShelf[];
+  bibliographyItems: BibliographyEntry[];
+  /**
+   * The pre-library shape, derived by the API from the two fields above so a
+   * PWA build still cached on a phone keeps rendering. Read-only: never write
+   * or render these.
+   */
+  downloadables?: MediaItem[];
+  bibliography?: string[];
+  manualDocument?: MediaItem | null;
+  activityGuides?: MediaItem[];
+}
+
+/** Body of PUT /tools — the whole library at once. */
+export type ToolsUpdateInput = Pick<ToolsContent, 'shelves' | 'bibliographyItems'>;
 
 // ── Screen intro videos ──────────────────────────────────────────────────────
 

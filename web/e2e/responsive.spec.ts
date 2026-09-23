@@ -19,14 +19,11 @@ const ANCHOS = [
  * Está vacío, y eso es un hallazgo, no un olvido. La planificación daba por
  * desbordadas dos pantallas y las dos se midieron aquí antes de marcarlas:
  *
- * - `/herramientas`: NO desborda a ningún ancho. La rejilla `1fr 1fr` sí
- *   estrangula la fila de medios, pero `.media-row__body` ya trae
- *   `min-width: 0` y `.media-row__title` es `nowrap` + elipsis, así que el
- *   exceso lo absorbe el recorte del texto en vez de empujar la página. El
- *   título útil se queda en 79px a 360, 109 a 390 y 133 a 414 (a "Herramientas
- *   para facilitación" le hacen falta 178). Es un problema real de LEGIBILIDAD
- *   y sigue siendo trabajo de C1+C2, pero `scrollWidth` no lo ve y no se puede
- *   fingir que sí.
+ * - `/herramientas`: NO desborda a ningún ancho. Desde que es una biblioteca,
+ *   cada estante se desliza de lado dentro de su propia fila (`overflow-x:
+ *   auto`), así que los libros que no caben no empujan la página. Lo que antes
+ *   era el problema —títulos recortados a 79px— lo mide ahora el test de
+ *   legibilidad de más abajo.
  * - `/calendar` a 360: tampoco desborda. `.page-head` no lleva `flex-shrink: 0`
  *   ni `white-space: nowrap`, así que "Mi Calendario" parte en dos líneas y el
  *   bloque se queda en 165px de ancho; el botón "Nuevo evento" cabe al lado.
@@ -136,11 +133,27 @@ for (const ancho of ANCHOS) {
 test.describe('legibilidad del contenido denso en teléfono', () => {
   test.use({ viewport: { width: 360, height: 740 }, hasTouch: true });
 
-  test('Herramientas deja ancho legible a cada tarjeta', async ({ page }) => {
+  /**
+   * La Caja de herramientas es ahora una biblioteca. En el teléfono cada
+   * estante se desliza de lado DENTRO de sí mismo (la página no), así que lo
+   * que hay que cuidar es que el libro no se encoja para caber: la tapa guarda
+   * su ancho y el título se lee debajo, y la tarjeta de bibliografía ocupa la
+   * fila entera en vez de partirse en columnas estrechas.
+   */
+  test('Herramientas no encoge los libros para que quepan', async ({ page }) => {
     await page.goto('/herramientas');
-    const titulo = page.getByText('Manual ExplorArte').first();
-    await expect(titulo).toBeVisible();
-    const ancho = await titulo.evaluate((el) => el.parentElement?.parentElement?.getBoundingClientRect().width ?? 0);
+    const estante = page.getByRole('region', { name: 'Recursos descargables' });
+    await expect(estante).toBeVisible();
+    const libro = estante.getByRole('button').first();
+    const tapa = await libro.locator('.book-cover').boundingBox();
+    expect(tapa?.width ?? 0).toBeGreaterThanOrEqual(110);
+    // Cuatro libros no caben a 360: el estante se desliza, no se aprieta.
+    const fila = estante.locator('.shelf__row');
+    const desliza = await fila.evaluate((el) => el.scrollWidth > el.clientWidth);
+    expect(desliza).toBe(true);
+
+    const ficha = page.locator('.biblio__card').first();
+    const ancho = (await ficha.boundingBox())?.width ?? 0;
     expect(ancho).toBeGreaterThanOrEqual(260);
   });
 
