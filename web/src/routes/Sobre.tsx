@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -47,10 +46,16 @@ export default function Sobre() {
           <p style={P}>Sueños y Letras acompaña y promueve el bienestar socioemocional, la libertad creativa y el desarrollo de comunidades de aprendizaje a través de la lectura y la escritura.</p>
         </Section>
 
-        <div style={{ height: 160, borderRadius: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#EAF4F3', border: '1.5px dashed var(--border-soft)' }}>
-          <Icon name="image" size={34} color="var(--text-muted)" />
-          <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Imagen de Sueños y Letras</span>
-        </div>
+        <a
+          href="https://www.facebook.com/suenosyletrassv"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Sueños y Letras en Facebook"
+          style={{ padding: '20px 16px', borderRadius: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#EAF4F3', border: '1.5px solid var(--border-soft)', textDecoration: 'none' }}
+        >
+          <img src="/logo.jpg" width={120} height={120} style={{ borderRadius: 12 }} alt="Sueños y Letras" />
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--brand)' }}>Síguenos en Facebook</span>
+        </a>
       </div>
     </div>
   );
