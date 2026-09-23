@@ -84,7 +84,9 @@ export default function AprendiendoTema() {
   );
 
   return (
-    <div className="page page-narrow">
+    // El mapa necesita más ancho que la lectura suelta: en escritorio, con
+    // 820px, el panel de la fase se quedaba en una columna de 360.
+    <div className={topic?.layout === 'path' ? 'page page-narrow page-learning-path' : 'page page-narrow'}>
       <header className="gradient-header" style={{ background: 'var(--brand-gradient)' }}>
         <button
           className="tap-44"

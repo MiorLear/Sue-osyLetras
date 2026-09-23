@@ -19,8 +19,15 @@ export interface PathPoint {
 export interface PathGeometry {
   height: number;
   points: PathPoint[];
-  /** El atributo `d`, con `pathLength=1` para que el avance sea una fracción exacta. */
+  /** El atributo `d` del camino entero. */
   d: string;
+  /**
+   * Un `d` por tramo: `segments[i]` une la fase i con la i+1. El avance se
+   * pinta tramo a tramo con estos, sin guiones ni `pathLength`: combinados con
+   * `vector-effect="non-scaling-stroke"`, Chrome mide los guiones en pantalla y
+   * no en el viewBox estirado, y la cola del camino salía pintada sin avance.
+   */
+  segments: string[];
 }
 
 export interface PathOptions {
@@ -52,7 +59,7 @@ export const PATH_DEFAULTS: Required<PathOptions> = {
 export function pathGeometry(count: number, opts: PathOptions = {}): PathGeometry {
   const { stride, node, amp, labelHeight, padTop } = { ...PATH_DEFAULTS, ...opts };
 
-  if (count <= 0) return { height: 0, points: [], d: '' };
+  if (count <= 0) return { height: 0, points: [], d: '', segments: [] };
 
   const points: PathPoint[] = Array.from({ length: count }, (_, i) => ({
     // Los pares a la izquierda, para que el primero caiga donde empieza la lectura.
@@ -63,24 +70,16 @@ export function pathGeometry(count: number, opts: PathOptions = {}): PathGeometr
   // Bézier cúbica con los dos controles en el punto medio vertical: sale y
   // entra en vertical, y eso es lo que da la S limpia en vez de una diagonal.
   let d = `M ${points[0].x} ${points[0].y}`;
+  const segments: string[] = [];
   for (let i = 1; i < points.length; i++) {
     const from = points[i - 1];
     const to = points[i];
     const midY = (from.y + to.y) / 2;
-    d += ` C ${from.x} ${midY}, ${to.x} ${midY}, ${to.x} ${to.y}`;
+    const curve = `C ${from.x} ${midY}, ${to.x} ${midY}, ${to.x} ${to.y}`;
+    d += ` ${curve}`;
+    segments.push(`M ${from.x} ${from.y} ${curve}`);
   }
 
   const height = padTop + (count - 1) * stride + node / 2 + 8 + labelHeight;
-  return { height, points, d };
-}
-
-/**
- * La fracción de camino recorrida.
- *
- * Con `pathLength={1}` en el SVG, esto es directamente el `strokeDashoffset`
- * que hay que restar: un número exacto, sin medir longitudes de curva.
- */
-export function pathProgress(done: number, count: number): number {
-  if (count <= 1) return done > 0 ? 1 : 0;
-  return Math.min(1, Math.max(0, done / (count - 1)));
+  return { height, points, d, segments };
 }

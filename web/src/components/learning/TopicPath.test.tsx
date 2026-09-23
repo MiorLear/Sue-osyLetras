@@ -114,6 +114,36 @@ describe('<TopicPath />', () => {
     expect(screen.getByText('Pendiente de enviar')).toBeTruthy();
   });
 
+  // El bug que esto fija: con el avance dibujado como guiones sobre un trazo
+  // sin escalar, Chrome pintaba la cola del camino aunque no hubiera nada hecho.
+  it('sin avance no pinta ningún tramo del camino', () => {
+    const { container } = render(
+      <TopicPath topic={TEMA} done={new Set()} current={0} pendingKeys={new Set()} onToggle={vi.fn()} />,
+    );
+    const pintados = [...container.querySelectorAll('path[stroke="var(--brand)"]')].filter(
+      (p) => p.getAttribute('opacity') === '1',
+    );
+    expect(pintados).toHaveLength(0);
+  });
+
+  it('pinta solo el tramo que sale de cada fase hecha, aunque vayan salteadas', () => {
+    const done = new Set([progressId(TEMA.id, 'cuidando-mi-cuerpo')]);
+    const { container } = render(
+      <TopicPath topic={TEMA} done={done} current={0} pendingKeys={new Set()} onToggle={vi.fn()} />,
+    );
+    const tramos = [...container.querySelectorAll('path[stroke="var(--brand)"]')].map((p) => p.getAttribute('opacity'));
+    expect(tramos).toEqual(['0', '1']);
+  });
+
+  it('desde una fase abierta se puede pasar a la siguiente y volver', () => {
+    pintar();
+    fireEvent.click(screen.getByRole('button', { name: /Fase 1/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Siguiente fase: Cuidando mi cuerpo/ }));
+    expect(screen.getByText('Contenido de Cuidando mi cuerpo.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Fase anterior/ }));
+    expect(screen.getByText('Contenido de Cuidando mis emociones.')).toBeTruthy();
+  });
+
   it('un tema sin fases no dibuja el mapa', () => {
     const { container } = render(
       <TopicPath topic={{ ...TEMA, subtopics: [] }} done={new Set()} current={0} pendingKeys={new Set()} onToggle={vi.fn()} />,
