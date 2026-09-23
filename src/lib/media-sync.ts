@@ -109,8 +109,8 @@ async function runPass(media: boolean): Promise<void> {
       try {
         const tools = await api.tools.get();
         await writeCache('tools', tools);
-        for (const m of [...tools.downloadables, ...tools.activityGuides]) await pullMedia(m);
-        await pullMedia(tools.manualDocument);
+        for (const m of [...(tools.downloadables ?? []), ...(tools.activityGuides ?? [])]) await pullMedia(m);
+        await pullMedia(tools.manualDocument ?? null);
       } catch {
         /* skip tools */
       }
