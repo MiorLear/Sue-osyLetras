@@ -4,7 +4,7 @@ import { MediaList } from '@/components/DownloadableMediaItem';
 import { Icon } from '@/components/Icon';
 import { PendingBadge } from '@/components/PendingBadge';
 import { BlockList } from '@/components/learning/BlockList';
-import { PATH_DEFAULTS, pathGeometry, pathProgress } from '@/components/learning/path-geometry';
+import { PATH_DEFAULTS, pathGeometry } from '@/components/learning/path-geometry';
 import { progressId, stepState } from '@/lib/learning-progress';
 
 // El tema como mapa de fases.
@@ -25,9 +25,18 @@ interface TopicPathProps {
   onToggle: (stepKey: string) => void;
 }
 
+// El mismo corte que `.learning-path` en global.css: a partir de aquí el mapa y
+// el panel van lado a lado.
+const DOS_COLUMNAS = '(min-width: 761px)';
+
 export function TopicPath({ topic, done, current, pendingKeys, onToggle }: TopicPathProps) {
   const steps = topic.subtopics;
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  // En dos columnas se abre la fase en curso de entrada: si no, media pantalla
+  // es una caja vacía. En una columna, no: el panel quedaría debajo del mapa y
+  // nadie lo pidió. Sin matchMedia (jsdom) cuenta como una columna.
+  const [openIndex, setOpenIndex] = useState<number | null>(() =>
+    steps.length > 0 && window.matchMedia?.(DOS_COLUMNAS).matches ? Math.min(current, steps.length - 1) : null,
+  );
   const panelRef = useRef<HTMLDivElement | null>(null);
   const shouldScroll = useRef(false);
 
@@ -46,7 +55,10 @@ export function TopicPath({ topic, done, current, pendingKeys, onToggle }: Topic
 
   const completed = steps.filter((s) => done.has(progressId(topic.id, s.key))).length;
   const geo = pathGeometry(steps.length);
-  const offset = 1 - pathProgress(completed, steps.length);
+  const openStep = (i: number) => {
+    shouldScroll.current = true;
+    setOpenIndex(i);
+  };
   const open = openIndex === null ? null : steps[openIndex];
   const openDone = open ? done.has(progressId(topic.id, open.key)) : false;
   const openPending = open ? pendingKeys.has(progressId(topic.id, open.key)) : false;
@@ -54,7 +66,7 @@ export function TopicPath({ topic, done, current, pendingKeys, onToggle }: Topic
 
   return (
     <div className="learning-path">
-      <div>
+      <div className="learning-path__aside">
         <div style={{ marginBottom: 18 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-dark)' }}>
@@ -83,20 +95,22 @@ export function TopicPath({ topic, done, current, pendingKeys, onToggle }: Topic
             preserveAspectRatio="none"
             style={{ position: 'absolute', inset: 0, width: '100%', height: geo.height }}>
             <path d={geo.d} fill="none" strokeWidth={4} strokeLinecap="round" vectorEffect="non-scaling-stroke" stroke="var(--border)" />
-            {/* El tramo recorrido, encima. `pathLength=1` convierte el avance en
-                una fracción exacta: nada que medir en el DOM. */}
-            <path
-              d={geo.d}
-              fill="none"
-              strokeWidth={4}
-              strokeLinecap="round"
-              vectorEffect="non-scaling-stroke"
-              stroke="var(--brand)"
-              pathLength={1}
-              strokeDasharray="1 1"
-              strokeDashoffset={offset}
-              style={{ transition: 'stroke-dashoffset .45s ease' }}
-            />
+            {/* El recorrido, encima y tramo a tramo: el que sale de una fase
+                hecha se pinta. Un avance salteado se ve tal cual es, y sin
+                guiones no hay nada que el trazo sin escalar pueda descuadrar. */}
+            {geo.segments.map((seg, i) => (
+              <path
+                key={i}
+                d={seg}
+                fill="none"
+                strokeWidth={4}
+                strokeLinecap="round"
+                vectorEffect="non-scaling-stroke"
+                stroke="var(--brand)"
+                opacity={done.has(progressId(topic.id, steps[i].key)) ? 1 : 0}
+                style={{ transition: 'opacity .35s ease' }}
+              />
+            ))}
           </svg>
 
           {steps.map((step, i) => {
@@ -108,13 +122,10 @@ export function TopicPath({ topic, done, current, pendingKeys, onToggle }: Topic
             return (
               <button
                 key={step.key}
-                onClick={() => {
-                  shouldScroll.current = true;
-                  setOpenIndex(i);
-                }}
+                onClick={() => openStep(i)}
                 aria-label={`Fase ${i + 1}: ${step.title}. ${estado}`}
                 aria-current={state === 'current' ? 'step' : undefined}
-                className="learning-path__node"
+                className={i === openIndex ? 'learning-path__node learning-path__node--open' : 'learning-path__node'}
                 style={{
                   position: 'absolute',
                   left: `calc(${point.x}% - var(--path-label) / 2)`,
@@ -207,7 +218,7 @@ export function TopicPath({ topic, done, current, pendingKeys, onToggle }: Topic
             </p>
           </div>
         ) : (
-          <div style={{ borderRadius: 18, border: '1px solid var(--border)', background: '#fff', padding: 'clamp(18px, 5vw, 26px)' }}>
+          <div className="learning-path__card" style={{ borderRadius: 18, border: '1px solid var(--border)', background: '#fff', padding: 'clamp(18px, 5vw, 26px)' }}>
             {/* Una fase "aún no empezada" se abre igual: esto es formación, no
                 un juego con recompensas, y sin conexión el bloqueo además sería
                 falso —el cambio que la desbloquearía está en la bandeja—. */}
@@ -217,15 +228,15 @@ export function TopicPath({ topic, done, current, pendingKeys, onToggle }: Topic
               </p>
             ) : null}
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 16 }}>
-              <span aria-hidden style={{ fontSize: 26 }}>
+            <div className="learning-path__head" style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 16 }}>
+              <span aria-hidden className="learning-path__emoji" style={{ fontSize: 26 }}>
                 {open.emoji || openIndex + 1}
               </span>
               <div>
                 <span style={{ display: 'block', fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', fontWeight: 700, color: 'var(--gold-label)' }}>
                   Fase {openIndex + 1} de {steps.length}
                 </span>
-                <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 21, fontWeight: 600, color: 'var(--text-dark)' }}>
+                <h3 className="learning-path__title" style={{ fontFamily: 'var(--font-serif)', fontSize: 21, fontWeight: 600, color: 'var(--text-dark)' }}>
                   {open.title}
                 </h3>
               </div>
@@ -239,13 +250,15 @@ export function TopicPath({ topic, done, current, pendingKeys, onToggle }: Topic
               </div>
             ) : null}
 
-            <div style={{ marginTop: 22, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-start' }}>
+            <div className="learning-path__foot" style={{ marginTop: 22, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-start' }}>
               <button
+                className="learning-path__toggle"
                 aria-pressed={openDone}
                 onClick={() => onToggle(open.key)}
                 style={{
                   width: '100%',
                   minHeight: 48,
+                  padding: '0 22px',
                   borderRadius: 12,
                   fontSize: 13.5,
                   fontWeight: 700,
@@ -256,6 +269,22 @@ export function TopicPath({ topic, done, current, pendingKeys, onToggle }: Topic
                 {openDone ? '✓ Fase completada · Desmarcar' : 'Marcar esta fase como completada'}
               </button>
               {openPending ? <PendingBadge /> : null}
+              {/* Solo en dos columnas (lo oculta el CSS en móvil): ahí el mapa
+                  puede quedar lejos del final de una fase larga. */}
+              <nav aria-label="Otras fases" className="learning-path__nav">
+                {openIndex > 0 ? (
+                  <button className="learning-path__navbtn" onClick={() => openStep(openIndex - 1)}>
+                    ← Fase anterior
+                  </button>
+                ) : null}
+                {openIndex < steps.length - 1 ? (
+                  <button
+                    className="learning-path__navbtn learning-path__navbtn--next"
+                    onClick={() => openStep(openIndex + 1)}>
+                    Siguiente fase: {steps[openIndex + 1].title} →
+                  </button>
+                ) : null}
+              </nav>
             </div>
           </div>
         )}

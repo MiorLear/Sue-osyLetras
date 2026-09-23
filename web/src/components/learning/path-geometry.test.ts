@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { PATH_DEFAULTS, pathGeometry, pathProgress } from '@/components/learning/path-geometry';
+import { PATH_DEFAULTS, pathGeometry } from '@/components/learning/path-geometry';
 
 describe('pathGeometry', () => {
   it('coloca un nodo por fase', () => {
@@ -29,6 +29,15 @@ describe('pathGeometry', () => {
     const { d } = pathGeometry(4);
     expect(d.startsWith('M ')).toBe(true);
     expect(d.match(/C /g)).toHaveLength(3);
+  });
+
+  it('trae un tramo por cada par de fases vecinas, que arranca en la primera', () => {
+    const { points, segments } = pathGeometry(4);
+    expect(segments).toHaveLength(3);
+    segments.forEach((seg, i) => {
+      expect(seg.startsWith(`M ${points[i].x} ${points[i].y} C `)).toBe(true);
+      expect(seg.endsWith(`${points[i + 1].x} ${points[i + 1].y}`)).toBe(true);
+    });
   });
 
   it('con una sola fase no hay curva que dibujar', () => {
@@ -61,25 +70,6 @@ describe('pathGeometry', () => {
   });
 
   it('sin fases no devuelve nada que dibujar', () => {
-    expect(pathGeometry(0)).toEqual({ height: 0, points: [], d: '' });
-  });
-});
-
-describe('pathProgress', () => {
-  it('es la fracción de tramos recorridos, no de fases hechas', () => {
-    // El camino une centros: con 3 fases hay 2 tramos.
-    expect(pathProgress(0, 3)).toBe(0);
-    expect(pathProgress(1, 3)).toBeCloseTo(0.5);
-    expect(pathProgress(3, 3)).toBe(1);
-  });
-
-  it('no se sale del rango aunque el avance traiga claves de más', () => {
-    expect(pathProgress(9, 3)).toBe(1);
-    expect(pathProgress(-1, 3)).toBe(0);
-  });
-
-  it('con una sola fase, o está o no está', () => {
-    expect(pathProgress(0, 1)).toBe(0);
-    expect(pathProgress(1, 1)).toBe(1);
+    expect(pathGeometry(0)).toEqual({ height: 0, points: [], d: '', segments: [] });
   });
 });
