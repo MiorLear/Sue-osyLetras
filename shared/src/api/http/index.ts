@@ -174,6 +174,9 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
       toggleLike: (id: number) => request<Post>('POST', `/posts/${id}/like`),
       addComment: (id: number, input: CreateCommentInput) =>
         request<Comment>('POST', `/posts/${id}/comments`, input),
+      remove: (id: number) => request<void>('DELETE', `/posts/${id}`),
+      removeComment: (id: number, commentId: number) =>
+        request<void>('DELETE', `/posts/${id}/comments/${commentId}`),
     },
     events: {
       list: listAllEvents,

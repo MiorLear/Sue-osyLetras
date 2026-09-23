@@ -81,6 +81,8 @@ export interface EmotionDetail extends Emotion {
 // ── Community ─────────────────────────────────────────────────────────────────
 
 export interface Comment {
+  /** server id; absent on a comment still waiting in the offline queue */
+  id?: number;
   user: string;
   initials: string;
   avatarBg: string;

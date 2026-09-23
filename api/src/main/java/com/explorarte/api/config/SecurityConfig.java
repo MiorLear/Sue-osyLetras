@@ -87,6 +87,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/tools").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/screen-intro-videos/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/screen-intro-videos/**").hasRole("ADMIN")
+                        // Moderacion de la comunidad: borrar publicaciones y
+                        // comentarios (DELETE /posts/{id} y /posts/{id}/comments/{id}).
+                        .requestMatchers(HttpMethod.DELETE, "/posts/**").hasRole("ADMIN")
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         // everything else requires a valid token
                         .anyRequest().authenticated())

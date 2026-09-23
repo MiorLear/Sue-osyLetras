@@ -238,6 +238,7 @@ export function createMockClient(): ApiClient {
         const p = posts.find((x) => x.id === id);
         if (!p) throw new Error('Post not found');
         const c: Comment = {
+          id: Date.now(),
           user: currentUser.name + ' ' + currentUser.lastname,
           initials: (currentUser.name[0] ?? '') + (currentUser.lastname[0] ?? ''),
           avatarBg: '#3DBFB8',
@@ -246,6 +247,16 @@ export function createMockClient(): ApiClient {
         };
         p.comments.push(c);
         return clone(c);
+      },
+      async remove(id: number): Promise<void> {
+        await delay(40);
+        const i = posts.findIndex((x) => x.id === id);
+        if (i >= 0) posts.splice(i, 1);
+      },
+      async removeComment(id: number, commentId: number): Promise<void> {
+        await delay(40);
+        const p = posts.find((x) => x.id === id);
+        if (p) p.comments = p.comments.filter((c) => c.id !== commentId);
       },
     },
 

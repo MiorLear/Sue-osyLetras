@@ -79,6 +79,10 @@ export interface PostsApi {
   toggleLike(id: number): Promise<Post>;
   /** POST /posts/:id/comments */
   addComment(id: number, input: CreateCommentInput): Promise<Comment>;
+  /** DELETE /posts/:id — admin */
+  remove(id: number): Promise<void>;
+  /** DELETE /posts/:id/comments/:commentId — admin */
+  removeComment(id: number, commentId: number): Promise<void>;
 }
 
 export interface EventsApi {
