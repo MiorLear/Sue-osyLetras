@@ -1,7 +1,7 @@
 // Maps the mobile app's IconName union onto lucide-react icons, so screens can
 // be ported with the same icon names they used in React Native.
 import {
-  ArrowLeft, ChevronRight, ChevronDown, User, Mail, Phone, Eye, EyeOff, MapPin,
+  ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, ChevronDown, User, Mail, Phone, Eye, EyeOff, MapPin,
   Home, HelpCircle, BookOpen, Calendar, Clock, MessageCircle, MessageSquare,
   Repeat, Heart, FileText, Video, Mic, Play, Pause, Plus, X, Send, Bell, Pencil,
   Trash2, LogOut, Camera, Maximize, Check, CheckCircle2, Bookmark, Image as ImageIcon,
@@ -15,7 +15,7 @@ export type IconName =
   | 'heart' | 'file-text' | 'video' | 'mic' | 'play' | 'pause' | 'plus' | 'x'
   | 'send' | 'bell' | 'edit' | 'trash' | 'log-out' | 'camera' | 'maximize'
   | 'check' | 'check-circle' | 'bookmark' | 'image' | 'volume' | 'compass' | 'download'
-  | 'upload' | 'loader' | 'menu' | 'wrench' | 'sprout';
+  | 'upload' | 'loader' | 'menu' | 'wrench' | 'sprout' | 'chevron-left' | 'external-link';
 
 const MAP: Record<IconName, LucideIcon> = {
   'arrow-left': ArrowLeft, 'chevron-right': ChevronRight, 'chevron-down': ChevronDown,
@@ -27,7 +27,7 @@ const MAP: Record<IconName, LucideIcon> = {
   trash: Trash2, 'log-out': LogOut, camera: Camera, maximize: Maximize, check: Check,
   'check-circle': CheckCircle2, bookmark: Bookmark, image: ImageIcon, volume: Volume2,
   compass: Compass, download: Download, upload: Upload, loader: Loader2, menu: Menu,
-  wrench: Wrench, sprout: Sprout,
+  wrench: Wrench, sprout: Sprout, 'chevron-left': ChevronLeft, 'external-link': ExternalLink,
 };
 
 interface IconProps {

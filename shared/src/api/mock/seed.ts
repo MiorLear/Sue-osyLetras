@@ -9,6 +9,7 @@ import type {
   MediaItem,
   Post,
   Topic,
+  ToolBook,
   ToolsContent,
   UserProfile,
 } from '../../types/index.js';
@@ -614,21 +615,36 @@ export const SCREEN_INTRO_PARAGRAPHS: Record<string, string[]> = {
   ],
 };
 
+function fakeBook(title: string, mimeType?: string): ToolBook {
+  const file = fakeMedia(title, mimeType);
+  return { id: file.id, title, author: null, file, cover: null, autoCover: null };
+}
+
 export const TOOLS: ToolsContent = {
-  downloadables: [
-    fakeMedia('Plantillas'),
-    fakeMedia('Fichas de trabajo'),
-    fakeMedia('Materiales de apoyo'),
-    fakeMedia('Herramientas para facilitación'),
+  shelves: [
+    { id: 'manual', title: 'Manual ExplorArte', books: [fakeBook('Manual ExplorArte')] },
+    {
+      id: 'guias',
+      title: 'Guías de actividades',
+      books: [fakeBook('Guía de actividades — Alegría'), fakeBook('Guía de actividades — Enojo')],
+    },
+    {
+      id: 'recursos',
+      title: 'Recursos descargables',
+      books: [
+        fakeBook('Plantillas'),
+        fakeBook('Fichas de trabajo', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+        fakeBook('Materiales de apoyo'),
+        fakeBook('Herramientas para facilitación'),
+      ],
+    },
   ],
-  bibliography: [
-    'El cerebro del niño — Daniel J. Siegel y Tina Payne Bryson',
-    'Educar las emociones — Mireia Cabero',
-    'Emocionario — Cristina Núñez Pereira',
-    'La inteligencia emocional — Daniel Goleman',
+  bibliographyItems: [
+    { id: 'bib-1', title: 'El cerebro del niño', author: 'Daniel J. Siegel y Tina Payne Bryson', image: null, url: null },
+    { id: 'bib-2', title: 'Educar las emociones', author: 'Mireia Cabero', image: null, url: null },
+    { id: 'bib-3', title: 'Emocionario', author: 'Cristina Núñez Pereira', image: null, url: null },
+    { id: 'bib-4', title: 'La inteligencia emocional', author: 'Daniel Goleman', image: null, url: null },
   ],
-  manualDocument: fakeMedia('Manual ExplorArte'),
-  activityGuides: [fakeMedia('Guía de actividades — Alegría'), fakeMedia('Guía de actividades — Enojo')],
 };
 
 export const PROFILE: UserProfile = {

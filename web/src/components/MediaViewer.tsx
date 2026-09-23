@@ -17,12 +17,12 @@ import { useIsOnline } from '@/lib/useNetworkStatus';
 // conexión y, sobre todo, las peticiones Range siguen llegando al worker y el
 // video se puede adelantar. Un blob: rompería el adelantado.
 //
-// EL PDF EN iOS SE ABRE EN UNA PESTAÑA, no se renderiza aquí (PWA-2.9 pedía
-// decidirlo y dejarlo escrito). Safari en iOS no pinta un PDF dentro de un
-// iframe: enseña la primera página o nada. La alternativa era empaquetar
-// pdf.js, que pesa más que todo el bundle actual (417 KB) justo mientras
-// SCALE-07 —sacar el CMS del bundle de las docentes— sigue abierto. Con el
-// archivo cacheado, la pestaña la sirve el worker y abre igual sin conexión.
+// ESTE VISOR NO PINTA PDFs. Safari en iOS no los muestra dentro de un iframe,
+// así que aquí un PDF se abre en una pestaña (PWA-2.9). Los libros de la Caja
+// de herramientas sí se leen dentro de la app, pero con su propio lector
+// (components/library/BookReader), que trae pdf.js en un chunk perezoso para
+// que no pese en el resto de pantallas. Con el archivo cacheado, la pestaña la
+// sirve el worker y abre igual sin conexión.
 
 export interface MediaViewerProps {
   item: MediaItem;

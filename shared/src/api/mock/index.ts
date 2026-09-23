@@ -22,6 +22,7 @@ import type {
   ScreenIntroVideo,
   Topic,
   ToolsContent,
+  ToolsUpdateInput,
   UpdateEventInput,
   UpdateProfileInput,
   UpdateScreenIntroInput,
@@ -347,9 +348,9 @@ export function createMockClient(): ApiClient {
         await delay();
         return clone(tools);
       },
-      async update(input: ToolsContent): Promise<ToolsContent> {
+      async update(input: ToolsUpdateInput): Promise<ToolsContent> {
         await delay(40);
-        tools = clone(input);
+        tools = clone({ shelves: input.shelves, bibliographyItems: input.bibliographyItems });
         return clone(tools);
       },
     },

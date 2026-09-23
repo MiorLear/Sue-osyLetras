@@ -23,6 +23,7 @@ import type {
   ScreenIntroVideo,
   Topic,
   ToolsContent,
+  ToolsUpdateInput,
   UpdateEventInput,
   UpdateProfileInput,
   UpdateScreenIntroInput,
@@ -200,7 +201,7 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
     },
     tools: {
       get: () => request<ToolsContent>('GET', '/tools'),
-      update: (input: ToolsContent) => request<ToolsContent>('PUT', '/tools', input),
+      update: (input: ToolsUpdateInput) => request<ToolsContent>('PUT', '/tools', input),
     },
     profile: {
       get: () => request<UserProfile>('GET', '/me'),

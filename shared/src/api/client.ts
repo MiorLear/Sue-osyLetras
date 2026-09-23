@@ -22,6 +22,7 @@ import type {
   ScreenIntroVideo,
   Topic,
   ToolsContent,
+  ToolsUpdateInput,
   UpdateEventInput,
   UpdateProfileInput,
   UpdateScreenIntroInput,
@@ -127,7 +128,7 @@ export interface ToolsApi {
   /** GET /tools */
   get(): Promise<ToolsContent>;
   /** PUT /tools — admin (replaces the whole content) */
-  update(input: ToolsContent): Promise<ToolsContent>;
+  update(input: ToolsUpdateInput): Promise<ToolsContent>;
 }
 
 export interface AdminUsersApi {

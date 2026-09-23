@@ -25,6 +25,8 @@ import com.explorarte.api.emotions.EmotionContentRepository;
 import com.explorarte.api.emotions.EmotionRepository;
 import com.explorarte.api.misc.School;
 import com.explorarte.api.misc.SchoolRepository;
+import com.explorarte.api.tools.BibliographyEntry;
+import com.explorarte.api.tools.ToolShelf;
 import com.explorarte.api.tools.ToolsContentEntity;
 import com.explorarte.api.tools.ToolsContentRepository;
 import com.explorarte.api.user.User;
@@ -295,11 +297,17 @@ public class DataSeeder implements ApplicationRunner {
         // them; real files are now uploaded by an admin via the CMS.
         tools.setDownloadables(List.of());
         tools.setActivityGuides(List.of());
-        tools.setBibliography(List.of(
-                "El cerebro del niño — Daniel J. Siegel y Tina Payne Bryson",
-                "Educar las emociones — Mireia Cabero",
-                "Emocionario — Cristina Núñez Pereira",
-                "La inteligencia emocional — Daniel Goleman"));
+        tools.setBibliography(List.of());
+        // Los mismos tres estantes que V17 arma sobre una base con datos, vacios.
+        tools.setShelves(List.of(
+                new ToolShelf("manual", "Manual ExplorArte", List.of()),
+                new ToolShelf("guias", "Guías de actividades", List.of()),
+                new ToolShelf("recursos", "Recursos descargables", List.of())));
+        tools.setBibliographyItems(List.of(
+                new BibliographyEntry("bib-1", "El cerebro del niño", "Daniel J. Siegel y Tina Payne Bryson", null, null),
+                new BibliographyEntry("bib-2", "Educar las emociones", "Mireia Cabero", null, null),
+                new BibliographyEntry("bib-3", "Emocionario", "Cristina Núñez Pereira", null, null),
+                new BibliographyEntry("bib-4", "La inteligencia emocional", "Daniel Goleman", null, null)));
         toolsContentRepository.save(tools);
     }
 
