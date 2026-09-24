@@ -502,7 +502,10 @@ export default function Comunidad() {
                     <input
                       value={drafts[p.id] || ''}
                       onChange={(e) => setDrafts((d) => ({ ...d, [p.id]: e.target.value }))}
-                      onKeyDown={(e) => e.key === 'Enter' && sendComment(p.id)}
+                      // En el teléfono Enter no envía: el teclado lo pone donde
+                      // el dedo busca la tilde o el espacio, y el comentario salía
+                      // a medias. Ahí se envía con el botón.
+                      onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && !isTouchKeyboard() && sendComment(p.id)}
                       placeholder="Escribe un comentario..."
                       style={{ flex: 1, padding: '9px 14px', borderRadius: 20, fontSize: 16, color: 'var(--text-dark)', border: '1.5px solid var(--border-input)', background: '#fff', outline: 'none' }}
                     />
@@ -610,4 +613,9 @@ function ActionBtn({ icon, value, active, activeColor, fill, disabled, pressed, 
       <span>{value}</span>
     </button>
   );
+}
+
+/** Teclado en pantalla: puntero grueso y sin ratón. */
+function isTouchKeyboard(): boolean {
+  return typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
 }

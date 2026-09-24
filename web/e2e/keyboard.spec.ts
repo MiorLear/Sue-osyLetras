@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { necesitaSinSesion, SIN_SESION } from './fixtures/pantallas';
+
 /**
  * Las cinco pantallas de entrada con el teclado abierto.
  *
@@ -68,45 +70,48 @@ test.describe('con el alto de un teclado abierto', { tag: '@ios' }, () => {
   test.use({ viewport: { width: 360, height: 360 }, hasTouch: true });
 
   for (const pantalla of PANTALLAS_AUTH) {
-    test(`${pantalla.nombre}: la tarjeta no se recorta por arriba`, async ({ page }) => {
-      await abrir(page, pantalla);
-      const caja = await page.locator('.auth-card').boundingBox();
-      const layout = await page.locator('.auth-card').evaluate((card) => ({
-        viewport: window.innerWidth,
-        shellAlign: getComputedStyle(card.parentElement!).alignItems,
-        marginBlock: getComputedStyle(card).marginBlock,
-      }));
-      expect(caja).not.toBeNull();
-      expect(
-        caja!.y,
-        `${pantalla.nombre}: la tarjeta empieza en y=${Math.round(caja!.y)}. ` +
-          `Viewport ${layout.viewport}px, align-items ${layout.shellAlign}, margen ${layout.marginBlock}. ` +
-          'Todo lo que quede por encima de 0 es inalcanzable: hacia arriba no hay scroll.',
-      ).toBeGreaterThanOrEqual(0);
-    });
-
-    test(`${pantalla.nombre}: se llega al botón "${pantalla.envio}"`, async ({ page }) => {
-      await abrir(page, pantalla);
-      const boton = page.getByRole('button', { name: pantalla.envio, exact: true });
-      await boton.scrollIntoViewIfNeeded();
-      await expect(boton).toBeInViewport();
-    });
-
-    if (pantalla.conCampos) {
-      test(`${pantalla.nombre}: los campos miden 16px o más`, async ({ page }) => {
+    test.describe(() => {
+      if (necesitaSinSesion(pantalla.ruta)) test.use({ storageState: SIN_SESION });
+      test(`${pantalla.nombre}: la tarjeta no se recorta por arriba`, async ({ page }) => {
         await abrir(page, pantalla);
-        const tamanos = await page
-          .locator('.input')
-          .evaluateAll((els) => els.map((el) => parseFloat(getComputedStyle(el).fontSize)));
-
-        expect(tamanos.length, 'la pantalla dice tener campos y no se encontró ninguno').toBeGreaterThan(0);
+        const caja = await page.locator('.auth-card').boundingBox();
+        const layout = await page.locator('.auth-card').evaluate((card) => ({
+          viewport: window.innerWidth,
+          shellAlign: getComputedStyle(card.parentElement!).alignItems,
+          marginBlock: getComputedStyle(card).marginBlock,
+        }));
+        expect(caja).not.toBeNull();
         expect(
-          Math.min(...tamanos),
-          `${pantalla.nombre}: campos a ${tamanos.join('/')}px. Por debajo de 16, Safari amplía la ` +
-            'página al enfocar y ya no se vuelve del zoom.',
-        ).toBeGreaterThanOrEqual(16);
+          caja!.y,
+          `${pantalla.nombre}: la tarjeta empieza en y=${Math.round(caja!.y)}. ` +
+            `Viewport ${layout.viewport}px, align-items ${layout.shellAlign}, margen ${layout.marginBlock}. ` +
+            'Todo lo que quede por encima de 0 es inalcanzable: hacia arriba no hay scroll.',
+        ).toBeGreaterThanOrEqual(0);
       });
-    }
+
+      test(`${pantalla.nombre}: se llega al botón "${pantalla.envio}"`, async ({ page }) => {
+        await abrir(page, pantalla);
+        const boton = page.getByRole('button', { name: pantalla.envio, exact: true });
+        await boton.scrollIntoViewIfNeeded();
+        await expect(boton).toBeInViewport();
+      });
+
+      if (pantalla.conCampos) {
+        test(`${pantalla.nombre}: los campos miden 16px o más`, async ({ page }) => {
+          await abrir(page, pantalla);
+          const tamanos = await page
+            .locator('.input')
+            .evaluateAll((els) => els.map((el) => parseFloat(getComputedStyle(el).fontSize)));
+
+          expect(tamanos.length, 'la pantalla dice tener campos y no se encontró ninguno').toBeGreaterThan(0);
+          expect(
+            Math.min(...tamanos),
+            `${pantalla.nombre}: campos a ${tamanos.join('/')}px. Por debajo de 16, Safari amplía la ` +
+              'página al enfocar y ya no se vuelve del zoom.',
+          ).toBeGreaterThanOrEqual(16);
+        });
+      }
+    });
   }
 
   test('Registro: las sugerencias de ubicación no consumen más de 30dvh', async ({ page }) => {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Emotion, Topic, UserProfile } from '@explorarte/shared';
+import { ContentState } from '@/components/ContentState';
 import { Masthead } from '@/components/Masthead';
 import { api } from '@/lib/api';
 
@@ -40,13 +41,18 @@ function groupCount(values: string[]): Group[] {
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [stats, setStats] = useState<Stats | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+    setFailed(false);
     Promise.all([
       api.admin.users.list(),
       api.emotions.list(),
       api.learning.topics(),
     ]).then(([users, emotions, topics]: [UserProfile[], Emotion[], Topic[]]) => {
+      if (cancelled) return;
       const teachers = users.filter((u) => u.role === 'teacher' && u.status === 'approved');
       setStats({
         teachers: teachers.length,
@@ -55,8 +61,15 @@ export default function AdminDashboard() {
         byZona: groupCount(teachers.map((t) => t.ubicacion)),
         byInstitucion: groupCount(teachers.map((t) => t.institucion)),
       });
+    // Sin este catch, un fallo de cualquiera de las tres lecturas dejaba el
+    // panel en «Cargando…» para siempre.
+    }).catch(() => {
+      if (!cancelled) setFailed(true);
     });
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [attempt]);
 
   return (
     <div className="page">
@@ -67,7 +80,13 @@ export default function AdminDashboard() {
         lede="Revisa de dónde son las docentes y mantén al día el contenido de emociones, herramientas y aprendizaje."
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 30 }}>
+      {failed ? (
+        <div style={{ marginBottom: 30 }}>
+          <ContentState status="error" onRetry={() => setAttempt((n) => n + 1)} what="las cifras del panel" />
+        </div>
+      ) : null}
+
+      <div className="admin-stats">
         <StatCard n={stats?.teachers} label="Docentes" emoji="👩‍🏫" accent="var(--brand)" onClick={() => navigate('/admin/usuarios')} />
         <StatCard n={stats?.emotions} label="Emociones" emoji="💛" accent="var(--gold)" onClick={() => navigate('/admin/emociones')} />
         <StatCard n={stats?.topics} label="Temas" emoji="🌱" accent="#8067C0" onClick={() => navigate('/admin/aprendiendo')} />
@@ -78,7 +97,7 @@ export default function AdminDashboard() {
         <span className="section-rule" />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 30 }}>
+      <div className="admin-2col" style={{ marginBottom: 30 }}>
         <BreakdownCard title="Docentes por zona" emoji="📍" groups={stats?.byZona} />
         <BreakdownCard title="Docentes por institución" emoji="🏫" groups={stats?.byInstitucion} />
       </div>
@@ -88,7 +107,7 @@ export default function AdminDashboard() {
         <span className="section-rule" />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="admin-2col">
         {MODULES.map((m) => (
           <button
             key={m.href}

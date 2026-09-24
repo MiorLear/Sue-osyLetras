@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { esquinasFallidas, LADO_MINIMO } from './fixtures/hit-area';
-import { crearEvento } from './fixtures/pantallas';
+import { crearEvento, necesitaSinSesion, SIN_SESION } from './fixtures/pantallas';
 
 async function abrirPrimerHilo(page: Page): Promise<void> {
   await expect(page.getByText('Maestra Ana').first()).toBeVisible();
@@ -108,7 +108,7 @@ const CONTROLES: {
     },
   },
   { ruta: '/pendiente', rol: 'button', nombre: 'Volver al inicio de sesión' },
-  { ruta: '/emociones/alegria', rol: 'button', nombre: 'Volver' },
+  { ruta: '/emociones/alegria', rol: 'button', nombre: 'Volver a Emociones' },
   // Aprendiendo: el nodo del mapa, el botón de completar una fase y los tres
   // controles del mazo de tarjetas.
   {
@@ -181,22 +181,25 @@ test.describe(`zonas táctiles de ${LADO_MINIMO}px`, () => {
 
   for (const control of CONTROLES) {
     const etiqueta = control.nota ? `${control.nombre} (${control.nota})` : control.nombre;
-    test(`${control.ruta} · ${etiqueta}`, async ({ page }) => {
-      await page.emulateMedia({ reducedMotion: 'reduce' });
-      await page.goto(control.ruta);
-      await control.prepara?.(page);
+    test.describe(() => {
+      if (necesitaSinSesion(control.ruta)) test.use({ storageState: SIN_SESION });
+      test(`${control.ruta} · ${etiqueta}`, async ({ page }) => {
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+        await page.goto(control.ruta);
+        await control.prepara?.(page);
 
-      const raiz = control.scope?.(page) ?? page;
-      const locator = raiz.getByRole(control.rol, { name: control.nombre, exact: true });
-      await expect(locator).toHaveCount(1);
-      await expect(locator).toBeVisible();
+        const raiz = control.scope?.(page) ?? page;
+        const locator = raiz.getByRole(control.rol, { name: control.nombre, exact: true });
+        await expect(locator).toHaveCount(1);
+        await expect(locator).toBeVisible();
 
-      const fallos = await esquinasFallidas(locator);
-      expect(
-        fallos,
-        `${control.ruta} · ${etiqueta}: estas esquinas del cuadrado de ${LADO_MINIMO}px no ` +
-          `pertenecen al control, así que el dedo falla ahí:\n  ${fallos.join('\n  ')}`,
-      ).toEqual([]);
+        const fallos = await esquinasFallidas(locator);
+        expect(
+          fallos,
+          `${control.ruta} · ${etiqueta}: estas esquinas del cuadrado de ${LADO_MINIMO}px no ` +
+            `pertenecen al control, así que el dedo falla ahí:\n  ${fallos.join('\n  ')}`,
+        ).toEqual([]);
+      });
     });
   }
 });

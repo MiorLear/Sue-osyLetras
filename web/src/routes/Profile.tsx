@@ -20,7 +20,7 @@ import { useSchools } from '@/lib/useSchools';
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { setUser, signOut } = useAuth();
+  const { user, setUser, signOut } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -35,12 +35,12 @@ export default function Profile() {
   useRefetchOnDrain(reload);
 
   const [photo, setPhoto] = useState<string | null>(null);
-  const [name, setName] = useState('María Reneé');
-  const [lastname, setLastname] = useState('García López');
-  const [email, setEmail] = useState('maria@ejemplo.com');
-  const [phone, setPhone] = useState('+503 7000 1234');
-  const [institucion, setInstitucion] = useState('Colegio Americano');
-  const [ubicacion, setUbicacion] = useState('San Salvador');
+  const [name, setName] = useState('');
+  const [lastname, setLastname] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [institucion, setInstitucion] = useState('');
+  const [ubicacion, setUbicacion] = useState('');
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -190,8 +190,10 @@ export default function Profile() {
     <div className="page page-narrow">
       <Masthead
         eyebrow="Mi perfil"
-        title={name || 'María'}
-        accent={lastname || 'Reneé'}
+        // Mientras llega el perfil no hay nombre que enseñar: se usa el de la
+        // sesión, o solo «Mi cuenta», nunca un nombre inventado.
+        title={name || user?.name || 'Mi cuenta'}
+        accent={lastname || undefined}
         lede="Gestiona tu cuenta, tus grupos y tus preferencias."
         showDate={false}
       />

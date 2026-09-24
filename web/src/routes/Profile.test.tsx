@@ -19,7 +19,7 @@ vi.mock('@/lib/useNetworkStatus', () => ({
 
 const setUser = vi.hoisted(() => vi.fn());
 vi.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ setUser, signOut: vi.fn() }),
+  useAuth: () => ({ user: null, setUser, signOut: vi.fn() }),
 }));
 
 vi.mock('@/lib/useSchools', () => ({ useSchools: () => ['Colegio Americano'] }));
@@ -132,5 +132,17 @@ describe('<Profile /> · con conexión sigue yendo directo', () => {
     await waitFor(() => expect(api.profile.update).toHaveBeenCalledTimes(1));
     expect(await screen.findByText('Perfil actualizado correctamente')).toBeTruthy();
     expect(await listPending()).toEqual([]);
+  });
+});
+
+describe('<Profile /> · mientras carga', () => {
+  it('no enseña datos inventados antes de que llegue el perfil', async () => {
+    await clearEverything();
+    setCacheUser('ana');
+    api.profile.get.mockReturnValue(new Promise(() => undefined));
+    view();
+    expect(await screen.findByText('Mi cuenta')).toBeTruthy();
+    expect(screen.queryByText(/María|Reneé|García/)).toBeNull();
+    expect(screen.queryByDisplayValue(/ejemplo\.com|Colegio Americano/)).toBeNull();
   });
 });

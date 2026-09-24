@@ -6,6 +6,7 @@ import { BlockListEditor } from '@/components/admin/BlockListEditor';
 import { SubTopicModal } from '@/components/admin/SubTopicModal';
 import { AdminBtn, AdminModal } from '@/components/admin/ui';
 import { confirmDialog } from '@/components/confirm-store';
+import { toast as notify } from '@/components/toast-store';
 import { api } from '@/lib/api';
 import { blankSubTopic, blockPreview, isBlockEmpty, moveItem, trimBlock } from '@/lib/learning-blocks';
 
@@ -21,6 +22,10 @@ const LAYOUTS: { value: TopicLayout; glyph: string; label: string; desc: string 
   { value: 'path', glyph: '🗺️', label: 'Mapa de fases', desc: 'Un camino que la docente marca al completar cada fase.' },
   { value: 'slides', glyph: '🃏', label: 'Tarjetas', desc: 'El contenido se pasa tarjeta a tarjeta.' },
 ];
+
+/** El mensaje del servidor si lo hay; si no, uno genérico. */
+const failMsg = (err: unknown, what: string) =>
+  `No se pudo ${what}. ${err instanceof Error && err.message ? err.message : 'Inténtalo de nuevo.'}`;
 
 export default function AdminAprendiendo() {
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -63,7 +68,22 @@ export default function AdminAprendiendo() {
     setDraft((d) => ({ ...d, subtopics: [...d.subtopics, blankSubTopic()] }));
     setSubIndex(draft.subtopics.length);
   };
-  const removeSub = (i: number) => setDraft((d) => ({ ...d, subtopics: d.subtopics.filter((_, idx) => idx !== i) }));
+  const removeSub = async (i: number) => {
+    const sub = draft.subtopics[i];
+    // Un subtema recién añadido y vacío se quita sin preguntar; uno con
+    // contenido se lleva por delante todos sus bloques y archivos.
+    const empty = !sub?.title.trim() && !sub?.blocks.some((b) => !isBlockEmpty(b));
+    if (!empty) {
+      const ok = await confirmDialog({
+        title: `¿Eliminar el subtema "${sub?.title.trim() || 'sin título'}"?`,
+        message: 'Se quitan su contenido y sus archivos. El cambio se aplica al guardar el tema.',
+        confirmLabel: 'Eliminar',
+        tone: 'danger',
+      });
+      if (!ok) return;
+    }
+    setDraft((d) => ({ ...d, subtopics: d.subtopics.filter((_, idx) => idx !== i) }));
+  };
   const moveSub = (from: number, to: number) =>
     setDraft((d) => ({ ...d, subtopics: moveItem(d.subtopics, from, to) }));
 
@@ -99,6 +119,10 @@ export default function AdminAprendiendo() {
       setEditing(null);
       setSubIndex(null);
       load();
+    } catch (err) {
+      // Antes no había catch: el botón volvía a «Guardar» y el cambio se
+      // perdía sin que nadie se enterara. El editor queda abierto con lo escrito.
+      notify.error(failMsg(err, 'guardar el tema'));
     } finally {
       setSaving(false);
     }
@@ -112,9 +136,13 @@ export default function AdminAprendiendo() {
       tone: 'danger',
     });
     if (!ok) return;
-    await api.learning.removeTopic(t.id);
-    showToast('Tema eliminado');
-    load();
+    try {
+      await api.learning.removeTopic(t.id);
+      showToast('Tema eliminado');
+      load();
+    } catch (err) {
+      notify.error(failMsg(err, 'eliminar el tema'));
+    }
   };
 
   const layoutLabel = (l: TopicLayout) => LAYOUTS.find((x) => x.value === l)?.label ?? l;
@@ -240,7 +268,7 @@ export default function AdminAprendiendo() {
                     <button type="button" onClick={() => setSubIndex(i)} style={{ flexShrink: 0, minHeight: 38, padding: '0 12px', borderRadius: 10, background: '#fff', border: '1.5px solid var(--border-input)', color: 'var(--brand-dark)', fontSize: 12.5, fontWeight: 700 }}>
                       Contenido
                     </button>
-                    <button type="button" onClick={() => removeSub(i)} aria-label="Eliminar subtema" style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBEAE6', border: '1px solid #F1CFC6' }}>
+                    <button type="button" onClick={() => void removeSub(i)} aria-label="Eliminar subtema" style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBEAE6', border: '1px solid #F1CFC6' }}>
                       <Icon name="trash" size={15} color="var(--danger)" />
                     </button>
                   </div>

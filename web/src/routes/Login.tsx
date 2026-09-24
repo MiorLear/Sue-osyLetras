@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ApiError, type AuthResult, type UserStatus } from '@explorarte/shared';
 import { GoogleIcon, Icon } from '@/components/Icon';
 import { Logo } from '@/components/Logo';
@@ -59,6 +59,10 @@ function messageFor(err: unknown): string {
 
 export default function Login() {
   const navigate = useNavigate();
+  // A donde iba antes de que la sesion caducara (lo deja RequireAuth). Solo
+  // rutas internas: nada que empiece por // ni fuera de la app.
+  const from = (useLocation().state as { from?: string } | null)?.from;
+  const returnTo = from && from.startsWith('/') && !from.startsWith('//') && from !== '/login' ? from : null;
   const { signIn } = useAuth();
   const [view, setView] = useState<ViewKind>('main');
   const [email, setEmail] = useState('');
@@ -83,8 +87,12 @@ export default function Login() {
       return;
     }
     await signIn(result);
-    navigate(u.role === 'admin' ? '/admin' : '/main', { replace: true });
-  }, [navigate, showPendingScreen, signIn]);
+    const home = u.role === 'admin' ? '/admin' : '/main';
+    // Una docente no vuelve a /admin aunque viniera de ahi: RequireRole la
+    // rebotaria igual, pero asi no pasa por la pantalla de carga.
+    const back = returnTo && (u.role === 'admin' || !returnTo.startsWith('/admin')) ? returnTo : null;
+    navigate(back ?? home, { replace: true });
+  }, [navigate, returnTo, showPendingScreen, signIn]);
 
   /** Una cuenta no aprobada va a su pantalla; el resto de errores se muestran. */
   const failed = useCallback((err: unknown) => {

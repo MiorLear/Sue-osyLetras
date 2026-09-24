@@ -4,6 +4,7 @@ import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
 import { ActivityListEditor, AdminBtn, AdminModal, MediaListEditor, StringListEditor } from '@/components/admin/ui';
 import { confirmDialog } from '@/components/confirm-store';
+import { toast as notify } from '@/components/toast-store';
 import { api } from '@/lib/api';
 
 const BLANK: EmotionDetail = {
@@ -24,6 +25,10 @@ function slugify(s: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
 }
+
+/** El mensaje del servidor si lo hay; si no, uno genérico. */
+const failMsg = (err: unknown, what: string) =>
+  `No se pudo ${what}. ${err instanceof Error && err.message ? err.message : 'Inténtalo de nuevo.'}`;
 
 export default function AdminEmociones() {
   const [emotions, setEmotions] = useState<Emotion[]>([]);
@@ -101,6 +106,10 @@ export default function AdminEmociones() {
       }
       setEditing(null);
       load();
+    } catch (err) {
+      // Antes no había catch: el botón volvía a «Guardar» y el cambio se
+      // perdía sin que nadie se enterara. El editor queda abierto con lo escrito.
+      notify.error(failMsg(err, 'guardar la emoción'));
     } finally {
       setSaving(false);
     }
@@ -114,9 +123,13 @@ export default function AdminEmociones() {
       tone: 'danger',
     });
     if (!ok) return;
-    await api.emotions.remove(e.id);
-    showToast('Emoción eliminada');
-    load();
+    try {
+      await api.emotions.remove(e.id);
+      showToast('Emoción eliminada');
+      load();
+    } catch (err) {
+      notify.error(failMsg(err, 'eliminar la emoción'));
+    }
   };
 
   return (

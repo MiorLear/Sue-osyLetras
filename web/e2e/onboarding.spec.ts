@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { SIN_SESION } from './fixtures/pantallas';
+
 /**
  * El carrusel de bienvenida, y la lectura elegida de "works with touch".
  *
@@ -28,7 +30,8 @@ const TOTAL = 2;
 const punto = (n: number) => `Ir a la pantalla ${n} de ${TOTAL}`;
 
 test.describe('carrusel del onboarding', () => {
-  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+  // Sin sesión: con ella, `/` entra directo a Inicio.
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, storageState: SIN_SESION });
 
   test.beforeEach(async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
