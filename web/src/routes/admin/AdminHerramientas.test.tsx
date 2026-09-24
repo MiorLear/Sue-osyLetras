@@ -114,6 +114,19 @@ describe('<AdminHerramientas />', () => {
     expect(saved().shelves[1].books.map((b) => b.id)).toEqual(['g1']);
   });
 
+  it('guarda la descripción del libro, sin espacios de sobra', async () => {
+    view();
+    const guias = await screen.findByRole('region', { name: 'Estante Guías de actividades' });
+    fireEvent.click(within(guias).getAllByRole('button', { name: 'Editar' })[0]);
+    fireEvent.change(screen.getByLabelText('Descripción (opcional)'), { target: { value: '  Juegos para la alegría.  ' } });
+    expect(screen.getByText('27 / 1000')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
+    saveChanges();
+
+    await waitFor(() => expect(api.tools.update).toHaveBeenCalled());
+    expect(saved().shelves[1].books[0].description).toBe('Juegos para la alegría.');
+  });
+
   it('genera las portadas que faltan con la primera página de cada PDF', async () => {
     covers.generateAutoCover.mockImplementation(async (file: MediaItem) => media(`${file.id}-portada`, 'image/jpeg'));
     view();

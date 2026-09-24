@@ -256,6 +256,8 @@ export interface ToolBook {
   cover: MediaItem | null;
   /** first page of the PDF, rendered in the admin's browser when the file is uploaded */
   autoCover: MediaItem | null;
+  /** what the book is about, shown beside the shelf on hover; absent on books saved before it existed */
+  description?: string | null;
 }
 
 /** An admin-managed category of the library. */

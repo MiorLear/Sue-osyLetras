@@ -121,7 +121,7 @@ export default function AdminHerramientas() {
 
   // ── libros ──
   const openNewBook = (shelfId: string) =>
-    setEditing({ shelfId, index: null, book: { id: newId('libro'), title: '', author: null, file: null, cover: null, autoCover: null } });
+    setEditing({ shelfId, index: null, book: { id: newId('libro'), title: '', author: null, description: null, file: null, cover: null, autoCover: null } });
   const saveBook = (book: ToolBook, targetShelf: string) => {
     if (!editing) return;
     const { shelfId, index } = editing;

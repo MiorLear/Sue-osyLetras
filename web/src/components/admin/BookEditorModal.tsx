@@ -16,6 +16,9 @@ export interface BookDraft extends Omit<ToolBook, 'file'> {
   file: MediaItem | null;
 }
 
+/** Lo mismo que acepta el API (ToolBook.description). */
+const DESCRIPTION_MAX = 1000;
+
 function titleFromFile(file: MediaItem): string {
   return file.title.replace(/\.[a-z0-9]{2,4}$/i, '').replace(/[-_]+/g, ' ').trim();
 }
@@ -87,7 +90,13 @@ export function BookEditorModal({
           <AdminBtn
             label="Aplicar"
             disabled={!ready}
-            onClick={() => draft.file && onSave({ ...draft, file: draft.file, title: draft.title.trim(), author: draft.author?.trim() || null }, targetShelf)}
+            onClick={() =>
+              draft.file &&
+              onSave(
+                { ...draft, file: draft.file, title: draft.title.trim(), author: draft.author?.trim() || null, description: draft.description?.trim() || null },
+                targetShelf,
+              )
+            }
           />
         </>
       }>
@@ -129,6 +138,22 @@ export function BookEditorModal({
           <div>
             <label className="field-label" htmlFor="book-author">Autor (opcional)</label>
             <input id="book-author" className="input" value={draft.author ?? ''} maxLength={255} onChange={(e) => patch({ author: e.target.value })} placeholder="Ej. Sueños y Letras" />
+          </div>
+          <div>
+            <label className="field-label" htmlFor="book-description">Descripción (opcional)</label>
+            <textarea
+              id="book-description"
+              className="input"
+              value={draft.description ?? ''}
+              maxLength={DESCRIPTION_MAX}
+              rows={4}
+              placeholder="¿De qué trata? Se muestra al lado del estante cuando la docente pasa el cursor por el libro."
+              onChange={(e) => patch({ description: e.target.value })}
+              style={{ resize: 'vertical', minHeight: 90, lineHeight: 1.5 }}
+            />
+            <p style={{ marginTop: 4, fontSize: 11.5, color: 'var(--text-muted)', textAlign: 'right' }}>
+              {(draft.description ?? '').length} / {DESCRIPTION_MAX}
+            </p>
           </div>
           <div>
             <label className="field-label" htmlFor="book-shelf">Estante</label>
