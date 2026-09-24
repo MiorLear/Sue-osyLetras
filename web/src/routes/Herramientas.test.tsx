@@ -51,7 +51,7 @@ const TOOLS: ToolsContent = {
     {
       id: 'manual',
       title: 'Manual ExplorArte',
-      books: [book('m1', 'Manual ExplorArte', undefined, { author: 'Sueños y Letras', autoCover: media('m1-cover', 'image/jpeg') })],
+      books: [book('m1', 'Manual ExplorArte', undefined, { author: 'Sueños y Letras', autoCover: media('m1-cover', 'image/jpeg'), description: 'Los tres pilares de la metodología.' })],
     },
     { id: 'vacio', title: 'Estante vacío', books: [] },
     {
@@ -126,6 +126,41 @@ describe('<Herramientas /> · biblioteca', () => {
     // Sin enlace no hay botón que no lleve a ningún lado.
     expect(screen.getByText('Sin enlace')).toBeTruthy();
     expect(screen.queryByRole('link', { name: /Ver Sin enlace/ })).toBeNull();
+  });
+
+  it('al pasar por un libro su descripción entra en la ficha del estante', async () => {
+    const { container } = view();
+    const manual = await screen.findByRole('region', { name: 'Manual ExplorArte' });
+    const aside = manual.querySelector('.shelf__aside')!;
+    expect(aside.textContent).toContain('Pasa el cursor por un libro');
+
+    fireEvent.mouseEnter(within(manual).getByRole('button', { name: /Leer Manual ExplorArte/ }));
+    expect(aside.querySelector('.shelf__detail-text')?.textContent).toBe('Los tres pilares de la metodología.');
+    expect(aside.textContent).toContain('Clic para leer');
+    expect(manual.querySelector('.shelf__row--browsing')).toBeTruthy();
+
+    // Al salir del estante la ficha vuelve a la pista.
+    fireEvent.mouseLeave(manual.querySelector('.shelf__body')!);
+    expect(aside.textContent).toContain('Pasa el cursor por un libro');
+    expect(container.querySelector('.shelf__row--browsing')).toBeNull();
+  });
+
+  it('sin descripción la ficha lo dice, y lo que no es PDF invita a abrir', async () => {
+    view();
+    const recursos = await screen.findByRole('region', { name: 'Recursos descargables' });
+    fireEvent.focus(within(recursos).getByRole('button', { name: /Abrir Fichas de trabajo/ }));
+    const aside = recursos.querySelector('.shelf__aside')!;
+    expect(aside.textContent).toContain('Este libro todavía no tiene descripción.');
+    expect(aside.textContent).toContain('Clic para abrir');
+  });
+
+  it('la descripción también llega al lector de pantalla', async () => {
+    view();
+    const libro = await screen.findByRole('button', { name: /Leer Manual ExplorArte/ });
+    const id = libro.getAttribute('aria-describedby');
+    expect(id && document.getElementById(id)?.textContent).toBe('Los tres pilares de la metodología.');
+    // La ficha es decorativa: no se anuncia dos veces.
+    expect(libro.closest('section')!.querySelector('.shelf__aside')!.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('una respuesta con la forma vieja (sin estantes) no rompe la pantalla', async () => {

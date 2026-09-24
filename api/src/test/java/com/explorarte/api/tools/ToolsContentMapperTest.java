@@ -8,6 +8,11 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
+
 import com.explorarte.api.media.MediaItem;
 import com.explorarte.api.media.MediaUrlPolicy;
 
@@ -21,7 +26,7 @@ class ToolsContentMapperTest {
     }
 
     private static ToolBook book(String id, MediaItem file, MediaItem cover) {
-        return new ToolBook(id, "Libro " + id, null, file, cover, null);
+        return new ToolBook(id, "Libro " + id, null, file, cover, null, null);
     }
 
     @Test
@@ -77,6 +82,30 @@ class ToolsContentMapperTest {
             assertThatThrownBy(() -> ToolsContentMapper.checkUrls(input, policy))
                     .as(bad)
                     .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Test
+    void aBookSavedBeforeDescriptionsExistedStillLoads() throws Exception {
+        String stored = """
+                {"id":"m1","title":"Manual","author":null,
+                 "file":{"id":"m1","title":"m.pdf","url":"%s","mimeType":"application/pdf","sizeBytes":1},
+                 "cover":null,"autoCover":null}
+                """.formatted(OWN + "m1.pdf");
+        ToolBook book = new ObjectMapper().findAndRegisterModules().readValue(stored, ToolBook.class);
+        assertThat(book.title()).isEqualTo("Manual");
+        assertThat(book.description()).isNull();
+    }
+
+    @Test
+    void capsTheDescription() {
+        try (ValidatorFactory factory = Validation.buildDefaultValidatorFactory()) {
+            ToolBook tooLong = new ToolBook("1", "Libro", null, media(OWN + "1.pdf"), null, null, "x".repeat(1001));
+            ToolBook ok = new ToolBook("1", "Libro", null, media(OWN + "1.pdf"), null, null, "x".repeat(1000));
+            assertThat(factory.getValidator().validate(tooLong))
+                    .extracting(v -> v.getPropertyPath().toString())
+                    .contains("description");
+            assertThat(factory.getValidator().validate(ok)).isEmpty();
         }
     }
 }

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { MediaItem, ToolBook, ToolShelf } from '@explorarte/shared';
 
 import { AdminBtn, AdminModal, FileUploadInput } from '@/components/admin/ui';
+import { toast } from '@/components/toast-store';
 import { confirmDialog } from '@/components/confirm-store';
 import { BookCover } from '@/components/library/BookCover';
 import { isPdf } from '@/components/library/book-utils';
@@ -15,6 +16,9 @@ const BOOK_FILES =
 export interface BookDraft extends Omit<ToolBook, 'file'> {
   file: MediaItem | null;
 }
+
+/** Lo mismo que acepta el API (ToolBook.description). */
+const DESCRIPTION_MAX = 1000;
 
 function titleFromFile(file: MediaItem): string {
   return file.title.replace(/\.[a-z0-9]{2,4}$/i, '').replace(/[-_]+/g, ' ').trim();
@@ -66,14 +70,27 @@ export function BookEditorModal({
   const remove = async () => {
     const ok = await confirmDialog({
       title: '¿Quitar este libro de la biblioteca?',
-      message: 'Las docentes dejarán de verlo cuando guardes los cambios.',
+      message: 'Las docentes dejarán de verlo en cuanto confirmes.',
       confirmLabel: 'Quitar',
       tone: 'danger',
     });
     if (ok) onDelete();
   };
 
-  const ready = !!draft.file && !!draft.title.trim() && coverState !== 'working';
+  // La portada que se está generando NO bloquea guardar: si tarda o se
+  // cuelga, el libro se guarda igual y la portada sale después con
+  // "Generar portadas faltantes".
+  const ready = !!draft.file && !!draft.title.trim();
+  const saveNow = () => {
+    if (!draft.file) return;
+    if (coverState === 'working') {
+      toast.info('El libro se guarda sin esperar a la portada. Puedes generarla luego con «Generar portadas faltantes».');
+    }
+    onSave(
+      { ...draft, file: draft.file, title: draft.title.trim(), author: draft.author?.trim() || null, description: draft.description?.trim() || null },
+      targetShelf,
+    );
+  };
   const preview: ToolBook | null = draft.file ? { ...draft, file: draft.file } : null;
 
   return (
@@ -84,11 +101,7 @@ export function BookEditorModal({
         <>
           {!isNew ? <AdminBtn label="Quitar" variant="danger" onClick={remove} /> : null}
           <AdminBtn label="Cancelar" variant="outline" onClick={onClose} />
-          <AdminBtn
-            label="Aplicar"
-            disabled={!ready}
-            onClick={() => draft.file && onSave({ ...draft, file: draft.file, title: draft.title.trim(), author: draft.author?.trim() || null }, targetShelf)}
-          />
+          <AdminBtn label="Guardar libro" disabled={!ready} onClick={saveNow} />
         </>
       }>
       <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap' }}>
@@ -129,6 +142,22 @@ export function BookEditorModal({
           <div>
             <label className="field-label" htmlFor="book-author">Autor (opcional)</label>
             <input id="book-author" className="input" value={draft.author ?? ''} maxLength={255} onChange={(e) => patch({ author: e.target.value })} placeholder="Ej. Sueños y Letras" />
+          </div>
+          <div>
+            <label className="field-label" htmlFor="book-description">Descripción (opcional)</label>
+            <textarea
+              id="book-description"
+              className="input"
+              value={draft.description ?? ''}
+              maxLength={DESCRIPTION_MAX}
+              rows={4}
+              placeholder="¿De qué trata? Se muestra al lado del estante cuando la docente pasa el cursor por el libro."
+              onChange={(e) => patch({ description: e.target.value })}
+              style={{ resize: 'vertical', minHeight: 90, lineHeight: 1.5 }}
+            />
+            <p style={{ marginTop: 4, fontSize: 11.5, color: 'var(--text-muted)', textAlign: 'right' }}>
+              {(draft.description ?? '').length} / {DESCRIPTION_MAX}
+            </p>
           </div>
           <div>
             <label className="field-label" htmlFor="book-shelf">Estante</label>

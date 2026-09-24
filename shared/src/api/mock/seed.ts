@@ -615,25 +615,41 @@ export const SCREEN_INTRO_PARAGRAPHS: Record<string, string[]> = {
   ],
 };
 
-function fakeBook(title: string, mimeType?: string): ToolBook {
+function fakeBook(title: string, description: string | null = null, mimeType?: string): ToolBook {
   const file = fakeMedia(title, mimeType);
-  return { id: file.id, title, author: null, file, cover: null, autoCover: null };
+  return { id: file.id, title, author: null, file, cover: null, autoCover: null, description };
 }
 
 export const TOOLS: ToolsContent = {
   shelves: [
-    { id: 'manual', title: 'Manual ExplorArte', books: [fakeBook('Manual ExplorArte')] },
+    {
+      id: 'manual',
+      title: 'Manual ExplorArte',
+      books: [
+        fakeBook(
+          'Manual ExplorArte',
+          'El documento principal de la metodología: sus tres pilares, cómo se organiza cada sesión y cómo acompañar las emociones en el aula.',
+        ),
+      ],
+    },
     {
       id: 'guias',
       title: 'Guías de actividades',
-      books: [fakeBook('Guía de actividades — Alegría'), fakeBook('Guía de actividades — Enojo')],
+      books: [
+        fakeBook('Guía de actividades — Alegría', 'Actividades para reconocer y celebrar la alegría en grupo.'),
+        fakeBook('Guía de actividades — Enojo', 'Dinámicas para nombrar el enojo y encontrar formas seguras de expresarlo.'),
+      ],
     },
     {
       id: 'recursos',
       title: 'Recursos descargables',
       books: [
         fakeBook('Plantillas'),
-        fakeBook('Fichas de trabajo', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+        fakeBook(
+          'Fichas de trabajo',
+          'Fichas editables para imprimir y trabajar en clase.',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ),
         fakeBook('Materiales de apoyo'),
         fakeBook('Herramientas para facilitación'),
       ],
