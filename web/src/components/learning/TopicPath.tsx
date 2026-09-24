@@ -4,7 +4,7 @@ import { MediaList } from '@/components/DownloadableMediaItem';
 import { Icon } from '@/components/Icon';
 import { PendingBadge } from '@/components/PendingBadge';
 import { BlockList } from '@/components/learning/BlockList';
-import { PATH_DEFAULTS, pathGeometry } from '@/components/learning/path-geometry';
+import { pathGeometry } from '@/components/learning/path-geometry';
 import { progressId, stepState } from '@/lib/learning-progress';
 
 // El tema como mapa de fases.
@@ -28,6 +28,20 @@ interface TopicPathProps {
 // El mismo corte que `.learning-path` en global.css: a partir de aquí el mapa y
 // el panel van lado a lado.
 const DOS_COLUMNAS = '(min-width: 761px)';
+
+// Cada nodo es una fila —círculo + tarjeta con descripción y botón— que se
+// alterna a un lado y otro del camino. Los círculos van casi pegados al borde
+// (13% / 87%) para que la tarjeta tenga el resto del ancho: con 280px de mapa
+// le quedan ~200px, que son tres líneas de descripción legibles.
+//
+// La fila se centra en su punto con translateY(-50%), así que su alto no hace
+// falta medirlo; lo que hay que garantizar es que dos filas seguidas no se
+// pisen. La tarjeta tiene el título a 2 líneas y la descripción a 3, lo que la
+// deja en ~185px como mucho: de ahí el paso de 212 y el margen de arriba.
+const MAP = { stride: 212, amp: 37, padTop: 100, labelHeight: 58 } as const;
+
+/** Qué dice el botón de la tarjeta, según cómo va esa fase. */
+const CTA = { completed: 'Repasar', current: 'Empezar', locked: 'Ver fase' } as const;
 
 export function TopicPath({ topic, done, current, pendingKeys, onToggle }: TopicPathProps) {
   const steps = topic.subtopics;
@@ -54,7 +68,7 @@ export function TopicPath({ topic, done, current, pendingKeys, onToggle }: Topic
   if (steps.length === 0) return null;
 
   const completed = steps.filter((s) => done.has(progressId(topic.id, s.key))).length;
-  const geo = pathGeometry(steps.length);
+  const geo = pathGeometry(steps.length, MAP);
   const openStep = (i: number) => {
     shouldScroll.current = true;
     setOpenIndex(i);
@@ -63,6 +77,7 @@ export function TopicPath({ topic, done, current, pendingKeys, onToggle }: Topic
   const openDone = open ? done.has(progressId(topic.id, open.key)) : false;
   const openPending = open ? pendingKeys.has(progressId(topic.id, open.key)) : false;
   const openState = openIndex === null ? null : stepState(openIndex, current, openDone);
+  const nextStep = openIndex === null ? undefined : steps[openIndex + 1];
 
   return (
     <div className="learning-path">
@@ -119,25 +134,26 @@ export function TopicPath({ topic, done, current, pendingKeys, onToggle }: Topic
             const point = geo.points[i];
             const estado =
               state === 'completed' ? 'Completada' : state === 'current' ? 'En curso' : 'Aún no empezada';
+            const description = step.description?.trim();
+            const descId = `fase-${topic.id}-${step.key || i}-desc`;
+            // Los pares a la izquierda (el círculo primero), los impares a la
+            // derecha (la tarjeta primero): el camino queda siempre por fuera.
+            const izquierda = point.x < 50;
+            const lado = izquierda
+              ? { left: `calc(${point.x}% - var(--path-node) / 2)`, right: 0 }
+              : { left: 0, right: `calc(${100 - point.x}% - var(--path-node) / 2)` };
+            const clases = ['learning-path__node'];
+            if (i === openIndex) clases.push('learning-path__node--open');
+            if (!izquierda) clases.push('learning-path__node--right');
             return (
               <button
                 key={step.key}
                 onClick={() => openStep(i)}
                 aria-label={`Fase ${i + 1}: ${step.title}. ${estado}`}
+                aria-describedby={description ? descId : undefined}
                 aria-current={state === 'current' ? 'step' : undefined}
-                className={i === openIndex ? 'learning-path__node learning-path__node--open' : 'learning-path__node'}
-                style={{
-                  position: 'absolute',
-                  left: `calc(${point.x}% - var(--path-label) / 2)`,
-                  top: point.y - PATH_DEFAULTS.node / 2,
-                  width: 'var(--path-label)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 8,
-                  background: 'none',
-                  border: 'none',
-                }}>
+                className={clases.join(' ')}
+                style={{ position: 'absolute', top: point.y, ...lado }}>
                 <span
                   className={state === 'completed' ? 'learning-path__dot learning-path__dot--done' : 'learning-path__dot'}
                   style={{
@@ -147,6 +163,7 @@ export function TopicPath({ topic, done, current, pendingKeys, onToggle }: Topic
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    flexShrink: 0,
                     ...(state === 'completed'
                       ? {
                           // --brand-dark y no --brand: tokens.css ya documenta
@@ -175,27 +192,31 @@ export function TopicPath({ topic, done, current, pendingKeys, onToggle }: Topic
                     </span>
                   )}
                 </span>
-                <span style={{ textAlign: 'center' }}>
-                  <span
-                    style={{
-                      display: 'block',
-                      fontSize: 10.5,
-                      letterSpacing: '.08em',
-                      textTransform: 'uppercase',
-                      fontWeight: 700,
-                      color: 'var(--brand-dark)',
-                    }}>
+
+                <span className="learning-path__nodecard">
+                  <span className="learning-path__eyebrow">
                     Fase {i + 1}
+                    {state === 'completed' ? ' · Completada' : state === 'current' ? ' · En curso' : ''}
                   </span>
                   <span
-                    style={{
-                      display: 'block',
-                      fontSize: 12.5,
-                      lineHeight: 1.35,
-                      fontWeight: 700,
-                      color: state === 'locked' ? 'var(--text-muted)' : 'var(--text-dark)',
-                    }}>
+                    className="learning-path__nodetitle"
+                    style={{ color: state === 'locked' ? 'var(--text-muted)' : 'var(--text-dark)' }}>
                     {step.title}
+                  </span>
+                  {description ? (
+                    <span id={descId} className="learning-path__nodedesc">
+                      {description}
+                    </span>
+                  ) : null}
+                  {/* Parece un botón porque el nodo entero lo es: un <button>
+                      dentro de otro no es HTML válido, y dos controles para lo
+                      mismo serían dos paradas de tabulación. */}
+                  <span
+                    aria-hidden
+                    className={
+                      state === 'current' ? 'learning-path__cta learning-path__cta--primary' : 'learning-path__cta'
+                    }>
+                    {CTA[state]} →
                   </span>
                 </span>
               </button>
@@ -242,6 +263,10 @@ export function TopicPath({ topic, done, current, pendingKeys, onToggle }: Topic
               </div>
             </div>
 
+            {open.description?.trim() ? (
+              <p className="learning-path__lede">{open.description.trim()}</p>
+            ) : null}
+
             <BlockList blocks={open.blocks} headingLevel={4} />
 
             {[...open.pdfs, ...open.videos, ...open.audios].length > 0 ? (
@@ -269,22 +294,30 @@ export function TopicPath({ topic, done, current, pendingKeys, onToggle }: Topic
                 {openDone ? '✓ Fase completada · Desmarcar' : 'Marcar esta fase como completada'}
               </button>
               {openPending ? <PendingBadge /> : null}
-              {/* Solo en dos columnas (lo oculta el CSS en móvil): ahí el mapa
-                  puede quedar lejos del final de una fase larga. */}
-              <nav aria-label="Otras fases" className="learning-path__nav">
-                {openIndex > 0 ? (
-                  <button className="learning-path__navbtn" onClick={() => openStep(openIndex - 1)}>
-                    ← Fase anterior
-                  </button>
-                ) : null}
-                {openIndex < steps.length - 1 ? (
-                  <button
-                    className="learning-path__navbtn learning-path__navbtn--next"
-                    onClick={() => openStep(openIndex + 1)}>
-                    Siguiente fase: {steps[openIndex + 1].title} →
-                  </button>
-                ) : null}
-              </nav>
+              {/* Con la fase ya marcada, lo siguiente es pasar a la otra: ese
+                  paso se vuelve el botón principal, en vez de dejar a la
+                  docente buscando el mapa. */}
+              {openDone && nextStep ? (
+                <button className="learning-path__next" onClick={() => openStep(openIndex + 1)}>
+                  Siguiente fase: {nextStep.title} →
+                </button>
+              ) : null}
+              {openIndex > 0 || (nextStep && !openDone) ? (
+                <nav aria-label="Otras fases" className="learning-path__nav">
+                  {openIndex > 0 ? (
+                    <button className="learning-path__navbtn" onClick={() => openStep(openIndex - 1)}>
+                      ← Fase anterior
+                    </button>
+                  ) : null}
+                  {nextStep && !openDone ? (
+                    <button
+                      className="learning-path__navbtn learning-path__navbtn--next"
+                      onClick={() => openStep(openIndex + 1)}>
+                      Siguiente fase: {nextStep.title} →
+                    </button>
+                  ) : null}
+                </nav>
+              ) : null}
             </div>
           </div>
         )}

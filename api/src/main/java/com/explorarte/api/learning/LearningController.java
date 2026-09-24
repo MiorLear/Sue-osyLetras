@@ -97,6 +97,11 @@ public class LearningController {
                     : uniqueSubtopicKey(dto.title(), taken));
             st.setEmoji(dto.emoji() == null ? "" : dto.emoji());
             st.setTitle(dto.title());
+            // Vacía se guarda como nula: las dos significan "sin descripción",
+            // y así no conviven dos formas de decir lo mismo en la tabla.
+            st.setDescription(dto.description() == null || dto.description().isBlank()
+                    ? null
+                    : dto.description().strip());
             // Las columnas son NOT NULL con DEFAULT, y un DEFAULT solo actúa
             // cuando el INSERT no nombra la columna — Hibernate siempre la
             // nombra. Un `"blocks": null` del cliente sería un 409 con un

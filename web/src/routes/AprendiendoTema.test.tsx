@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SubTopic, Topic } from '@explorarte/shared';
@@ -37,6 +37,7 @@ function pintar(topics: Topic[], id = 'tema') {
     <MemoryRouter initialEntries={[`/aprendiendo/${id}`]}>
       <Routes>
         <Route path="/aprendiendo/:topicId" element={<AprendiendoTema />} />
+        <Route path="/aprendiendo" element={<p>Índice de Bienestar emocional</p>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -81,6 +82,36 @@ describe('<AprendiendoTema />', () => {
     pintar([raro]);
     const boton = await screen.findByRole('button', { name: /Fase uno/ });
     expect(boton.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  // Las dos salidas: la de la cabecera y la del final, que es donde se está
+  // al terminar de leer. Las dos a una ruta fija, nunca a `-1`.
+  it.each(['path', 'slides', 'accordion'] as const)(
+    'con layout «%s» se vuelve a Bienestar emocional desde arriba y desde el final',
+    async (layout) => {
+      pintar([base(layout)]);
+      // `findAll`: el mazo repite la introducción en su primera tarjeta.
+      await screen.findAllByText('La introducción del tema.');
+      const botones = screen.getAllByRole('button', { name: 'Volver a Bienestar emocional' });
+      expect(botones).toHaveLength(2);
+      fireEvent.click(botones[1]);
+      expect(await screen.findByText('Índice de Bienestar emocional')).toBeTruthy();
+    },
+  );
+
+  it('un mapa recorrido entero lo celebra al final', async () => {
+    vi.mocked(api.learning.progress).mockResolvedValue([
+      { topicId: 'tema', stepKey: 'uno', completedAt: '2026-09-24T10:00:00Z' },
+      { topicId: 'tema', stepKey: 'dos', completedAt: '2026-09-24T10:05:00Z' },
+    ]);
+    pintar([base('path')]);
+    expect(await screen.findByText(/Completaste el recorrido/)).toBeTruthy();
+  });
+
+  it('un mapa a medias no celebra nada', async () => {
+    pintar([base('path')]);
+    await screen.findByText('0 de 2 fases');
+    expect(screen.queryByText(/Completaste el recorrido/)).toBeNull();
   });
 
   it('un id que no existe se explica en vez de romper', async () => {

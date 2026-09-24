@@ -68,7 +68,7 @@ class LearningDeletionTest {
     }
 
     private SubTopicDto fase(String key, String title) {
-        return new SubTopicDto(key, "🌸", title, List.of(new LearningBlock.Paragraph("Cuerpo de " + title)),
+        return new SubTopicDto(key, "🌸", title, null, List.of(new LearningBlock.Paragraph("Cuerpo de " + title)),
                 List.of(), List.of(), List.of());
     }
 
@@ -152,6 +152,28 @@ class LearningDeletionTest {
         // no existe.
         assertThat(progressRepository.findByUserIdOrderByTopicIdAscSubtopicKeyAsc(docente))
                 .noneMatch(p -> p.getTopicId().equals(creado.id()));
+    }
+
+    /**
+     * La descripción corta viaja con el mismo PUT que reescribe la colección,
+     * así que tiene que sobrevivir a él. Vacía se guarda como nula: las dos
+     * significan "sin descripción".
+     */
+    @Test
+    void keepsThePhaseDescriptionAcrossTheRewriteAndStoresBlankAsNull() {
+        SubTopicDto conTexto = new SubTopicDto("", "🌸", "Con texto", "  Qué hay en esta fase.  ",
+                List.of(), List.of(), List.of(), List.of());
+        SubTopicDto enBlanco = new SubTopicDto("", "🌿", "En blanco", "   ",
+                List.of(), List.of(), List.of(), List.of());
+        TopicDto creado = learningController.create(new CreateTopicInput(
+                "🧪", "Tema con descripciones", TopicLayout.PATH, List.of(), List.of(conTexto, enBlanco)));
+
+        assertThat(creado.subtopics()).extracting(SubTopicDto::description)
+                .containsExactly("Qué hay en esta fase.", null);
+
+        TopicDto otraVez = learningController.update(creado.id(),
+                new UpdateTopicInput(null, null, null, null, creado.subtopics()));
+        assertThat(otraVez.subtopics().get(0).description()).isEqualTo("Qué hay en esta fase.");
     }
 
     /** Borrar un tema sin avance sigue siendo lo de siempre. */
