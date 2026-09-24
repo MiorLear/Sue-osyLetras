@@ -843,6 +843,11 @@ components:
             creating a subtopic and the server fills it in.
         emoji: { type: string, description: 'Node in the phase map; empty in layouts that do not use one.' }
         title: { type: string }
+        description:
+          type: string
+          nullable: true
+          maxLength: 200
+          description: Short summary shown under the node in the phase map. Null or blank means none.
         blocks: { type: array, items: { $ref: '#/components/schemas/LearningBlock' } }
         pdfs: { type: array, items: { $ref: '#/components/schemas/MediaItem' } }
         videos: { type: array, items: { $ref: '#/components/schemas/MediaItem' } }

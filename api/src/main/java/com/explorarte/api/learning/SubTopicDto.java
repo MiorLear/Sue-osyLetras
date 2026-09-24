@@ -19,6 +19,8 @@ public record SubTopicDto(
         @Size(max = 64) String key,
         @Size(max = 16) String emoji,
         @NotBlank @Size(max = 200) String title,
+        /** Opcional. Nula o vacía = sin descripción. */
+        @Size(max = 200) String description,
         @Valid @Size(max = 200) List<LearningBlock> blocks,
         @Valid List<MediaItem> pdfs,
         @Valid List<MediaItem> videos,

@@ -14,6 +14,12 @@ import { confirmDialog } from '@/components/confirm-store';
 // única llamada al servidor sigue siendo la del tema entero, porque el PUT
 // reemplaza la colección de subtemas de una vez.
 
+/**
+ * Lo que cabe en el nodo del mapa sin pasar de tres líneas. La API acepta 200,
+ * y el margen es para no romper un texto que ya se guardó algo más largo.
+ */
+export const SUBTOPIC_DESCRIPTION_MAX = 160;
+
 export function SubTopicModal({
   subtopic,
   index,
@@ -90,6 +96,28 @@ export function SubTopicModal({
             'La clave se genera del título al guardar.'
           )}
         </p>
+
+        <div>
+          <label className="field-label" htmlFor="subtopic-description">
+            Descripción corta (opcional)
+          </label>
+          <textarea
+            id="subtopic-description"
+            className="input"
+            value={draft.description ?? ''}
+            maxLength={SUBTOPIC_DESCRIPTION_MAX}
+            rows={2}
+            placeholder="Ej. Reconocer y nombrar lo que sientes para responder con más calma."
+            onChange={(e) => patch({ description: e.target.value })}
+            style={{ resize: 'vertical', minHeight: 60, lineHeight: 1.5 }}
+          />
+          <p style={{ marginTop: 4, fontSize: 11.5, color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+            <span>En los temas con mapa de fases aparece bajo el título de la fase.</span>
+            <span>
+              {(draft.description ?? '').length} / {SUBTOPIC_DESCRIPTION_MAX}
+            </span>
+          </p>
+        </div>
 
         <BlockListEditor
           label="Contenido"

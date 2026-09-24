@@ -125,6 +125,21 @@ const CONTROLES: {
       await page.getByRole('button', { name: /Fase 1:/ }).click();
     },
   },
+  // Las dos salidas del tema: la de la cabecera y la del final.
+  {
+    ruta: '/aprendiendo/autocuidado',
+    rol: 'button',
+    nombre: 'Volver a Bienestar emocional',
+    nota: 'salida de la cabecera',
+    scope: (page) => page.locator('.gradient-header'),
+  },
+  {
+    ruta: '/aprendiendo/aula',
+    rol: 'button',
+    nombre: 'Volver a Bienestar emocional',
+    nota: 'salida del final',
+    scope: (page) => page.locator('.topic-end'),
+  },
   { ruta: '/aprendiendo/aula', rol: 'button', nombre: 'Tarjeta siguiente' },
   { ruta: '/aprendiendo/aula', rol: 'button', nombre: 'Tarjeta anterior' },
   // Los puntos solo se dibujan hasta ocho tarjetas; pasadas esas se cambian por

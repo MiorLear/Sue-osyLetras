@@ -24,7 +24,7 @@ const TEMA: Topic = {
   layout: 'path',
   intro: [],
   subtopics: [
-    fase('cuidando-mis-emociones', 'Cuidando mis emociones', '🌸'),
+    { ...fase('cuidando-mis-emociones', 'Cuidando mis emociones', '🌸'), description: 'Reconocer lo que sientes.' },
     fase('cuidando-mi-cuerpo', 'Cuidando mi cuerpo', '🌿'),
     fase('cuidando-mi-mente', 'Cuidando mi mente', '🧠'),
   ],
@@ -51,6 +51,50 @@ describe('<TopicPath />', () => {
     expect(screen.getByRole('button', { name: /Fase 1: Cuidando mis emociones\. Completada/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Fase 2: Cuidando mi cuerpo\. En curso/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Fase 3: Cuidando mi mente\. Aún no empezada/ })).toBeTruthy();
+  });
+
+  it('cada fase enseña su descripción, que además la describe para el lector de pantalla', () => {
+    pintar();
+    const nodo = screen.getByRole('button', { name: /Fase 1: Cuidando mis emociones/ });
+    expect(screen.getByText('Reconocer lo que sientes.')).toBeTruthy();
+    const desc = document.getElementById(nodo.getAttribute('aria-describedby') ?? '');
+    expect(desc?.textContent).toBe('Reconocer lo que sientes.');
+  });
+
+  it('una fase sin descripción se pinta igual, sin hueco ni aria-describedby', () => {
+    pintar();
+    const nodo = screen.getByRole('button', { name: /Fase 2: Cuidando mi cuerpo/ });
+    expect(nodo.hasAttribute('aria-describedby')).toBe(false);
+  });
+
+  it('cada fase lleva un botón que dice qué toca hacer en ella', () => {
+    pintar(['cuidando-mis-emociones']);
+    expect(screen.getByRole('button', { name: /Fase 1/ }).textContent).toContain('Repasar');
+    expect(screen.getByRole('button', { name: /Fase 2/ }).textContent).toContain('Empezar');
+    expect(screen.getByRole('button', { name: /Fase 3/ }).textContent).toContain('Ver fase');
+  });
+
+  it('la fase abierta repite su descripción bajo el título', () => {
+    pintar();
+    fireEvent.click(screen.getByRole('button', { name: /Fase 1/ }));
+    expect(screen.getAllByText('Reconocer lo que sientes.')).toHaveLength(2);
+  });
+
+  it('con la fase ya marcada, pasar a la siguiente es el paso principal', () => {
+    pintar(['cuidando-mis-emociones']);
+    fireEvent.click(screen.getByRole('button', { name: /Fase 1/ }));
+    // Uno solo: el de la navegación se retira para no repetir el mismo botón.
+    const siguientes = screen.getAllByRole('button', { name: /Siguiente fase: Cuidando mi cuerpo/ });
+    expect(siguientes).toHaveLength(1);
+    fireEvent.click(siguientes[0]);
+    expect(screen.getByText('Contenido de Cuidando mi cuerpo.')).toBeTruthy();
+  });
+
+  it('en la primera fase sin marcar no queda una navegación vacía', () => {
+    pintar(['cuidando-mis-emociones', 'cuidando-mi-cuerpo', 'cuidando-mi-mente']);
+    fireEvent.click(screen.getByRole('button', { name: /Fase 3/ }));
+    expect(screen.queryByRole('button', { name: /Siguiente fase/ })).toBeNull();
+    expect(screen.getByRole('navigation', { name: 'Otras fases' })).toBeTruthy();
   });
 
   it('marca la fase en curso con aria-current', () => {
