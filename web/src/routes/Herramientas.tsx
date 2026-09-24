@@ -12,15 +12,12 @@ import { Bookshelf } from '@/components/library/Bookshelf';
 import { isPdf } from '@/components/library/book-utils';
 import { api } from '@/lib/api';
 import { cacheKeys } from '@/lib/cache-keys';
+import { TOOLS_FALLBACK_INTRO } from '@/lib/tools-intro';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
 
 // pdf.js y page-flip viajan solo con el lector, y solo cuando se abre un libro.
 const BookReader = lazy(() => import('@/components/library/BookReader'));
 
-/** Lo que la pantalla decia antes de que el texto fuera editable desde el CMS. */
-const FALLBACK_INTRO = [
-  'Encuentra materiales prácticos para implementar la metodología ExplorArte y fortalecer el bienestar emocional en tu comunidad educativa.',
-];
 
 export default function Herramientas() {
   const {
@@ -53,7 +50,7 @@ export default function Herramientas() {
 
       <CacheAgeNote status={status} ageMs={ageMs} />
 
-      <ScreenIntroHero variant="card" paragraphs={intro?.paragraphs} fallback={FALLBACK_INTRO} marginBottom={16} />
+      <ScreenIntroHero variant="card" paragraphs={intro?.paragraphs} fallback={TOOLS_FALLBACK_INTRO} marginBottom={16} />
 
       <div style={{ marginBottom: 22 }}>
         <VideoPlaceholder caption="Cómo utilizar los recursos disponibles" video={intro?.video ?? null} duration="44 s" fallbackUrl="/videos/herramientas.mp4" />

@@ -17,6 +17,7 @@ import { clothFor, fileBadge, isPdf } from './book-utils';
  */
 export function Bookshelf({ shelf, onOpen }: { shelf: ToolShelf; onOpen: (book: ToolBook) => void }) {
   const headingId = `shelf-${shelf.id}`;
+  const descId = `shelf-desc-${shelf.id}`;
   const [active, setActive] = useState<ToolBook | null>(null);
 
   // Salir del estante con el foco limpia la ficha; moverse entre libros no.
@@ -25,13 +26,21 @@ export function Bookshelf({ shelf, onOpen }: { shelf: ToolShelf; onOpen: (book: 
   };
 
   return (
-    <section className="shelf" aria-labelledby={headingId}>
+    <section
+      className="shelf"
+      aria-labelledby={headingId}
+      aria-describedby={shelf.description ? descId : undefined}>
       <div className="shelf__head">
         <h3 id={headingId} className="shelf__title">{shelf.title}</h3>
         <span className="shelf__count">
           {shelf.books.length} {shelf.books.length === 1 ? 'libro' : 'libros'}
         </span>
       </div>
+      {shelf.description ? (
+        <p id={descId} className="shelf__description">
+          {shelf.description}
+        </p>
+      ) : null}
       <div className="shelf__body" onMouseLeave={() => setActive(null)} onBlur={onBlur}>
         <ul className={`shelf__row${active ? ' shelf__row--browsing' : ''}`}>
           {shelf.books.map((book) => {

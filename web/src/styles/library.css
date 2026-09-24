@@ -41,6 +41,13 @@
   color: var(--text-muted);
   white-space: nowrap;
 }
+.shelf__description {
+  margin: -6px 0 12px;
+  max-width: 68ch;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-body);
+}
 
 /* Cada libro trae su tramo de repisa, que se une con el del vecino: así, en
    escritorio, cuando los libros saltan de línea cada fila tiene la suya. */

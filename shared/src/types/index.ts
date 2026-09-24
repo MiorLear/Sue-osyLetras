@@ -265,6 +265,8 @@ export interface ToolShelf {
   id: string;
   title: string;
   books: ToolBook[];
+  /** shown under the shelf title; absent on shelves saved before it existed */
+  description?: string | null;
 }
 
 /** A recommended book: its cover image and a link to its page elsewhere. */

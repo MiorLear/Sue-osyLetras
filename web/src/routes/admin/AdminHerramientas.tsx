@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 
-import type { BibliographyEntry, ToolBook, ToolShelf, ToolsUpdateInput } from '@explorarte/shared';
+import type { BibliographyEntry, MediaItem, ToolBook, ToolShelf, ToolsUpdateInput } from '@explorarte/shared';
 
 import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
 import { BookEditorModal, type BookDraft } from '@/components/admin/BookEditorModal';
-import { AdminBtn, FileUploadInput } from '@/components/admin/ui';
+import { AdminBtn, FileUploadInput, StringListEditor } from '@/components/admin/ui';
 import { confirmDialog } from '@/components/confirm-store';
 import { BookCover } from '@/components/library/BookCover';
 import { isPdf } from '@/components/library/book-utils';
 import { toast } from '@/components/toast-store';
 import { api } from '@/lib/api';
 import { generateAutoCover } from '@/lib/pdf-cover';
+import { TOOLS_FALLBACK_INTRO } from '@/lib/tools-intro';
 
 // El CMS de la biblioteca: estantes (crear, renombrar, ordenar, borrar), los
 // libros de cada uno con su portada, y la bibliografía sugerida con imagen y
@@ -24,6 +25,9 @@ import { generateAutoCover } from '@/lib/pdf-cover';
 // que llegara ni un PUT /tools. Lo que se escribe en los campos de la página
 // (nombres de estantes, bibliografía) sí espera a "Guardar cambios", que se
 // queda pegado abajo mientras haya algo pendiente, y salir avisa.
+
+/** Lo mismo que acepta el API (ToolShelf.description). */
+const SHELF_DESCRIPTION_MAX = 500;
 
 function newId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
@@ -62,6 +66,90 @@ function firstProblem(draft: ToolsUpdateInput): string | null {
 }
 
 type Editing = { shelfId: string; index: number | null; book: BookDraft };
+
+/**
+ * El texto con el que abre el módulo. Es el mismo recurso que edita
+ * "Introducciones" (PUT /screen-intro-videos/tools), traído aquí porque es
+ * donde se busca; el video de esa pantalla se conserva tal cual al guardar.
+ * Sin texto guardado, arranca con el que la docente está viendo.
+ */
+function ModuleIntroEditor() {
+  const [paragraphs, setParagraphs] = useState<string[] | null>(null);
+  const [video, setVideo] = useState<MediaItem | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    api.screenIntros
+      .get('tools')
+      .catch(() => null)
+      .then((intro) => {
+        if (!active) return;
+        const saved = (intro?.paragraphs ?? []).filter((p) => p.trim());
+        setParagraphs(saved.length ? saved : [...TOOLS_FALLBACK_INTRO]);
+        setVideo(intro?.video ?? null);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const save = async () => {
+    if (!paragraphs) return;
+    const clean = paragraphs.map((p) => p.trim()).filter(Boolean);
+    setSaving(true);
+    try {
+      const saved = await api.screenIntros.update('tools', { video, paragraphs: clean });
+      setParagraphs(saved.paragraphs.length ? saved.paragraphs : clean);
+      setDirty(false);
+      toast.success('Descripción del módulo guardada.');
+    } catch {
+      toast.error('No se pudo guardar la descripción del módulo. Inténtalo de nuevo.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section
+      style={{ borderRadius: 20, padding: 22, background: '#fff', border: '1px solid var(--border)', marginBottom: 16 }}
+      aria-labelledby="admin-module-intro">
+      <h3 id="admin-module-intro" style={{ fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 600, color: 'var(--text-dark)', marginBottom: 4 }}>
+        Descripción del módulo
+      </h3>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.5 }}>
+        El texto que las docentes ven al abrir la Caja de herramientas. Es el mismo que se edita en «Introducciones».
+      </p>
+      {paragraphs === null ? (
+        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Cargando…</p>
+      ) : (
+        <>
+          <StringListEditor
+            label="Párrafos"
+            items={paragraphs}
+            multiline
+            addLabel="Agregar párrafo"
+            placeholder="Ej. Encuentra materiales prácticos para implementar la metodología ExplorArte…"
+            onChange={(next) => {
+              setParagraphs(next);
+              setDirty(true);
+            }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
+            <div style={{ width: 240 }}>
+              <AdminBtn
+                label={saving ? 'Guardando…' : 'Guardar descripción'}
+                onClick={() => void save()}
+                disabled={!dirty || saving}
+              />
+            </div>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
 
 export default function AdminHerramientas() {
   const [draft, setDraft] = useState<ToolsUpdateInput | null>(null);
@@ -121,7 +209,7 @@ export default function AdminHerramientas() {
     const source = draftRef.current;
     if (!source) return;
     const clean: ToolsUpdateInput = {
-      shelves: source.shelves.map((s) => ({ ...s, title: s.title.trim() })),
+      shelves: source.shelves.map((s) => ({ ...s, title: s.title.trim(), description: s.description?.trim() || null })),
       bibliographyItems: source.bibliographyItems.map((b) => ({
         ...b,
         title: b.title.trim(),
@@ -157,6 +245,8 @@ export default function AdminHerramientas() {
   const addShelf = () => setShelves((s) => [...s, { id: newId('estante'), title: '', books: [] }]);
   const renameShelf = (id: string, title: string) =>
     setShelves((s) => s.map((x) => (x.id === id ? { ...x, title } : x)));
+  const describeShelf = (id: string, description: string) =>
+    setShelves((s) => s.map((x) => (x.id === id ? { ...x, description } : x)));
   const deleteShelf = async (shelf: ToolShelf) => {
     const n = shelf.books.length;
     const ok = await confirmDialog({
@@ -259,6 +349,8 @@ export default function AdminHerramientas() {
         lede="Organiza los estantes, sube los libros y sus portadas, y edita la bibliografía sugerida."
       />
 
+      <ModuleIntroEditor />
+
       {!draft ? (
         <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Cargando…</p>
       ) : (
@@ -288,6 +380,23 @@ export default function AdminHerramientas() {
                 <button type="button" style={{ ...smallBtn, background: '#FBEAE6' }} aria-label="Eliminar estante" onClick={() => deleteShelf(shelf)}>
                   <Icon name="trash" size={15} color="var(--danger)" />
                 </button>
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label className="field-label" htmlFor={`shelf-desc-${shelf.id}`}>Descripción del estante (opcional)</label>
+                <textarea
+                  id={`shelf-desc-${shelf.id}`}
+                  className="input"
+                  value={shelf.description ?? ''}
+                  maxLength={SHELF_DESCRIPTION_MAX}
+                  rows={2}
+                  placeholder="Ej. Una guía por emoción, con actividades listas para el aula."
+                  onChange={(e) => describeShelf(shelf.id, e.target.value)}
+                  style={{ resize: 'vertical', minHeight: 60, lineHeight: 1.5 }}
+                />
+                <p style={{ marginTop: 4, fontSize: 11.5, color: 'var(--text-muted)', textAlign: 'right' }}>
+                  {(shelf.description ?? '').length} / {SHELF_DESCRIPTION_MAX}
+                </p>
               </div>
 
               {shelf.books.length === 0 ? (

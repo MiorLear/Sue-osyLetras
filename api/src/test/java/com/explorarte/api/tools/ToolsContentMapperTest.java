@@ -108,4 +108,27 @@ class ToolsContentMapperTest {
             assertThat(factory.getValidator().validate(ok)).isEmpty();
         }
     }
+
+    @Test
+    void aShelfSavedBeforeDescriptionsExistedStillLoads() throws Exception {
+        ObjectMapper json = new ObjectMapper().findAndRegisterModules();
+        ToolShelf old = json.readValue("{\"id\":\"guias\",\"title\":\"Guías\",\"books\":[]}", ToolShelf.class);
+        assertThat(old.title()).isEqualTo("Guías");
+        assertThat(old.description()).isNull();
+
+        ToolShelf described = json.readValue(
+                "{\"id\":\"guias\",\"title\":\"Guías\",\"books\":[],\"description\":\"Para cada emoción.\"}",
+                ToolShelf.class);
+        assertThat(described.description()).isEqualTo("Para cada emoción.");
+    }
+
+    @Test
+    void capsTheShelfDescription() {
+        try (ValidatorFactory factory = Validation.buildDefaultValidatorFactory()) {
+            assertThat(factory.getValidator().validate(new ToolShelf("a", "A", List.of(), "x".repeat(501))))
+                    .extracting(v -> v.getPropertyPath().toString())
+                    .contains("description");
+            assertThat(factory.getValidator().validate(new ToolShelf("a", "A", List.of(), "x".repeat(500)))).isEmpty();
+        }
+    }
 }
