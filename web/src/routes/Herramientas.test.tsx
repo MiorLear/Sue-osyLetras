@@ -57,6 +57,7 @@ const TOOLS: ToolsContent = {
     {
       id: 'recursos',
       title: 'Recursos descargables',
+      description: 'Plantillas y fichas para imprimir.',
       books: [book('d1', 'Fichas de trabajo', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')],
     },
   ],
@@ -161,6 +162,16 @@ describe('<Herramientas /> · biblioteca', () => {
     expect(id && document.getElementById(id)?.textContent).toBe('Los tres pilares de la metodología.');
     // La ficha es decorativa: no se anuncia dos veces.
     expect(libro.closest('section')!.querySelector('.shelf__aside')!.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('la descripción del estante se lee bajo su título', async () => {
+    view();
+    const recursos = await screen.findByRole('region', { name: 'Recursos descargables' });
+    const desc = within(recursos).getByText('Plantillas y fichas para imprimir.');
+    expect(recursos.getAttribute('aria-describedby')).toBe(desc.id);
+    // Un estante sin descripción no deja un párrafo vacío.
+    const manual = screen.getByRole('region', { name: 'Manual ExplorArte' });
+    expect(manual.querySelector('.shelf__description')).toBeNull();
   });
 
   it('una respuesta con la forma vieja (sin estantes) no rompe la pantalla', async () => {

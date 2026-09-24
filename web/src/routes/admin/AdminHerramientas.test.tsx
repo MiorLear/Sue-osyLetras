@@ -7,6 +7,7 @@ import type { MediaItem, ToolBook, ToolsContent, ToolsUpdateInput } from '@explo
 const api = vi.hoisted(() => ({
   tools: { get: vi.fn(), update: vi.fn() },
   media: { upload: vi.fn() },
+  screenIntros: { get: vi.fn(), update: vi.fn() },
 }));
 vi.mock('@/lib/api', () => ({ api }));
 
@@ -63,6 +64,8 @@ beforeEach(() => {
   clearToasts();
   api.tools.get.mockResolvedValue(structuredClone(TOOLS));
   api.tools.update.mockImplementation(async (input: ToolsUpdateInput) => input);
+  api.screenIntros.get.mockResolvedValue(null);
+  api.screenIntros.update.mockImplementation(async (screenKey: string, input: { paragraphs: string[] }) => ({ screenKey, ...input }));
 });
 
 afterEach(cleanup);
@@ -181,6 +184,44 @@ describe('<AdminHerramientas />', () => {
     saveChanges();
     expect(await screen.findByText('No se pudieron guardar los cambios. Inténtalo de nuevo.')).toBeTruthy();
     expect(screen.getByText('Tienes cambios sin guardar.')).toBeTruthy();
+  });
+
+  it('guarda la descripción de cada estante, sin espacios de sobra', async () => {
+    view();
+    const descs = await screen.findAllByLabelText('Descripción del estante (opcional)');
+    const typed = '  Una guía por emoción.  ';
+    fireEvent.change(descs[1], { target: { value: typed } });
+    expect(screen.getByText(typed.length + ' / 500')).toBeTruthy();
+    saveChanges();
+    await waitFor(() => expect(api.tools.update).toHaveBeenCalled());
+    expect(saved().shelves[1].description).toBe('Una guía por emoción.');
+    // Vacía viaja como null, no como cadena vacía.
+    expect(saved().shelves[0].description).toBeNull();
+  });
+
+  it('la descripción del módulo arranca con el texto que ven las docentes y se guarda aparte', async () => {
+    const VIDEO = media('intro', 'video/mp4');
+    api.screenIntros.get.mockResolvedValue({ screenKey: 'tools', video: VIDEO, paragraphs: [] });
+    view();
+    const section = await screen.findByRole('region', { name: 'Descripción del módulo' });
+    const first = await within(section).findByDisplayValue(/Encuentra materiales prácticos/);
+    fireEvent.change(first, { target: { value: 'Tu biblioteca de materiales.' } });
+    fireEvent.click(within(section).getByRole('button', { name: 'Guardar descripción' }));
+
+    await waitFor(() => expect(api.screenIntros.update).toHaveBeenCalledTimes(1));
+    // El video de la introducción no se pierde por editar el texto.
+    expect(api.screenIntros.update).toHaveBeenCalledWith('tools', { video: VIDEO, paragraphs: ['Tu biblioteca de materiales.'] });
+    expect(await screen.findByText('Descripción del módulo guardada.')).toBeTruthy();
+    // No toca la biblioteca.
+    expect(api.tools.update).not.toHaveBeenCalled();
+  });
+
+  it('si ya hay descripción del módulo, la muestra para editarla', async () => {
+    api.screenIntros.get.mockResolvedValue({ screenKey: 'tools', video: null, paragraphs: ['Uno.', 'Dos.'] });
+    view();
+    const section = await screen.findByRole('region', { name: 'Descripción del módulo' });
+    expect(await within(section).findByDisplayValue('Uno.')).toBeTruthy();
+    expect(within(section).getByDisplayValue('Dos.')).toBeTruthy();
   });
 
   it('el enlace de un libro recomendado tiene que ser http(s)', async () => {

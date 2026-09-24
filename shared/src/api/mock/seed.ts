@@ -625,6 +625,7 @@ export const TOOLS: ToolsContent = {
     {
       id: 'manual',
       title: 'Manual ExplorArte',
+      description: 'El documento base de la metodología, para leer antes de empezar.',
       books: [
         fakeBook(
           'Manual ExplorArte',
@@ -635,6 +636,7 @@ export const TOOLS: ToolsContent = {
     {
       id: 'guias',
       title: 'Guías de actividades',
+      description: 'Una guía por emoción, con actividades listas para el aula.',
       books: [
         fakeBook('Guía de actividades — Alegría', 'Actividades para reconocer y celebrar la alegría en grupo.'),
         fakeBook('Guía de actividades — Enojo', 'Dinámicas para nombrar el enojo y encontrar formas seguras de expresarlo.'),
