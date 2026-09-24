@@ -106,10 +106,10 @@ describe('<AdminHerramientas />', () => {
     const guias = await screen.findByRole('region', { name: 'Estante Guías de actividades' });
     fireEvent.click(within(guias).getAllByRole('button', { name: 'Editar' })[1]);
     fireEvent.change(screen.getByLabelText('Estante'), { target: { value: 'manual' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
-    saveChanges();
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar libro' }));
 
-    await waitFor(() => expect(api.tools.update).toHaveBeenCalled());
+    // Sin pulsar "Guardar cambios": el editor guarda solo.
+    await waitFor(() => expect(api.tools.update).toHaveBeenCalledTimes(1));
     expect(saved().shelves[0].books.map((b) => b.id)).toEqual(['m1', 'g2']);
     expect(saved().shelves[1].books.map((b) => b.id)).toEqual(['g1']);
   });
@@ -120,8 +120,7 @@ describe('<AdminHerramientas />', () => {
     fireEvent.click(within(guias).getAllByRole('button', { name: 'Editar' })[0]);
     fireEvent.change(screen.getByLabelText('Descripción (opcional)'), { target: { value: '  Juegos para la alegría.  ' } });
     expect(screen.getByText('27 / 1000')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
-    saveChanges();
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar libro' }));
 
     await waitFor(() => expect(api.tools.update).toHaveBeenCalled());
     expect(saved().shelves[1].books[0].description).toBe('Juegos para la alegría.');
@@ -134,12 +133,54 @@ describe('<AdminHerramientas />', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Generar portadas faltantes' }));
 
     await waitFor(() => expect(covers.generateAutoCover).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(screen.queryByRole('button', { name: /Generar portadas/ })).toBeNull());
-    saveChanges();
-    await waitFor(() => expect(api.tools.update).toHaveBeenCalled());
+    // Se guardan solas al terminar.
+    await waitFor(() => expect(api.tools.update).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText('2 portadas generadas y guardadas.')).toBeTruthy();
     expect(saved().shelves[1].books.map((b) => b.autoCover?.id)).toEqual(['g1-portada', 'g2-portada']);
     // La del manual ya existía y no se tocó.
     expect(saved().shelves[0].books[0].autoCover?.id).toBe('c1');
+  });
+
+  it('una portada que no termina no impide guardar el libro', async () => {
+    // La portada se queda colgada para siempre: así se veía en producción.
+    covers.generateAutoCover.mockReturnValue(new Promise(() => undefined));
+    api.media.upload.mockResolvedValue(media('nuevo'));
+    view();
+    const guias = await screen.findByRole('region', { name: 'Estante Guías de actividades' });
+    fireEvent.click(within(guias).getAllByRole('button', { name: 'Editar' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Generar portada con la primera página' }));
+    expect(await screen.findByText('Generando la portada con la primera página…')).toBeTruthy();
+
+    const guardar = screen.getByRole('button', { name: 'Guardar libro' }) as HTMLButtonElement;
+    expect(guardar.disabled).toBe(false);
+    fireEvent.click(guardar);
+    await waitFor(() => expect(api.tools.update).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText(/se guarda sin esperar a la portada/)).toBeTruthy();
+  });
+
+  it('con cambios sin guardar, la barra lo dice y salir de la página avisa', async () => {
+    view();
+    fireEvent.change(await screen.findByDisplayValue('Manual ExplorArte'), { target: { value: 'Manuales' } });
+    expect(screen.getByText('Tienes cambios sin guardar.')).toBeTruthy();
+
+    const leaving = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(leaving);
+    expect(leaving.defaultPrevented).toBe(true);
+
+    saveChanges();
+    expect(await screen.findByText('Todo está guardado.')).toBeTruthy();
+    const afterSave = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(afterSave);
+    expect(afterSave.defaultPrevented).toBe(false);
+  });
+
+  it('si falla el guardado lo dice y los cambios siguen pendientes', async () => {
+    api.tools.update.mockRejectedValue(new Error('500'));
+    view();
+    fireEvent.change(await screen.findByDisplayValue('Manual ExplorArte'), { target: { value: 'Manuales' } });
+    saveChanges();
+    expect(await screen.findByText('No se pudieron guardar los cambios. Inténtalo de nuevo.')).toBeTruthy();
+    expect(screen.getByText('Tienes cambios sin guardar.')).toBeTruthy();
   });
 
   it('el enlace de un libro recomendado tiene que ser http(s)', async () => {

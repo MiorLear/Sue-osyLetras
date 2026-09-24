@@ -473,6 +473,36 @@
   }
 }
 
+/* ── CMS: la barra de guardar ──
+   Con cambios pendientes se queda pegada abajo y cambia de color: antes el
+   botón vivía al final de una página larga y se podía salir sin verlo. */
+.admin-savebar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding: 12px 14px;
+  border-radius: 16px;
+}
+.admin-savebar__text {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.admin-savebar--dirty {
+  position: sticky;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 20;
+  background: #fff8ec;
+  border: 1.5px solid var(--gold);
+  box-shadow: 0 12px 30px -12px rgba(90, 60, 20, 0.35);
+}
+.admin-savebar--dirty .admin-savebar__text {
+  color: var(--text-dark);
+  font-weight: 700;
+}
+
 /* ── la ficha al lado del estante ──
    Solo donde hay cursor de verdad y espacio para ponerla al lado: en táctil no
    existe "pasar por encima", y un panel que nunca se llena sería un hueco. */

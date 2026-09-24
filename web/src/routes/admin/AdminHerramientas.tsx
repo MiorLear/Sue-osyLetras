@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { BibliographyEntry, ToolBook, ToolShelf, ToolsUpdateInput } from '@explorarte/shared';
 
@@ -15,8 +15,15 @@ import { generateAutoCover } from '@/lib/pdf-cover';
 
 // El CMS de la biblioteca: estantes (crear, renombrar, ordenar, borrar), los
 // libros de cada uno con su portada, y la bibliografía sugerida con imagen y
-// enlace. Como el resto del CMS, todo se edita en un borrador y se guarda de una
-// vez con "Guardar cambios".
+// enlace.
+//
+// Qué se guarda solo y qué no. Lo que se hace en una ventana —agregar, editar o
+// quitar un libro— y el final de "Generar portadas faltantes" se guardan en el
+// servidor en el acto: antes había que pulsar además "Guardar cambios" abajo, y
+// en producción una administradora editó un libro, pulsó "Aplicar" y se fue sin
+// que llegara ni un PUT /tools. Lo que se escribe en los campos de la página
+// (nombres de estantes, bibliografía) sí espera a "Guardar cambios", que se
+// queda pegado abajo mientras haya algo pendiente, y salir avisa.
 
 function newId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
@@ -62,24 +69,60 @@ export default function AdminHerramientas() {
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [covering, setCovering] = useState<{ done: number; total: number } | null>(null);
+  // La última versión del borrador, sin esperar a un render: guardar justo
+  // después de cambiar algo tiene que mandar lo cambiado, no lo de antes.
+  const draftRef = useRef<ToolsUpdateInput | null>(null);
+  // Un guardado a la vez, en orden: dos PUT en carrera podrían llegar al revés.
+  const saveChain = useRef<Promise<unknown>>(Promise.resolve());
 
   useEffect(() => {
-    api.tools.get().then((t) => setDraft({ shelves: t.shelves ?? [], bibliographyItems: t.bibliographyItems ?? [] }));
+    api.tools.get().then((t) => {
+      const loaded = { shelves: t.shelves ?? [], bibliographyItems: t.bibliographyItems ?? [] };
+      draftRef.current = loaded;
+      setDraft(loaded);
+    });
   }, []);
 
-  const update = (fn: (d: ToolsUpdateInput) => ToolsUpdateInput) => {
-    setDraft((d) => (d ? fn(d) : d));
+  // Cerrar la pestaña o recargar con cambios sin guardar pide confirmación.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
+
+  /** Aplica un cambio al borrador y devuelve cómo queda. */
+  const apply = (fn: (d: ToolsUpdateInput) => ToolsUpdateInput): ToolsUpdateInput | null => {
+    const current = draftRef.current;
+    if (!current) return null;
+    const next = fn(current);
+    draftRef.current = next;
+    setDraft(next);
     setDirty(true);
+    return next;
+  };
+  const update = (fn: (d: ToolsUpdateInput) => ToolsUpdateInput) => {
+    apply(fn);
   };
   const setShelves = (fn: (s: ToolShelf[]) => ToolShelf[]) => update((d) => ({ ...d, shelves: fn(d.shelves) }));
   const setBibliography = (fn: (b: BibliographyEntry[]) => BibliographyEntry[]) =>
     update((d) => ({ ...d, bibliographyItems: fn(d.bibliographyItems) }));
 
-  const save = async () => {
-    if (!draft) return;
+  const save = (successMessage = 'Cambios guardados.') => {
+    const task = saveChain.current.then(() => doSave(successMessage));
+    saveChain.current = task.catch(() => undefined);
+    return task;
+  };
+
+  const doSave = async (successMessage: string) => {
+    const source = draftRef.current;
+    if (!source) return;
     const clean: ToolsUpdateInput = {
-      shelves: draft.shelves.map((s) => ({ ...s, title: s.title.trim() })),
-      bibliographyItems: draft.bibliographyItems.map((b) => ({
+      shelves: source.shelves.map((s) => ({ ...s, title: s.title.trim() })),
+      bibliographyItems: source.bibliographyItems.map((b) => ({
         ...b,
         title: b.title.trim(),
         author: b.author?.trim() || null,
@@ -94,9 +137,15 @@ export default function AdminHerramientas() {
     setSaving(true);
     try {
       const saved = await api.tools.update(clean);
-      setDraft({ shelves: saved.shelves, bibliographyItems: saved.bibliographyItems });
-      setDirty(false);
-      toast.success('Cambios guardados.');
+      // Si mientras tanto se siguió editando, lo nuevo no se pisa con la
+      // respuesta: queda pendiente para el siguiente guardado.
+      if (draftRef.current === source) {
+        const fresh = { shelves: saved.shelves, bibliographyItems: saved.bibliographyItems };
+        draftRef.current = fresh;
+        setDraft(fresh);
+        setDirty(false);
+      }
+      toast.success(successMessage);
     } catch {
       toast.error('No se pudieron guardar los cambios. Inténtalo de nuevo.');
     } finally {
@@ -125,7 +174,11 @@ export default function AdminHerramientas() {
   const saveBook = (book: ToolBook, targetShelf: string) => {
     if (!editing) return;
     const { shelfId, index } = editing;
-    setShelves((shelves) => {
+    const next = apply((d) => ({ ...d, shelves: placeBook(d.shelves) }));
+    setEditing(null);
+    if (next) void save(index === null ? 'Libro agregado a la biblioteca.' : 'Libro guardado.');
+
+    function placeBook(shelves: ToolShelf[]): ToolShelf[] {
       // Primero se saca de donde estaba; después se pone donde va. Si no cambió
       // de estante, vuelve a su mismo lugar.
       const without = shelves.map((s) =>
@@ -138,14 +191,17 @@ export default function AdminHerramientas() {
         else books.push(book);
         return { ...s, books };
       });
-    });
-    setEditing(null);
+    }
   };
   const deleteBook = () => {
     if (!editing || editing.index === null) return;
     const { shelfId, index } = editing;
-    setShelves((s) => s.map((x) => (x.id === shelfId ? { ...x, books: x.books.filter((_, i) => i !== index) } : x)));
+    apply((d) => ({
+      ...d,
+      shelves: d.shelves.map((x) => (x.id === shelfId ? { ...x, books: x.books.filter((_, i) => i !== index) } : x)),
+    }));
     setEditing(null);
+    void save('Libro quitado de la biblioteca.');
   };
   const moveBook = (shelfId: string, from: number, to: number) =>
     setShelves((s) => s.map((x) => (x.id === shelfId ? { ...x, books: move(x.books, from, to) } : x)));
@@ -170,8 +226,10 @@ export default function AdminHerramientas() {
       setCovering({ done: i + 1, total: pending.length });
     }
     setCovering(null);
+    const made = pending.length - failed;
     if (failed) toast.error(`No se pudieron generar ${failed} de ${pending.length} portadas.`);
-    else toast.success('Portadas generadas. Guarda los cambios para publicarlas.');
+    // Lo que sí salió se guarda ya, sin esperar a que alguien pulse "Guardar".
+    if (made > 0) void save(made === 1 ? 'Portada generada y guardada.' : `${made} portadas generadas y guardadas.`);
   };
 
   // ── bibliografía ──
@@ -322,8 +380,13 @@ export default function AdminHerramientas() {
             </button>
           </section>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, maxWidth: 280, marginLeft: 'auto' }}>
-            <AdminBtn label={saving ? 'Guardando…' : 'Guardar cambios'} onClick={save} disabled={!dirty || saving || !!covering} />
+          <div className={dirty ? 'admin-savebar admin-savebar--dirty' : 'admin-savebar'} role="status">
+            <span className="admin-savebar__text">
+              {saving ? 'Guardando…' : dirty ? 'Tienes cambios sin guardar.' : 'Todo está guardado.'}
+            </span>
+            <div style={{ width: 220 }}>
+              <AdminBtn label={saving ? 'Guardando…' : 'Guardar cambios'} onClick={() => void save()} disabled={!dirty || saving} />
+            </div>
           </div>
         </>
       )}
