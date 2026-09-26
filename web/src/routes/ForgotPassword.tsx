@@ -36,8 +36,8 @@ export default function ForgotPassword() {
   };
 
   const submitNewPassword = async () => {
-    if (password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres.');
+    if (password.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres.');
       return;
     }
     if (password !== confirm) {
@@ -104,7 +104,7 @@ export default function ForgotPassword() {
           {step === 'password' ? (
             <>
               <InfoBox text="Crea una nueva contraseña para tu cuenta." />
-              <Field label="Nueva contraseña" password autoComplete="new-password" placeholder="Mínimo 6 caracteres" value={password} onChangeText={setPassword} />
+              <Field label="Nueva contraseña" password autoComplete="new-password" placeholder="Mínimo 8 caracteres" value={password} onChangeText={setPassword} />
               <Field label="Confirmar contraseña" password autoComplete="new-password" placeholder="Repite tu contraseña" value={confirm} onChangeText={setConfirm} />
               {error ? <ErrorText text={error} /> : null}
               <PrimaryButton label={loading ? 'Guardando...' : 'Guardar contraseña'} onClick={submitNewPassword} disabled={!password || !confirm || loading} />

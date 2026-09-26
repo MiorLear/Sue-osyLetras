@@ -9,13 +9,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.explorarte.api.misc.SchoolService;
+import com.explorarte.api.invitation.InvitationCheckDto;
+import com.explorarte.api.invitation.InvitationService;
 import com.explorarte.api.security.AuthRateLimiter;
 import com.explorarte.api.security.AuthenticatedUserCache;
 import com.explorarte.api.security.JwtService;
@@ -28,13 +31,18 @@ import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 
 /**
  * Auth endpoints. Password reset sends a real, random, expiring code by email
- * (see {@link EmailService} / Resend). Phone OTP has no SMS provider wired yet.
+ * (see {@link EmailService} / Resend).
  *
  * <p>No code is ever logged and there is no fixed "dev" code (SEC-04 / SEC-10) —
  * read {@code verification_codes} directly when testing locally.
+ *
+ * <p>El acceso por telefono (SMS/OTP) se retiro: nunca llego a tener proveedor
+ * de SMS y la unica forma de entrar sin correo era un codigo que no se enviaba.
+ * Queda una sola credencial por cuenta, el correo, con Google como atajo.
  */
 @RestController
 public class AuthController {
@@ -46,10 +54,10 @@ public class AuthController {
     private final JwtService jwtService;
     private final VerificationCodeService verificationCodeService;
     private final EmailService emailService;
-    private final SchoolService schoolService;
     private final AuthRateLimiter rateLimiter;
     private final AuthenticatedUserCache userCache;
     private final FirebaseAuth firebaseAuth;
+    private final InvitationService invitationService;
 
     @Autowired
     public AuthController(
@@ -58,19 +66,19 @@ public class AuthController {
             JwtService jwtService,
             VerificationCodeService verificationCodeService,
             EmailService emailService,
-            SchoolService schoolService,
             AuthRateLimiter rateLimiter,
             AuthenticatedUserCache userCache,
-            FirebaseAuth firebaseAuth) {
+            FirebaseAuth firebaseAuth,
+            InvitationService invitationService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.verificationCodeService = verificationCodeService;
         this.emailService = emailService;
-        this.schoolService = schoolService;
         this.rateLimiter = rateLimiter;
         this.userCache = userCache;
         this.firebaseAuth = firebaseAuth;
+        this.invitationService = invitationService;
     }
 
     /** Kept for focused unit tests that do not exercise Firebase authentication. */
@@ -80,14 +88,13 @@ public class AuthController {
             JwtService jwtService,
             VerificationCodeService verificationCodeService,
             EmailService emailService,
-            SchoolService schoolService,
             AuthRateLimiter rateLimiter,
             AuthenticatedUserCache userCache) {
         this(userRepository, passwordEncoder, jwtService, verificationCodeService, emailService,
-                schoolService, rateLimiter, userCache, null);
+                rateLimiter, userCache, null, null);
     }
 
-    /** Exchanges a verified Firebase Google/phone identity for the normal app session. */
+    /** Exchanges a verified Firebase Google identity for the normal app session. */
     @PostMapping("/auth/firebase")
     public AuthResultDto firebaseLogin(@Valid @RequestBody FirebaseAuthInput input) {
         final FirebaseToken token;
@@ -101,20 +108,14 @@ public class AuthController {
         }
 
         String email = clean(token.getEmail());
-        String phone = clean((String) token.getClaims().get("phone_number"));
-        if (email.isBlank() && phone.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Firebase identity has no email or phone");
+        // Sin correo no hay cuenta: antes una identidad de solo telefono entraba
+        // por aqui y se le inventaba un correo sintetico.
+        if (email.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Firebase identity has no email");
         }
 
-        Optional<User> existing = !email.isBlank()
-                ? userRepository.findByEmailIgnoreCase(email)
-                : findByPhone(phone);
-        User user = existing.orElseGet(() -> createFirebaseUser(token, email, phone, input));
-
-        // Registration can enrich a just-created account; login never overwrites profile data.
-        if (existing.isEmpty()) {
-            schoolService.addIfNew(user.getInstitucion());
-        }
+        User user = userRepository.findByEmailIgnoreCase(email)
+                .orElseGet(() -> createFirebaseUser(token, email, input));
         return authResult(user);
     }
 
@@ -155,7 +156,7 @@ public class AuthController {
         return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Firebase token");
     }
 
-    private User createFirebaseUser(FirebaseToken token, String email, String phone, FirebaseAuthInput input) {
+    private User createFirebaseUser(FirebaseToken token, String email, FirebaseAuthInput input) {
         User user = new User();
         user.setId("u-" + UUID.randomUUID());
         String displayName = clean(token.getName());
@@ -168,15 +169,44 @@ public class AuthController {
         }
         user.setName(suppliedName.isBlank() ? "Usuario" : suppliedName);
         user.setLastname(suppliedLastname);
-        user.setEmail(email.isBlank() ? "tel-" + phone.replaceAll("[^0-9]", "") + "@sinemail.explorarte" : email.toLowerCase());
-        user.setPhone(phone.isBlank() ? null : phone);
+        user.setEmail(email.toLowerCase());
         user.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
-        user.setInstitucion(clean(input.institucion()));
+        user.setInstitucion(User.INSTITUCION_POR_DEFECTO);
         user.setUbicacion(clean(input.ubicacion()));
         user.setPhoto(clean(token.getPicture()));
         user.setRole(UserRole.TEACHER);
         user.setStatus(UserStatus.APPROVED);
+        // Con Google no se piden ni el nombre real ni la ubicacion, asi que una
+        // cuenta invitada llega a medio llenar y hay que pedirle que la termine.
+        user.setProfileCompleted(!acceptInvitation(input.invitationToken(), email, user.getId()));
         return userRepository.save(user);
+    }
+
+    /**
+     * Consume el token de invitacion, si lo hay y sirve para ese correo.
+     *
+     * @return true si el alta venia de una invitacion aceptada.
+     */
+    private boolean acceptInvitation(String token, String email, String userId) {
+        if (invitationService == null || token == null || token.isBlank()) return false;
+        return invitationService.accept(token, email, userId).isPresent();
+    }
+
+    /**
+     * Lo que la pantalla de alta necesita saber de un enlace de invitacion.
+     *
+     * <p>Vive bajo {@code /auth/} y no bajo {@code /admin/} porque quien lo abre
+     * todavia no tiene cuenta; de paso hereda el limite por IP de
+     * {@code AuthRateLimitFilter}, que es lo que hace que adivinar tokens no sea
+     * una estrategia. Un token que no sirve responde siempre igual, sin decir si
+     * no existe, caduco, ya se uso o se revoco.
+     */
+    @GetMapping("/auth/invitations/{token}")
+    public InvitationCheckDto checkInvitation(@PathVariable @Size(max = 200) String token) {
+        if (invitationService == null) return InvitationCheckDto.invalid();
+        return invitationService.usable(token)
+                .map(invitation -> new InvitationCheckDto(true, invitation.getEmail()))
+                .orElseGet(InvitationCheckDto::invalid);
     }
 
     private static String clean(String value) {
@@ -205,75 +235,43 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public AuthResultDto register(@Valid @RequestBody RegisterInput input) {
         String email = input.email() == null ? "" : input.email().trim();
-        boolean hasPassword = PasswordPolicy.isPresent(input.password());
-        boolean phoneOnly = email.isBlank();
 
-        // SEC-13. Two cross-field rules that no single annotation can express:
-        //  1. An email signup must carry a usable password. The old code silently replaced a
-        //     blank one with a random UUID, creating an account nobody could ever sign into.
-        //  2. Without an email there must be a phone, because the OTP is then the credential.
-        if (!phoneOnly && !hasPassword) {
+        // SEC-13: sin el alta por telefono queda una sola regla cruzada — correo y
+        // contrasena van juntos. Antes una contrasena vacia se sustituia en silencio
+        // por un UUID, creando cuentas en las que nadie podia entrar nunca.
+        if (email.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Se requiere un correo para crear la cuenta");
+        }
+        if (!PasswordPolicy.isPresent(input.password())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Se requiere una contraseña para registrarse con correo. " + PasswordPolicy.REQUIREMENTS);
         }
-        if (phoneOnly && (input.phone() == null || input.phone().isBlank())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Se requiere un correo o un teléfono para crear la cuenta");
-        }
-        if (hasPassword && !PasswordPolicy.isAcceptable(input.password())) {
+        if (!PasswordPolicy.isAcceptable(input.password())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, PasswordPolicy.REQUIREMENTS);
+        }
+
+        // SEC-13: a duplicate used to reach the database and come back as a bare 500.
+        if (userRepository.findByEmailIgnoreCase(email).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe una cuenta con ese correo");
         }
 
         User user = new User();
         user.setId("u-" + UUID.randomUUID());
         user.setName(input.name());
         user.setLastname(input.lastname());
-        user.setInstitucion(input.institucion());
+        user.setInstitucion(User.INSTITUCION_POR_DEFECTO);
         user.setUbicacion(input.ubicacion());
-        if (phoneOnly) {
-            // Phone-only registration: synthesize a unique, non-colliding email so a
-            // second phone signup doesn't violate the UNIQUE constraint on an empty string.
-            email = "tel-" + input.phone().replaceAll("[^0-9]", "") + "@sinemail.explorarte";
-        }
-        // SEC-13: a duplicate used to reach the database and come back as a bare 500.
-        if (userRepository.findByEmailIgnoreCase(email).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe una cuenta con ese correo");
-        }
         user.setEmail(email);
-        user.setPhone(input.phone());
-        // Phone-only accounts get an unusable random password on purpose: their credential is
-        // the OTP, and leaving the hash empty would make any password match.
-        String rawPassword = hasPassword ? input.password() : UUID.randomUUID().toString();
-        user.setPasswordHash(passwordEncoder.encode(rawPassword));
+        user.setPasswordHash(passwordEncoder.encode(input.password()));
         user.setRole(UserRole.TEACHER);
         // Registration auto-approves, matching the existing mock's behavior; the
         // admin console remains available to reject/suspend accounts afterwards.
         user.setStatus(UserStatus.APPROVED);
+        // El alta por correo si pide nombre, apellido y ubicacion, pero una
+        // cuenta invitada sigue sin foto y conviene que pase por su perfil.
+        user.setProfileCompleted(!acceptInvitation(input.invitationToken(), email, user.getId()));
         userRepository.save(user);
-        schoolService.addIfNew(user.getInstitucion());
-        return authResult(user);
-    }
-
-    @PostMapping("/auth/otp/request")
-    public SentResponse requestOtp(@Valid @RequestBody OtpRequestInput input) {
-        rateLimiter.checkIdentifier("otp-request", input.phone());
-        // The code is issued and stored, never logged (SEC-10): on Render the logs are
-        // retained and readable from the dashboard, so an OTP written there is a credential
-        // handed to anyone with dashboard access. No SMS provider is wired yet — integrate
-        // one (e.g. Twilio) here; until then, read verification_codes when testing locally.
-        verificationCodeService.issue(input.phone());
-        return SentResponse.ok();
-    }
-
-    @PostMapping("/auth/otp/verify")
-    public AuthResultDto verifyOtp(@Valid @RequestBody OtpVerifyInput input) {
-        rateLimiter.checkIdentifier("otp-verify", input.phone());
-        if (!verificationCodeService.verify(input.phone(), input.code())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid code");
-        }
-        User user = findByPhone(input.phone())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unknown phone"));
-        verificationCodeService.consume(input.phone());
         return authResult(user);
     }
 
@@ -282,7 +280,7 @@ public class AuthController {
         rateLimiter.checkIdentifier("forgot-password", input.emailOrPhone());
         // Always return sent:true regardless of whether the account exists, so this
         // endpoint can't be used to discover which emails/phones are registered.
-        Optional<User> user = findByEmailOrPhone(input.emailOrPhone());
+        Optional<User> user = findByEmail(input.emailOrPhone());
         if (user.isPresent()) {
             String code = verificationCodeService.issue(input.emailOrPhone());
             String email = user.get().getEmail();
@@ -294,23 +292,12 @@ public class AuthController {
                     log.warn("[forgot-password] reset email to {} was not delivered", email);
                 }
             } else {
-                // Phone-only account (or synthesized email) and no SMS provider: nothing to
-                // do but record that a code was issued.
+                // Cuenta heredada con correo sintetico (@sinemail.explorarte) de cuando
+                // existia el alta por telefono: no hay buzon al que escribir.
                 log.info("[forgot-password] no deliverable email for the requested account");
             }
         } else {
             log.info("[forgot-password] no account matched the request");
-        }
-        return SentResponse.ok();
-    }
-
-    @PostMapping("/auth/otp/check")
-    public SentResponse checkOtp(@Valid @RequestBody OtpVerifyInput input) {
-        rateLimiter.checkIdentifier("otp-verify", input.phone());
-        // Validate the code without requiring an existing account, so the registration
-        // phone step can verify before the user is created.
-        if (!verificationCodeService.verify(input.phone(), input.code())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid code");
         }
         return SentResponse.ok();
     }
@@ -326,7 +313,7 @@ public class AuthController {
         if (!PasswordPolicy.isAcceptable(input.newPassword())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, PasswordPolicy.REQUIREMENTS);
         }
-        User user = findByEmailOrPhone(input.emailOrPhone())
+        User user = findByEmail(input.emailOrPhone())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         user.setPasswordHash(passwordEncoder.encode(input.newPassword()));
         // A password change must end every session opened with the old one (SEC-09).
@@ -358,19 +345,14 @@ public class AuthController {
         });
     }
 
-    private Optional<User> findByEmailOrPhone(String identifier) {
-        String idf = identifier == null ? "" : identifier.trim();
-        return userRepository.findByEmailIgnoreCase(idf).or(() -> findByPhone(idf));
-    }
-
     /**
-     * SCALE-02: this used to be {@code findAll().stream().filter(...)} — every user row
-     * loaded into memory, on public endpoints that had no throttle. It degraded linearly
-     * with user growth and was a trivial denial-of-service vector.
+     * El campo del cuerpo sigue llamandose {@code emailOrPhone} para no romper a
+     * los clientes ya desplegados, pero desde que no hay acceso por telefono lo
+     * unico que se busca es el correo.
      */
-    private Optional<User> findByPhone(String phone) {
-        String value = phone == null ? "" : phone.trim();
-        return value.isEmpty() ? Optional.empty() : userRepository.findFirstByPhone(value);
+    private Optional<User> findByEmail(String identifier) {
+        String idf = identifier == null ? "" : identifier.trim();
+        return idf.isEmpty() ? Optional.empty() : userRepository.findByEmailIgnoreCase(idf);
     }
 
     private static boolean isDeliverableEmail(String email) {

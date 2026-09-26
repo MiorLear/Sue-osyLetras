@@ -61,7 +61,6 @@ class AuthControllerLogoutTest {
                 AuthTestFixture.jwtService(),
                 AuthTestFixture.codeService(new InMemoryCodeStore().asRepository()),
                 AuthTestFixture.disabledEmailService(),
-                AuthTestFixture.schoolService(),
                 AuthTestFixture.noRateLimit(),
                 userCache);
 

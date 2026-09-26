@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { crearEvento, PANTALLAS, type Pantalla } from './fixtures/pantallas';
+import { crearEvento, necesitaSinSesion, PANTALLAS, SIN_SESION, type Pantalla } from './fixtures/pantallas';
 
 // La regla medible de "no desborda". Tres anchos que cubren el parque real de
 // teléfonos: el suelo (360, el Android barato del aula), el medio (390) y el
@@ -115,16 +115,19 @@ for (const ancho of ANCHOS) {
     });
 
     for (const pantalla of PANTALLAS) {
-      test(`${pantalla.nombre} no desborda`, async ({ page }) => {
-        if (DESBORDAN_HOY[pantalla.ruta]?.includes(ancho.width)) test.fail();
+      test.describe(() => {
+        if (necesitaSinSesion(pantalla.ruta)) test.use({ storageState: SIN_SESION });
+        test(`${pantalla.nombre} no desborda`, async ({ page }) => {
+          if (DESBORDAN_HOY[pantalla.ruta]?.includes(ancho.width)) test.fail();
 
-        await abrir(page, pantalla);
-        await sinDesbordamiento(page, `${pantalla.nombre} @ ${ancho.nombre}`);
+          await abrir(page, pantalla);
+          await sinDesbordamiento(page, `${pantalla.nombre} @ ${ancho.nombre}`);
 
-        for (const variante of pantalla.variantes ?? []) {
-          await variante.activa(page);
-          await sinDesbordamiento(page, `${pantalla.nombre} · ${variante.nombre} @ ${ancho.nombre}`);
-        }
+          for (const variante of pantalla.variantes ?? []) {
+            await variante.activa(page);
+            await sinDesbordamiento(page, `${pantalla.nombre} · ${variante.nombre} @ ${ancho.nombre}`);
+          }
+        });
       });
     }
   });

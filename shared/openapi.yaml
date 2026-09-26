@@ -60,49 +60,29 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/AuthResult' }
 
-  /auth/otp/request:
-    post:
+  /auth/invitations/{token}:
+    get:
       tags: [Auth]
-      summary: Request a phone OTP code
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [phone]
-              properties:
-                phone: { type: string }
+      summary: Check an admin invitation token (public — opened before signing up)
+      description: >
+        A token that is unknown, expired, already used or revoked all answer the
+        same `{ valid: false }`, so this cannot be used to probe for valid tokens.
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema: { type: string, maxLength: 200 }
       responses:
         '200':
-          description: Code sent
+          description: OK
           content:
             application/json:
               schema:
                 type: object
+                required: [valid]
                 properties:
-                  sent: { type: boolean, enum: [true] }
-
-  /auth/otp/verify:
-    post:
-      tags: [Auth]
-      summary: Verify a phone OTP code
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [phone, code]
-              properties:
-                phone: { type: string }
-                code: { type: string }
-      responses:
-        '200':
-          description: Authenticated
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/AuthResult' }
+                  valid: { type: boolean }
+                  email: { type: string, nullable: true }
 
   /auth/forgot-password:
     post:
@@ -563,19 +543,6 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/UserProfile' }
 
-  /schools:
-    get:
-      tags: [Misc]
-      summary: List selectable schools
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { type: string }
-
   /admin/users:
     get:
       tags: [Admin]
@@ -624,6 +591,82 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/UserProfile' }
+
+  /admin/users/{id}:
+    delete:
+      tags: [Admin]
+      summary: Delete a teacher account and its Firebase identity (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Deleted }
+        '400': { description: Refused — the account is an administrator }
+
+  /admin/invitations:
+    get:
+      tags: [Admin]
+      summary: List invitations, newest first (admin)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Invitation' }
+    post:
+      tags: [Admin]
+      summary: Issue an invitation and email its link (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+      responses:
+        '201':
+          description: Created and sent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Invitation' }
+        '409': { description: An account with that email already exists }
+        '503': { description: The email could not be sent; the invitation is left revoked }
+
+  /admin/invitations/{id}/resend:
+    post:
+      tags: [Admin]
+      summary: Issue a fresh token for the same address and resend it (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Resent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Invitation' }
+        '409': { description: That invitation was already accepted }
+
+  /admin/invitations/{id}:
+    delete:
+      tags: [Admin]
+      summary: Revoke an invitation — the link stops working (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Revoked }
+        '409': { description: That invitation was already accepted }
 
 components:
   schemas:
@@ -950,6 +993,27 @@ components:
         role: { type: string, enum: [teacher, admin] }
         status: { type: string, enum: [pending, approved, rejected] }
         photo: { type: string, nullable: true }
+        profileCompleted:
+          type: boolean
+          description: >
+            False while an invited account has not completed its profile. Drives
+            the welcome notice; flips to true when the profile is saved with a
+            name, a lastname and a location.
+    Invitation:
+      type: object
+      required: [id, email, status, createdAt, expiresAt]
+      properties:
+        id: { type: string }
+        email: { type: string }
+        status:
+          type: string
+          enum: [pending, accepted, revoked, expired]
+          description: >
+            `expired` is never stored — a pending invitation past its expiry is
+            reported as expired when read.
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        acceptedAt: { type: string, format: date-time, nullable: true }
     UpdateProfileInput:
       type: object
       properties:
@@ -957,7 +1021,6 @@ components:
         lastname: { type: string }
         email: { type: string }
         phone: { type: string }
-        institucion: { type: string }
         ubicacion: { type: string }
         photo: { type: string, nullable: true }
     LoginInput:
@@ -968,15 +1031,17 @@ components:
         password: { type: string }
     RegisterInput:
       type: object
-      required: [name, lastname, institucion, ubicacion]
+      required: [name, lastname, email, password]
       properties:
         name: { type: string }
         lastname: { type: string }
-        institucion: { type: string }
         ubicacion: { type: string }
         email: { type: string }
-        password: { type: string }
-        phone: { type: string }
+        password: { type: string, minLength: 8 }
+        invitationToken:
+          type: string
+          maxLength: 200
+          description: Present when the signup came from an admin invitation email.
     AuthResult:
       type: object
       required: [token, user]

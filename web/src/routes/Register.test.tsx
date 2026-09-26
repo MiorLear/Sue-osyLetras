@@ -17,26 +17,21 @@ vi.mock('@/lib/api', () => ({ api }));
 const signIn = vi.hoisted(() => vi.fn());
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ signIn }) }));
 
-vi.mock('@/lib/useSchools', () => ({ useSchools: () => ['Colegio San Francisco'] }));
-
-// Institución es un combo que además permite dar de alta una nueva, y ubicación
-// un autocompletado que busca contra un servicio de lugares. Los dos hacen
-// falta para que "Crear cuenta" se habilite, y ninguno es lo que se prueba
-// aquí; cada uno tiene los suyos. El resto de `ui` va sin tocar, que incluye el
-// ErrorNote que estos casos comprueban.
+// Ubicación es un autocompletado que busca contra un servicio de lugares. Hace
+// falta para que "Crear cuenta" se habilite y no es lo que se prueba aquí; tiene
+// los suyos. El resto de `ui` va sin tocar, que incluye el ErrorNote que estos
+// casos comprueban.
 vi.mock('@/components/ui', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/components/ui')>();
   const campo = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
     <input aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} />
   );
-  return { ...real, SelectOrAdd: campo, LocationAutocomplete: campo };
+  return { ...real, LocationAutocomplete: campo };
 });
 
 const firebase = vi.hoisted(() => ({
   startGoogleSignIn: vi.fn(),
   finishGoogleSignIn: vi.fn(),
-  requestPhoneCode: vi.fn(),
-  confirmPhoneCode: vi.fn(),
 }));
 vi.mock('@/lib/firebase-auth', () => firebase);
 
@@ -47,7 +42,7 @@ vi.mock('@/lib/sw-activate', () => ({
 
 import Register from './Register';
 
-/** Deja la pantalla en el paso 3, que es donde vive "Crear cuenta". */
+/** Deja la pantalla en el último paso, que es donde vive "Crear cuenta". */
 function llegarAlUltimoPaso(password = 'unaClaveLarga') {
   render(
     <MemoryRouter>
@@ -65,7 +60,6 @@ function llegarAlUltimoPaso(password = 'unaClaveLarga') {
 
   fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'María' } });
   fireEvent.change(screen.getByLabelText('Apellido'), { target: { value: 'García' } });
-  fireEvent.change(screen.getByLabelText('Institución'), { target: { value: 'Colegio San Francisco' } });
   fireEvent.change(screen.getByLabelText('Ubicación'), { target: { value: 'San Salvador' } });
 }
 
@@ -210,15 +204,14 @@ describe('<Register /> · al volver de Google', () => {
 
     fireEvent.change(await screen.findByLabelText('Nombre'), { target: { value: 'María' } });
     fireEvent.change(screen.getByLabelText('Apellido'), { target: { value: 'García' } });
-    fireEvent.change(screen.getByLabelText('Institución'), { target: { value: 'Colegio San Francisco' } });
-    fireEvent.change(screen.getByLabelText('Ubicación'), { target: { value: 'San Salvador' } });
+      fireEvent.change(screen.getByLabelText('Ubicación'), { target: { value: 'San Salvador' } });
     fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
     await waitFor(() => expect(api.auth.firebase).toHaveBeenCalled());
     expect(api.auth.firebase.mock.calls[0][0]).toMatchObject({
       idToken: 'token-de-google',
       name: 'María',
-      institucion: 'Colegio San Francisco',
+      ubicacion: 'San Salvador',
     });
     expect(api.auth.register).not.toHaveBeenCalled();
   });

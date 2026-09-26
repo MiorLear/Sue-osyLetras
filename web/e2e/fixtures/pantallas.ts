@@ -200,3 +200,11 @@ export const PANTALLAS: Pantalla[] = [
     ancla: (page) => page.getByText('Todo se guardó. No hay cambios pendientes de revisar.'),
   },
 ];
+
+/**
+ * La bienvenida es para quien no tiene sesión: con sesión, `/` entra directo a
+ * Inicio. Los specs corren con la sesión de la docente (auth.setup.ts), así que
+ * la ruta `/` se abre con un almacenamiento vacío.
+ */
+export const SIN_SESION = { cookies: [], origins: [] };
+export const necesitaSinSesion = (ruta: string) => ruta === '/';

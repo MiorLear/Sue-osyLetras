@@ -55,7 +55,6 @@ class AuthControllerStatusTest {
                 jwtService,
                 AuthTestFixture.codeService(codeStore.asRepository()),
                 AuthTestFixture.disabledEmailService(),
-                AuthTestFixture.schoolService(),
                 AuthTestFixture.noRateLimit(),
                 new AuthenticatedUserCache(userRepository, 0, 1000));
 
@@ -131,27 +130,4 @@ class AuthControllerStatusTest {
                 .andExpect(status().isUnauthorized());
     }
 
-    @Test
-    void otpLoginAlsoRefusesARejectedAccount() throws Exception {
-        User rejected = account(UserStatus.REJECTED);
-        when(userRepository.findFirstByPhone(PHONE)).thenReturn(Optional.of(rejected));
-        String code = issueCodeFor(PHONE);
-
-        mvc.perform(post("/auth/otp/verify")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"phone":"%s","code":"%s"}""".formatted(PHONE, code)))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("ACCOUNT_REJECTED"));
-    }
-
-    /** Drives the real code service so the OTP path is exercised end to end. */
-    private String issueCodeFor(String phone) throws Exception {
-        mvc.perform(post("/auth/otp/request")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"phone":"%s"}""".formatted(phone)))
-                .andExpect(status().isOk());
-        return codeStore.find(VerificationCodeService.normalize(phone)).orElseThrow().getCode();
-    }
 }

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { UserProfile } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
-import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
+import { Field, LocationAutocomplete, PrimaryButton } from '@/components/ui';
 import { toast } from '@/components/toast-store';
 import { useAuth } from '@/context/AuthContext';
 import { CacheAgeNote, ContentState } from '@/components/ContentState';
@@ -16,11 +16,10 @@ import { usePendingIndex } from '@/lib/use-outbox';
 import { useIsOnline } from '@/lib/useNetworkStatus';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
 import { useRefetchOnDrain } from '@/lib/useRefetchOnDrain';
-import { useSchools } from '@/lib/useSchools';
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { setUser, signOut } = useAuth();
+  const { user, setUser, signOut } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -29,18 +28,16 @@ export default function Profile() {
     ageMs,
     reload,
   } = useOfflineAsync(cacheKeys.profile(), () => api.profile.get(), []);
-  const schools = useSchools();
   const online = useIsOnline();
   const pending = usePendingIndex();
   useRefetchOnDrain(reload);
 
   const [photo, setPhoto] = useState<string | null>(null);
-  const [name, setName] = useState('María Reneé');
-  const [lastname, setLastname] = useState('García López');
-  const [email, setEmail] = useState('maria@ejemplo.com');
-  const [phone, setPhone] = useState('+503 7000 1234');
-  const [institucion, setInstitucion] = useState('Colegio Americano');
-  const [ubicacion, setUbicacion] = useState('San Salvador');
+  const [name, setName] = useState('');
+  const [lastname, setLastname] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [ubicacion, setUbicacion] = useState('');
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -82,7 +79,6 @@ export default function Profile() {
     setLastname(profile.lastname);
     setEmail(profile.email);
     setPhone(profile.phone);
-    setInstitucion(profile.institucion);
     setUbicacion(profile.ubicacion);
     setPhoto(profile.photo ?? null);
   }, [profile, dirty, pending.profile]);
@@ -130,7 +126,7 @@ export default function Profile() {
   const handleSave = async () => {
     setSaveError(null);
     setSaving(true);
-    const textInput = { name, lastname, email, phone, institucion, ubicacion };
+    const textInput = { name, lastname, email, phone, ubicacion };
     // La foto solo entra en la cola si de verdad se subió: solo entonces es una
     // URL alojada que el servidor puede aceptar tal cual. Si no cambió,
     // reenviarla es un no-op que además pisaría un cambio hecho desde otro
@@ -190,8 +186,10 @@ export default function Profile() {
     <div className="page page-narrow">
       <Masthead
         eyebrow="Mi perfil"
-        title={name || 'María'}
-        accent={lastname || 'Reneé'}
+        // Mientras llega el perfil no hay nombre que enseñar: se usa el de la
+        // sesión, o solo «Mi cuenta», nunca un nombre inventado.
+        title={name || user?.name || 'Mi cuenta'}
+        accent={lastname || undefined}
         lede="Gestiona tu cuenta, tus grupos y tus preferencias."
         showDate={false}
       />
@@ -243,8 +241,7 @@ export default function Profile() {
             <Field label="Correo electrónico" icon="mail" value={email} onChangeText={edit(setEmail)} type="email" autoCapitalize="none" placeholder="correo@ejemplo.com" />
             <Field label="Teléfono" icon="phone" value={phone} onChangeText={edit(setPhone)} placeholder="+502 1234 5678" />
 
-            <SectionLabel>Institución</SectionLabel>
-            <SelectOrAdd label="Institución" icon="map-pin" value={institucion} options={schools} onChange={edit(setInstitucion)} newPlaceholder="Nombre de la institución" />
+            <SectionLabel>Ubicación</SectionLabel>
             <LocationAutocomplete label="Ubicación" value={ubicacion} onChange={edit(setUbicacion)} />
 
             <PrimaryButton label={saving ? 'Guardando…' : 'Guardar cambios'} onClick={handleSave} disabled={saving} />

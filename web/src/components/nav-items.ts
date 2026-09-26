@@ -36,6 +36,7 @@ export const TEACHER_NAV: NavItem[] = [
 export const ADMIN_NAV: NavItem[] = [
   { emoji: '🛠️', label: 'Panel', href: '/admin' },
   { emoji: '✅', label: 'Usuarios', href: '/admin/usuarios' },
+  { emoji: '✉️', label: 'Invitaciones', href: '/admin/invitaciones' },
   { emoji: '💛', label: 'Emociones', href: '/admin/emociones' },
   { emoji: '🧰', label: 'Herramientas', href: '/admin/herramientas' },
   { emoji: '🌱', label: 'Aprendiendo', href: '/admin/aprendiendo' },

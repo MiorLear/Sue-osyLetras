@@ -1,21 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ApiError } from '@explorarte/shared';
-import { useSchools } from '@/lib/useSchools';
 import { GoogleIcon, Icon, type IconName } from '@/components/Icon';
 import { Logo } from '@/components/Logo';
-import { ErrorNote, Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
+import { ErrorNote, Field, LocationAutocomplete, PrimaryButton } from '@/components/ui';
 import { toast } from '@/components/toast-store';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
-import { OtpInput } from './Login';
 import { describeAuthError } from '@/lib/auth-errors';
-import { confirmPhoneCode, finishGoogleSignIn, requestPhoneCode, startGoogleSignIn } from '@/lib/firebase-auth';
+import { finishGoogleSignIn, startGoogleSignIn } from '@/lib/firebase-auth';
 import { activateWaitingServiceWorker, refreshServiceWorkerForAuthScreen } from '@/lib/sw-activate';
-import type { ConfirmationResult } from 'firebase/auth';
 
-type Method = 'google' | 'phone' | 'email' | null;
-const TITLES = ['Crear cuenta', 'Verificar identidad', 'Tu información'];
+type Method = 'google' | 'email' | null;
+const TITLES = ['Crear cuenta', 'Tu correo y contraseña', 'Tu información'];
 
 /** Lo mismo que `PasswordPolicy.MIN_LENGTH` en la API, que es quien manda: si
  *  allí sube, aquí sube. Comprobarlo también en el cliente no es duplicar la
@@ -44,7 +41,7 @@ function detailOf(err: ApiError): string | null {
  * Qué decirle a la persona, y si hay que devolverla al paso del correo.
  *
  * El correo repetido (409) y la contraseña o el correo mal formados (400) son
- * los tres datos del paso 1. Dejar el aviso en el paso 3 la obligaría a
+ * los tres datos del paso 1. Dejar el aviso en el paso 2 la obligaría a
  * adivinar dónde está el campo que hay que corregir, porque ahí ya no se ve.
  */
 function registerFailure(err: unknown): { message: string; backToCredentials: boolean } {
@@ -75,27 +72,25 @@ function registerFailure(err: unknown): { message: string; backToCredentials: bo
 export default function Register() {
   const navigate = useNavigate();
   const { signIn } = useAuth();
-  const schools = useSchools();
+  // El enlace del correo de invitación llega como /register?invitacion=<token>.
+  const invitationToken = useSearchParams()[0].get('invitacion');
 
   const [step, setStep] = useState(0);
   const [method, setMethod] = useState<Method>(null);
-  const [phoneStep, setPhoneStep] = useState<'number' | 'otp'>('number');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
   const [name, setName] = useState('');
   const [lastname, setLastname] = useState('');
-  const [institucion, setInstitucion] = useState('');
   const [ubicacion, setUbicacion] = useState('');
   const [firebaseToken, setFirebaseToken] = useState<string | null>(null);
-  const [phoneConfirmation, setPhoneConfirmation] = useState<ConfirmationResult | null>(null);
+  /** El correo al que se envió la invitación, cuando el alta viene de una. */
+  const [invitedEmail, setInvitedEmail] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  /** Con el token de Google resuelto, solo falta quién es: nombre e institución. */
+  /** Con el token de Google resuelto, solo falta quién es: nombre y ubicación. */
   const seguirConGoogle = (idToken: string) => {
     setFirebaseToken(idToken);
     setMethod('google');
@@ -112,6 +107,28 @@ export default function Register() {
   // dejado el popup. No hace falta guardar nada entre una página y otra porque
   // ese paso empieza vacío: lo que se escribió antes, si acaso, fue el correo,
   // y por Google no se pide.
+  // El token se resuelve aparte del regreso de Google: precarga el correo y lo
+  // deja fijo, porque una invitación vale para una dirección y no para otra. Un
+  // token que ya no sirve no se anuncia como error: el alta normal sigue
+  // estando ahí, y solo se pierde el atajo.
+  useEffect(() => {
+    if (!invitationToken) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const check = await api.auth.invitation(invitationToken);
+        if (cancelled || !check.valid || !check.email) return;
+        setInvitedEmail(check.email);
+        setEmail(check.email);
+      } catch (err) {
+        console.error('[registro] invitación', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [invitationToken]);
+
   const arrancado = useRef(false);
   useEffect(() => {
     if (arrancado.current) return;
@@ -149,17 +166,18 @@ export default function Register() {
     setError(null);
     setSubmitting(true);
     try {
+      const invitation = invitationToken ?? undefined;
       const result = firebaseToken
-        ? await api.auth.firebase({ idToken: firebaseToken, name, lastname, institucion, ubicacion })
-        : await api.auth.register({ name, lastname, institucion, ubicacion, email, password, phone });
+        ? await api.auth.firebase({ idToken: firebaseToken, name, lastname, ubicacion, invitationToken: invitation })
+        : await api.auth.register({ name, lastname, ubicacion, email, password, invitationToken: invitation });
       await signIn(result);
       navigate('/main', { replace: true });
     } catch (err) {
       console.error('[registro] crear cuenta', err);
       const { message, backToCredentials } = registerFailure(err);
       setError(message);
-      // Solo el alta por correo tiene un paso 1 al que volver: con Google o con
-      // teléfono la credencial ya está resuelta y allí no hay nada que corregir.
+      // Solo el alta por correo tiene un paso 1 al que volver: con Google la
+      // credencial ya está resuelta y allí no hay nada que corregir.
       if (backToCredentials && method === 'email') setStep(1);
     } finally {
       setSubmitting(false);
@@ -196,13 +214,11 @@ export default function Register() {
     }
     setMethod(m);
     setStep(1);
-    setPhoneStep('number');
   };
 
   let subtitle = '';
   if (step === 0) subtitle = 'Elige cómo quieres registrarte';
-  else if (step === 1 && method === 'email') subtitle = 'Ingresa tu correo y contraseña';
-  else if (step === 1 && method === 'phone') subtitle = phoneStep === 'number' ? 'Ingresa tu número de teléfono' : 'Ingresa el código que recibiste';
+  else if (step === 1) subtitle = 'Ingresa tu correo y contraseña';
   else if (step === 2) subtitle = 'Cuéntanos un poco sobre ti';
 
   return (
@@ -231,17 +247,23 @@ export default function Register() {
             al paso del correo, y el aviso tiene que seguir visible al llegar. */}
         <ErrorNote message={error} />
 
+        {invitedEmail ? (
+          <div style={{ borderRadius: 14, padding: 14, background: '#E8F8F7', border: '1px solid #C0E8E5' }}>
+            <div style={{ fontSize: 12.5, color: 'var(--text-body)' }}>Te invitaron a ExplorArte con el correo</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-dark)', wordBreak: 'break-all' }}>{invitedEmail}</div>
+          </div>
+        ) : null}
+
         {step === 0 ? (
           <>
             <MethodCard iconBg="#FFF3E0" title="Continuar con Google" subtitle="Usa tu cuenta de Google" onClick={() => choose('google')} google />
-            <MethodCard iconBg="#F5F0FF" iconColor="#7C3AED" icon="phone" title="Número de teléfono" subtitle="Recibirás un código de verificación" onClick={() => choose('phone')} />
             <MethodCard iconBg="#E8F8F7" iconColor="var(--brand)" icon="mail" title="Correo y contraseña" subtitle="Crea tu cuenta con email" onClick={() => choose('email')} />
           </>
         ) : null}
 
-        {step === 1 && method === 'email' ? (
+        {step === 1 ? (
           <>
-            <Field label="Correo electrónico" placeholder="correo@ejemplo.com" type="email" autoCapitalize="none" value={email} onChangeText={setEmail} />
+            <Field label="Correo electrónico" placeholder="correo@ejemplo.com" type="email" autoCapitalize="none" value={email} onChangeText={setEmail} readOnly={!!invitedEmail} />
             <Field label="Contraseña" password placeholder="Mínimo 8 caracteres" value={password} onChangeText={setPassword} />
             <Field label="Confirmar contraseña" password placeholder="Repite tu contraseña" value={confirm} onChangeText={setConfirm} />
             {/* Un botón deshabilitado sin explicación es su propio problema: la
@@ -262,71 +284,15 @@ export default function Register() {
           </>
         ) : null}
 
-        {step === 1 && method === 'phone' && phoneStep === 'number' ? (
-          <>
-            <Field label="Número de teléfono" icon="phone" placeholder="+502 1234 5678" value={phone} onChangeText={setPhone} />
-            <PrimaryButton
-              label="Enviar código"
-              onClick={async () => {
-                try {
-                  setPhoneConfirmation(await requestPhoneCode(phone));
-                  setPhoneStep('otp');
-                } catch (err) {
-                  console.error('[registro] sms', err);
-                  const display = describeAuthError(err);
-                  if (display?.kind === 'silent') return;
-                  toast.error(display?.message ?? 'No pudimos enviar el SMS. Revisa el número e intenta de nuevo.');
-                }
-              }}
-              disabled={phone.length < 8}
-            />
-          </>
-        ) : null}
-
-        {step === 1 && method === 'phone' && phoneStep === 'otp' ? (
-          <>
-            <div style={{ borderRadius: 16, padding: 16, textAlign: 'center', background: '#E8F8F7', border: '1px solid #C0E8E5' }}>
-              <div style={{ fontSize: 12.5, color: 'var(--text-body)' }}>Código enviado a</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-dark)' }}>{phone}</div>
-            </div>
-            <label className="field-label">Código de 6 dígitos</label>
-            <OtpInput value={otp} onChange={setOtp} />
-            {import.meta.env.DEV ? (
-              <p style={{ fontSize: 11.5, color: 'var(--text-muted)', textAlign: 'center' }}>Modo prueba: sin SMS — el código aparece en el log del servidor</p>
-            ) : null}
-            <PrimaryButton
-              label="Verificar código"
-              onClick={async () => {
-                try {
-                  if (!phoneConfirmation) throw new Error('No confirmation');
-                  setFirebaseToken(await confirmPhoneCode(phoneConfirmation, otp));
-                  setStep(2);
-                } catch (err) {
-                  console.error('[registro] otp', err);
-                  // Un código caducado no se arregla releyéndolo: hay que pedir otro.
-                  const display = describeAuthError(err);
-                  if (display?.kind === 'silent') return;
-                  toast.error(display?.message ?? 'Código incorrecto. Verifica e intenta de nuevo.');
-                }
-              }}
-              disabled={otp.length < 6 || !phoneConfirmation}
-            />
-            <button onClick={() => setPhoneStep('number')} className="center muted" style={{ fontSize: 12.5, padding: 8 }}>
-              ¿No recibiste el código? <span style={{ color: 'var(--brand)', fontWeight: 700 }}>Reenviar</span>
-            </button>
-          </>
-        ) : null}
-
         {step === 2 ? (
           <>
             <Field label="Nombre" icon="user" placeholder="María" value={name} onChangeText={setName} />
             <Field label="Apellido" icon="user" placeholder="García" value={lastname} onChangeText={setLastname} />
-            <SelectOrAdd label="Institución" icon="map-pin" placeholder="Selecciona tu institución" value={institucion} options={schools} onChange={setInstitucion} newPlaceholder="Nombre de la institución" />
             <LocationAutocomplete label="Ubicación" value={ubicacion} placeholder="Busca tu ubicación" onChange={setUbicacion} />
             <PrimaryButton
               label={submitting ? 'Creando cuenta...' : 'Crear cuenta'}
               onClick={finishRegister}
-              disabled={submitting || !name || !lastname || !institucion || !ubicacion}
+              disabled={submitting || !name || !lastname || !ubicacion}
             />
           </>
         ) : null}
@@ -342,7 +308,6 @@ export default function Register() {
         </span>
       </div>
       </div>
-      <div id="recaptcha-container" />
     </div>
   );
 }

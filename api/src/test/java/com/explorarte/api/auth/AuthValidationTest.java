@@ -53,7 +53,6 @@ class AuthValidationTest {
                 AuthTestFixture.jwtService(),
                 AuthTestFixture.codeService(new InMemoryCodeStore().asRepository()),
                 AuthTestFixture.disabledEmailService(),
-                AuthTestFixture.schoolService(),
                 AuthTestFixture.noRateLimit(),
                 new AuthenticatedUserCache(userRepository, 0, 1000));
 
@@ -101,14 +100,6 @@ class AuthValidationTest {
         verify(userRepository, never()).save(any(User.class));
     }
 
-    @Test
-    void anOtpCodeThatIsNotSixDigitsIs400AndNeverSpendsAnAttempt() throws Exception {
-        postJson("/auth/otp/verify", """
-                {"phone":"+503 7000 0000","code":"12"}""")
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errors.code").exists());
-    }
-
     // --- SEC-13: password policy -------------------------------------------
 
     @Test
@@ -132,15 +123,15 @@ class AuthValidationTest {
         verify(userRepository, never()).save(any(User.class));
     }
 
-    /** The clients post an empty password on the phone-only path; that must keep working. */
+    /** Sin acceso por telefono, un alta sin correo ya no tiene credencial posible. */
     @Test
-    void aPhoneOnlySignupWithoutAPasswordStillWorks() throws Exception {
+    void aSignupWithoutAnEmailIsRefused() throws Exception {
         postJson("/auth/register", """
-                {"name":"Ana","lastname":"Pérez","email":"","password":"","phone":"+503 7000 0000",
-                 "institucion":"Escuela","ubicacion":"San Salvador"}""")
-                .andExpect(status().isCreated());
+                {"name":"Ana","lastname":"Pérez","email":"","password":"",
+                 "ubicacion":"San Salvador"}""")
+                .andExpect(status().isBadRequest());
 
-        verify(userRepository).save(any(User.class));
+        verify(userRepository, never()).save(any(User.class));
     }
 
     @Test

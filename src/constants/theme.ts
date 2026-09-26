@@ -122,13 +122,5 @@ export const EMOTIONS: EmotionInfo[] = [
 export const emotionById = (id: string): EmotionInfo | undefined =>
   EMOTIONS.find((e) => e.id === id);
 
-export const INSTITUCIONES = [
-  'Colegio Americano',
-  'Escuela Nacional Primaria',
-  'Colegio La Salle',
-  'Instituto Bilingüe',
-  'Escuela Pública Central',
-  'Colegio San Francisco',
-];
 
 export const logo = require('@/assets/logo.jpg');

@@ -10,5 +10,7 @@ public record UserProfileDto(
         String ubicacion,
         UserRole role,
         UserStatus status,
-        String photo
+        String photo,
+        /** Falso mientras la cuenta invitada no haya completado su perfil. */
+        boolean profileCompleted
 ) {}

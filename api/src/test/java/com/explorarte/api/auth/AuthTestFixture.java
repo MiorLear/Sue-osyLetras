@@ -1,9 +1,5 @@
 package com.explorarte.api.auth;
 
-import static org.mockito.Mockito.mock;
-
-import com.explorarte.api.misc.SchoolRepository;
-import com.explorarte.api.misc.SchoolService;
 import com.explorarte.api.security.AuthRateLimiter;
 import com.explorarte.api.security.JwtService;
 
@@ -36,10 +32,6 @@ final class AuthTestFixture {
     /** No Resend API key: sends are disabled and report false, exercising the fallback path. */
     static EmailService disabledEmailService() {
         return new EmailService("", "Test <test@ejemplo.com>", "https://explorarte.app/forgot-password", new com.fasterxml.jackson.databind.ObjectMapper());
-    }
-
-    static SchoolService schoolService() {
-        return new SchoolService(mock(SchoolRepository.class));
     }
 
     static VerificationCodeService codeService(VerificationCodeRepository repository) {

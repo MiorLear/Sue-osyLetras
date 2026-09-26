@@ -8,6 +8,7 @@ public record FirebaseAuthInput(
         @NotBlank @Size(max = 4096) String idToken,
         @Size(max = 100) String name,
         @Size(max = 100) String lastname,
-        @Size(max = 160) String institucion,
-        @Size(max = 160) String ubicacion) {
+        @Size(max = 160) String ubicacion,
+        /** Token de invitacion, cuando el alta viene de un correo del admin. */
+        @Size(max = 200) String invitationToken) {
 }

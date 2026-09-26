@@ -5,6 +5,7 @@
 import type { ApiClient, MediaCategory } from '../client.js';
 import type {
   AuthResult,
+  Invitation,
   CalEvent,
   Comment,
   CreateCommentInput,
@@ -30,7 +31,7 @@ import type {
   UserProfile,
   UserStatus,
 } from '../../types/index.js';
-import { INSTITUCIONES } from '../../design/tokens.js';
+import { INSTITUCION_POR_DEFECTO } from '../../design/tokens.js';
 import {
   EMOTION_CONTENT,
   EMOTIONS,
@@ -89,6 +90,8 @@ export function createMockClient(): ApiClient {
   const emotionContent: Record<string, EmotionContent> = clone(EMOTION_CONTENT);
   const topics: Topic[] = clone(TOPICS);
   const users: UserProfile[] = clone(USERS);
+  /** Las invitaciones viven solo en memoria: el mock las inventa al vuelo. */
+  const invitations: Invitation[] = [];
   let tools: ToolsContent = clone(TOOLS);
   const screenIntros: Record<string, ScreenIntroVideo> = Object.fromEntries(
     Object.entries(SCREEN_INTRO_PARAGRAPHS).map(([screenKey, paragraphs]) => [
@@ -125,10 +128,10 @@ export function createMockClient(): ApiClient {
           id: 'u-' + Date.now(),
           name: input.name,
           lastname: input.lastname,
-          institucion: input.institucion,
+          institucion: INSTITUCION_POR_DEFECTO,
           ubicacion: input.ubicacion,
           email: input.email ?? '',
-          phone: input.phone ?? '',
+          phone: '',
           role: 'teacher',
           // Los registros ya no necesitan aprobación: entran activos de inmediato.
           status: 'approved',
@@ -142,17 +145,11 @@ export function createMockClient(): ApiClient {
         await delay();
         return authResult();
       },
-      async requestOtp(_phone: string) {
-        await delay();
-        return { sent: true as const };
-      },
-      async verifyOtp(_phone: string, _code: string) {
-        await delay();
-        return authResult();
-      },
-      async checkOtp(_phone: string, _code: string) {
-        await delay();
-        return { sent: true as const };
+      async invitation(_token: string) {
+        await delay(40);
+        // El mock no guarda invitaciones: cualquier token sirve y precarga el
+        // correo de la docente de ejemplo, que es lo que los e2e necesitan ver.
+        return { valid: true, email: 'invitada@ejemplo.com' };
       },
       async forgotPassword(_emailOrPhone: string) {
         await delay();
@@ -370,13 +367,6 @@ export function createMockClient(): ApiClient {
       },
     },
 
-    misc: {
-      async schools(): Promise<string[]> {
-        await delay();
-        return [...INSTITUCIONES];
-      },
-    },
-
     admin: {
       users: {
         async list(status?: UserStatus): Promise<UserProfile[]> {
@@ -398,15 +388,46 @@ export function createMockClient(): ApiClient {
           u.status = 'rejected';
           return clone(u);
         },
-        async invite(_email: string): Promise<{ sent: true }> {
-          await delay(40);
-          return { sent: true };
-        },
         async remove(id: string): Promise<void> {
           await delay(40);
           const index = users.findIndex((x) => x.id === id);
           if (index < 0) throw new Error('User not found');
           users.splice(index, 1);
+        },
+      },
+      invitations: {
+        async list(): Promise<Invitation[]> {
+          await delay();
+          return clone(invitations);
+        },
+        async create(email: string): Promise<Invitation> {
+          await delay(40);
+          const now = new Date();
+          const expires = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+          const invitation: Invitation = {
+            id: 'inv-' + Date.now(),
+            email: email.trim().toLowerCase(),
+            status: 'pending',
+            createdAt: now.toISOString(),
+            expiresAt: expires.toISOString(),
+            acceptedAt: null,
+          };
+          invitations.unshift(invitation);
+          return clone(invitation);
+        },
+        async resend(id: string): Promise<Invitation> {
+          await delay(40);
+          const found = invitations.find((i) => i.id === id);
+          if (!found) throw new Error('Invitation not found');
+          found.expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+          found.status = 'pending';
+          return clone(found);
+        },
+        async revoke(id: string): Promise<void> {
+          await delay(40);
+          const found = invitations.find((i) => i.id === id);
+          if (!found) throw new Error('Invitation not found');
+          found.status = 'revoked';
         },
       },
     },

@@ -23,6 +23,31 @@ class EmailServiceTest {
     }
 
     @Test
+    void invitationLinkCarriesTheTokenOnTheRegistrationPage() {
+        EmailService service = new EmailService(
+                "disabled",
+                "ExplorArte <no-reply@explorarte.app>",
+                "https://explorarte.app/forgot-password",
+                new ObjectMapper());
+
+        // El token sale de Base64 URL-safe, que trae '-' y '_'; lo que no puede
+        // es romper el enlace, asi que va codificado igual.
+        String link = service.invitationLink("abc-123_XYZ");
+
+        assertThat(link).isEqualTo("https://explorarte.app/register?invitacion=abc-123_XYZ");
+    }
+
+    @Test
+    void invitationEmailContainsTheButtonTheLinkAndTheExpiry() {
+        String html = EmailService.invitationHtml("https://explorarte.app/register?invitacion=t0ken");
+
+        assertThat(html)
+                .contains("Aceptar invitación")
+                .contains("vence en 14 días")
+                .contains("https://explorarte.app/register?invitacion=t0ken");
+    }
+
+    @Test
     void resetEmailContainsAButtonAndTheExpiryNotice() {
         String html = EmailService.resetHtml(
                 "https://explorarte.app/forgot-password?email=a%40b.com&amp;code=123456");

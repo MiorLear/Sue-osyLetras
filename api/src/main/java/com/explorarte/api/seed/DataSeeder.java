@@ -23,8 +23,6 @@ import com.explorarte.api.emotions.EmotionActivity;
 import com.explorarte.api.emotions.EmotionContent;
 import com.explorarte.api.emotions.EmotionContentRepository;
 import com.explorarte.api.emotions.EmotionRepository;
-import com.explorarte.api.misc.School;
-import com.explorarte.api.misc.SchoolRepository;
 import com.explorarte.api.tools.BibliographyEntry;
 import com.explorarte.api.tools.ToolShelf;
 import com.explorarte.api.tools.ToolsContentEntity;
@@ -51,7 +49,6 @@ public class DataSeeder implements ApplicationRunner {
     private final CommentRepository commentRepository;
     private final CalendarEventRepository calendarEventRepository;
     private final ToolsContentRepository toolsContentRepository;
-    private final SchoolRepository schoolRepository;
     private final PasswordEncoder passwordEncoder;
     private final String defaultPassword;
 
@@ -63,7 +60,6 @@ public class DataSeeder implements ApplicationRunner {
             CommentRepository commentRepository,
             CalendarEventRepository calendarEventRepository,
             ToolsContentRepository toolsContentRepository,
-            SchoolRepository schoolRepository,
             PasswordEncoder passwordEncoder,
             @Value("${app.seed.default-password:}") String defaultPassword) {
         this.userRepository = userRepository;
@@ -73,7 +69,6 @@ public class DataSeeder implements ApplicationRunner {
         this.commentRepository = commentRepository;
         this.calendarEventRepository = calendarEventRepository;
         this.toolsContentRepository = toolsContentRepository;
-        this.schoolRepository = schoolRepository;
         this.passwordEncoder = passwordEncoder;
         this.defaultPassword = defaultPassword == null ? "" : defaultPassword.trim();
     }
@@ -112,7 +107,6 @@ public class DataSeeder implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         seed("users", this::seedUsers);
-        seed("schools", this::seedSchools);
         seed("emotions", this::seedEmotions);
         seed("tools", this::seedTools);
         seed("posts", this::seedPosts);
@@ -158,15 +152,15 @@ public class DataSeeder implements ApplicationRunner {
         String hash = passwordEncoder.encode(defaultPassword);
         userRepository.saveAll(List.of(
                 user("u-admin", "Carlos", "Méndez", "admin@explorarte.org", "+503 7000 0000",
-                        "Sueños y Letras", "San Salvador", UserRole.ADMIN, hash),
+                        User.INSTITUCION_POR_DEFECTO, "San Salvador", UserRole.ADMIN, hash),
                 user("u-maria", "María Reneé", "García López", "maria@ejemplo.com", "+503 7000 1234",
-                        "Colegio Americano", "San Salvador", UserRole.TEACHER, hash),
+                        User.INSTITUCION_POR_DEFECTO, "San Salvador", UserRole.TEACHER, hash),
                 user("u-ana", "Ana", "Pérez", "ana@ejemplo.com", "+503 7222 1111",
-                        "Escuela Nacional Primaria", "Santa Tecla, La Libertad", UserRole.TEACHER, hash),
+                        User.INSTITUCION_POR_DEFECTO, "Santa Tecla, La Libertad", UserRole.TEACHER, hash),
                 user("u-lucia", "Lucía", "Ramírez", "lucia@ejemplo.com", "+503 7333 2222",
-                        "Colegio La Salle", "Soyapango, San Salvador", UserRole.TEACHER, hash),
+                        User.INSTITUCION_POR_DEFECTO, "Soyapango, San Salvador", UserRole.TEACHER, hash),
                 user("u-sofia", "Sofía", "Hernández", "sofia@ejemplo.com", "+503 7444 3333",
-                        "Instituto Bilingüe", "Antiguo Cuscatlán, La Libertad", UserRole.TEACHER, hash)));
+                        User.INSTITUCION_POR_DEFECTO, "Antiguo Cuscatlán, La Libertad", UserRole.TEACHER, hash)));
     }
 
     private User user(String id, String name, String lastname, String email, String phone,
@@ -183,17 +177,6 @@ public class DataSeeder implements ApplicationRunner {
         u.setStatus(UserStatus.APPROVED);
         u.setPasswordHash(passwordHash);
         return u;
-    }
-
-    private void seedSchools() {
-        if (schoolRepository.count() > 0) return;
-        List.of("Colegio Americano", "Escuela Nacional Primaria", "Colegio La Salle",
-                "Instituto Bilingüe", "Escuela Pública Central", "Colegio San Francisco")
-                .forEach(name -> {
-                    School s = new School();
-                    s.setName(name);
-                    schoolRepository.save(s);
-                });
     }
 
     private void seedEmotions() {

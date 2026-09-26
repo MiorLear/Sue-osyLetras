@@ -66,7 +66,6 @@ class AuthLoggingTest {
                 AuthTestFixture.jwtService(),
                 AuthTestFixture.codeService(codeStore.asRepository()),
                 AuthTestFixture.disabledEmailService(),
-                AuthTestFixture.schoolService(),
                 AuthTestFixture.noRateLimit(),
                 new AuthenticatedUserCache(userRepository, 0, 1000));
         mvc = MockMvcBuilders.standaloneSetup(controller).build();
@@ -91,18 +90,6 @@ class AuthLoggingTest {
 
     private String storedCodeFor(String identifier) {
         return codeStore.find(VerificationCodeService.normalize(identifier)).orElseThrow().getCode();
-    }
-
-    @Test
-    void requestingAnOtpLogsNoCode() throws Exception {
-        mvc.perform(post("/auth/otp/request")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"phone":"%s"}""".formatted(PHONE)))
-                .andExpect(status().isOk());
-
-        String code = storedCodeFor(PHONE);
-        assertThat(loggedMessages()).noneMatch(message -> message.contains(code));
     }
 
     @Test

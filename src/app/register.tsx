@@ -5,69 +5,37 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GoogleIcon, Icon, IconName } from '@/components/icon';
 import { Logo } from '@/components/logo';
-import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
+import { Field, LocationAutocomplete, PrimaryButton } from '@/components/ui';
 import { colors } from '@/constants/theme';
 import { api, setAuthToken } from '@/lib/api';
 import { showNotice } from '@/lib/notice';
-import { useSchools } from '@/lib/useSchools';
 
-type Method = 'google' | 'phone' | 'email' | null;
-const TITLES = ['Crear cuenta', 'Verificar identidad', 'Tu información'];
+type Method = 'google' | 'email' | null;
+const TITLES = ['Crear cuenta', 'Tu correo y contraseña', 'Tu información'];
 
 export default function RegisterScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const schools = useSchools();
 
   const [step, setStep] = useState(0);
   const [method, setMethod] = useState<Method>(null);
-  const [phoneStep, setPhoneStep] = useState<'number' | 'otp'>('number');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
   const [name, setName] = useState('');
   const [lastname, setLastname] = useState('');
-  const [institucion, setInstitucion] = useState('');
   const [ubicacion, setUbicacion] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const goHome = () => router.replace('/main');
 
-  const handleSendCode = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      await api.auth.requestOtp(phone);
-      setPhoneStep('otp');
-    } catch {
-      setError('No se pudo enviar el código. Revisa tu conexión e intenta de nuevo.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyPhone = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      await api.auth.checkOtp(phone, otp);
-      setStep(2);
-    } catch {
-      setError('Código incorrecto. Verifica e intenta de nuevo.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleCreateAccount = async () => {
     setLoading(true);
     setError(null);
     try {
-      const result = await api.auth.register({ name, lastname, institucion, ubicacion, email, password, phone });
+      const result = await api.auth.register({ name, lastname, ubicacion, email, password });
       await setAuthToken(result.token);
       goHome();
     } catch {
@@ -91,20 +59,17 @@ export default function RegisterScreen() {
       // account. Mirror the login screen's honest "coming soon".
       showNotice(
         'Próximamente',
-        'El registro con Google estará disponible muy pronto. Por ahora usa tu correo o teléfono.',
+        'El registro con Google estará disponible muy pronto. Por ahora usa tu correo.',
       );
       return;
     }
     setMethod(m);
     setStep(1);
-    setPhoneStep('number');
   };
 
   let subtitle = '';
   if (step === 0) subtitle = 'Elige cómo quieres registrarte';
   else if (step === 1 && method === 'email') subtitle = 'Ingresa tu correo y contraseña';
-  else if (step === 1 && method === 'phone')
-    subtitle = phoneStep === 'number' ? 'Ingresa tu número de teléfono' : 'Ingresa el código que recibiste';
   else if (step === 2) subtitle = 'Cuéntanos un poco sobre ti';
 
   return (
@@ -173,14 +138,6 @@ export default function RegisterScreen() {
               google
             />
             <MethodCard
-              iconBg="#F5F0FF"
-              iconColor="#7C3AED"
-              icon="phone"
-              title="Número de teléfono"
-              subtitle="Recibirás un código de verificación"
-              onPress={() => choose('phone')}
-            />
-            <MethodCard
               iconBg="#E8F8F7"
               iconColor={colors.brand}
               icon="mail"
@@ -224,66 +181,6 @@ export default function RegisterScreen() {
           </>
         ) : null}
 
-        {/* STEP 1 — phone number */}
-        {step === 1 && method === 'phone' && phoneStep === 'number' ? (
-          <>
-            <Field
-              label="Número de teléfono"
-              icon="phone"
-              placeholder="+502 1234 5678"
-              keyboardType="phone-pad"
-              value={phone}
-              onChangeText={setPhone}
-            />
-            <PrimaryButton
-              label={loading ? 'Enviando...' : 'Enviar código'}
-              onPress={handleSendCode}
-              disabled={phone.length < 8 || loading}
-            />
-          </>
-        ) : null}
-
-        {/* STEP 1 — phone otp */}
-        {step === 1 && method === 'phone' && phoneStep === 'otp' ? (
-          <>
-            <View
-              style={{
-                borderRadius: 16,
-                padding: 16,
-                alignItems: 'center',
-                backgroundColor: '#E8F8F7',
-                borderWidth: 1,
-                borderColor: '#C0E8E5',
-              }}>
-              <Text style={{ fontSize: 12.5, color: colors.textBody }}>Código enviado a</Text>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textDark }}>{phone}</Text>
-            </View>
-            <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textDark }}>
-              Código de 6 dígitos
-            </Text>
-            <OtpInput value={otp} onChange={setOtp} />
-            {__DEV__ ? (
-              <Text style={{ fontSize: 11.5, color: colors.textMuted, textAlign: 'center' }}>
-                Modo prueba: sin SMS — el código aparece en el log del servidor
-              </Text>
-            ) : null}
-            {error ? (
-              <Text style={{ fontSize: 12.5, color: '#E53E3E', textAlign: 'center' }}>{error}</Text>
-            ) : null}
-            <PrimaryButton
-              label={loading ? 'Verificando...' : 'Verificar código'}
-              onPress={handleVerifyPhone}
-              disabled={otp.length < 6 || loading}
-            />
-            <Pressable onPress={handleSendCode} style={{ alignItems: 'center', padding: 8 }}>
-              <Text style={{ fontSize: 12.5, color: colors.textMuted }}>
-                ¿No recibiste el código?{' '}
-                <Text style={{ color: colors.brand, fontWeight: '700' }}>Reenviar</Text>
-              </Text>
-            </Pressable>
-          </>
-        ) : null}
-
         {/* STEP 2 — info */}
         {step === 2 ? (
           <>
@@ -294,15 +191,6 @@ export default function RegisterScreen() {
               placeholder="García"
               value={lastname}
               onChangeText={setLastname}
-            />
-            <SelectOrAdd
-              label="Institución"
-              icon="map-pin"
-              placeholder="Selecciona tu institución"
-              value={institucion}
-              options={schools}
-              onChange={setInstitucion}
-              newPlaceholder="Nombre de la institución"
             />
             <LocationAutocomplete
               label="Ubicación"
@@ -316,7 +204,7 @@ export default function RegisterScreen() {
             <PrimaryButton
               label={loading ? 'Creando cuenta...' : 'Crear cuenta'}
               onPress={handleCreateAccount}
-              disabled={!name || !lastname || !institucion || !ubicacion || loading}
+              disabled={!name || !lastname || !ubicacion || loading}
             />
           </>
         ) : null}

@@ -207,7 +207,7 @@ gcloud iam service-accounts add-iam-policy-binding "$RUNTIME_SA" \
 | `SPRING_DATASOURCE_PASSWORD`                                                      | `--set-secrets` (`DB_PASSWORD`)  | Acceso total a la base.                                                                                          |
 | `SEED_USER_PASSWORD`                                                              | **no se setea**                  | Sin ella el seeder no crea ninguna cuenta (SEC-02). En producción se deja fuera.                                 |
 | `RESEND_API_KEY`                                                                  | `--set-secrets` si se usa correo | Permite enviar correo como el dominio del proyecto.                                                              |
-| `GCS_BUCKET`, `APP_MEDIA_*`, `APP_CORS_ALLOWED_ORIGINS`, `JWT_EXPIRATION_MINUTES` | `--set-env-vars`                 | No son secretos.                                                                                                 |
+| `GCS_BUCKET`, `APP_MEDIA_*`, `APP_CORS_ALLOWED_ORIGINS`, `JWT_EXPIRATION_MINUTES`, `APP_INVITATION_URL` | `--set-env-vars`                 | No son secretos.                                                                                                 |
 | _(ninguna llave de storage)_                                                      | —                                | **Ya no existe.** GCP-04 quitó `SUPABASE_KEY`; las credenciales de Storage son la propia identidad del servicio. |
 
 ---
@@ -618,14 +618,41 @@ no a `localhost` ni a una IP local.
 
 Actualizada a lo que el código lee hoy. Ninguna debe ser igual a los valores de `.env.example`.
 
+> ### ⚠️ `--set-env-vars` **borra** las variables que no menciones
+>
+> `gcloud run services update --set-env-vars X=1` deja el servicio con una sola variable:
+> `X`. No añade, reemplaza la lista entera. Hacerlo sobre este servicio se lleva por delante
+> `SPRING_DATASOURCE_URL` y la API arranca sin base de datos, falla el health check y el
+> despliegue se cae con *"container failed to start and listen on the port"*. Los secretos
+> sobreviven porque van en otra lista (`--set-secrets`), lo que despista todavía más.
+>
+> Para **añadir o cambiar una sola variable sin tocar las demás**, el flag es
+> `--update-env-vars`:
+>
+> ```bash
+> gcloud run services update explorarte-api --region us-east4 --project explorarte-6335b >   --update-env-vars NOMBRE=valor
+> ```
+>
+> Si ya pasó: Cloud Run no manda tráfico a una revisión que no arranca, así que el sitio
+> sigue sirviendo la anterior. Se arregla volviendo a poner las que faltan con
+> `--update-env-vars`, o comparando contra la última revisión sana:
+>
+> ```bash
+> gcloud run revisions describe <revision-sana> --region us-east4 --project explorarte-6335b >   --format="value(spec.containers[0].env[].name)"
+> ```
+
 **Secretos (Secret Manager, `--set-secrets`):**
 
 - [ ] `JWT_SECRET` — **créalo antes del primer deploy o el deploy falla.** `openssl rand -base64 48`.
 - [ ] `SPRING_DATASOURCE_PASSWORD` — contraseña real de Cloud SQL, no `explorarte_dev_password`.
-- [ ] `RESEND_API_KEY` — solo si se va a enviar correo de recuperación de contraseña.
+- [ ] `RESEND_API_KEY` — hace falta para el correo de recuperación de contraseña **y para las invitaciones del admin**: sin ella, `POST /admin/invitations` responde 503.
 
 **Configuración (`--set-env-vars`):**
 
+- [ ] `APP_INVITATION_URL` — **en producción no hace falta ponerla.** Es la página sobre la
+      que se cuelga el token (`?invitacion=...`) en el correo de invitación, y su valor por
+      defecto en `application.yml` ya es `https://explorarte.app/register`. Solo se define
+      para apuntar a otro sitio (un entorno de pruebas, por ejemplo).
 - [ ] `SPRING_DATASOURCE_URL` — la forma con `cloudSqlInstance` + `socketFactory` (§1).
 - [ ] `SPRING_DATASOURCE_USERNAME`
 - [ ] `GCS_BUCKET` — el bucket privado de Cloud Storage for Firebase.

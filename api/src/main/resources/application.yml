@@ -111,6 +111,9 @@ app:
     # Public page opened from the password-reset email. Keep this on the custom
     # HTTPS domain in production; local tests can override it explicitly.
     password-reset-url: ${APP_PASSWORD_RESET_URL:https://explorarte.app/forgot-password}
+    # Página de alta que abre el enlace de una invitación del admin. El token
+    # viaja como ?invitacion=... sobre esta URL.
+    invitation-url: ${APP_INVITATION_URL:https://explorarte.app/register}
     # SEC-05: a verification code is destroyed after this many failed guesses, so the
     # 6-digit space cannot be walked inside the 15-minute TTL. Must stay <= 5.
     otp-max-attempts: ${AUTH_OTP_MAX_ATTEMPTS:5}

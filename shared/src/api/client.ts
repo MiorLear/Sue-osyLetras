@@ -6,6 +6,8 @@
 
 import type {
   AuthResult,
+  Invitation,
+  InvitationCheck,
   CalEvent,
   Comment,
   CreateCommentInput,
@@ -36,14 +38,10 @@ export interface AuthApi {
   login(input: LoginInput): Promise<AuthResult>;
   /** POST /auth/register */
   register(input: RegisterInput): Promise<AuthResult>;
-  /** POST /auth/firebase — exchange a verified Google/phone Firebase ID token. */
+  /** POST /auth/firebase — exchange a verified Google Firebase ID token. */
   firebase(input: FirebaseAuthInput): Promise<AuthResult>;
-  /** POST /auth/otp/request */
-  requestOtp(phone: string): Promise<{ sent: true }>;
-  /** POST /auth/otp/verify */
-  verifyOtp(phone: string, code: string): Promise<AuthResult>;
-  /** POST /auth/otp/check — validate an OTP code without an existing account (registration) */
-  checkOtp(phone: string, code: string): Promise<{ sent: true }>;
+  /** GET /auth/invitations/:token — pública: la abre quien todavía no tiene cuenta. */
+  invitation(token: string): Promise<InvitationCheck>;
   /** POST /auth/forgot-password */
   forgotPassword(emailOrPhone: string): Promise<{ sent: true }>;
   /** POST /auth/reset-password — set a new password after OTP verification */
@@ -54,8 +52,9 @@ export interface FirebaseAuthInput {
   idToken: string;
   name?: string;
   lastname?: string;
-  institucion?: string;
   ubicacion?: string;
+  /** Token de invitación, cuando el alta viene de un correo del admin. */
+  invitationToken?: string;
 }
 
 export interface EmotionsApi {
@@ -138,14 +137,24 @@ export interface AdminUsersApi {
   approve(id: string): Promise<UserProfile>;
   /** POST /admin/users/:id/reject */
   reject(id: string): Promise<UserProfile>;
-  /** POST /admin/users/invite */
-  invite(email: string): Promise<{ sent: true }>;
   /** DELETE /admin/users/:id */
   remove(id: string): Promise<void>;
 }
 
+export interface AdminInvitationsApi {
+  /** GET /admin/invitations */
+  list(): Promise<Invitation[]>;
+  /** POST /admin/invitations — emite el token y manda el correo. */
+  create(email: string): Promise<Invitation>;
+  /** POST /admin/invitations/:id/resend — token y plazo nuevos. */
+  resend(id: string): Promise<Invitation>;
+  /** DELETE /admin/invitations/:id — la deja revocada, no la borra. */
+  revoke(id: string): Promise<void>;
+}
+
 export interface AdminApi {
   users: AdminUsersApi;
+  invitations: AdminInvitationsApi;
 }
 
 export interface ProfileApi {
@@ -153,11 +162,6 @@ export interface ProfileApi {
   get(): Promise<UserProfile>;
   /** PUT /me */
   update(input: UpdateProfileInput): Promise<UserProfile>;
-}
-
-export interface MiscApi {
-  /** GET /schools */
-  schools(): Promise<string[]>;
 }
 
 /** Categories accepted by POST /media/upload — tools/emotions/learning/screen-intros
@@ -195,7 +199,6 @@ export interface ApiClient {
   learning: LearningApi;
   tools: ToolsApi;
   profile: ProfileApi;
-  misc: MiscApi;
   admin: AdminApi;
   media: MediaApi;
   screenIntros: ScreenIntrosApi;

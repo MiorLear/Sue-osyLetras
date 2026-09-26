@@ -17,7 +17,6 @@ import com.explorarte.api.community.CommentRepository;
 import com.explorarte.api.community.PostRepository;
 import com.explorarte.api.emotions.EmotionContentRepository;
 import com.explorarte.api.emotions.EmotionRepository;
-import com.explorarte.api.misc.SchoolRepository;
 import com.explorarte.api.tools.ToolsContentRepository;
 import com.explorarte.api.user.User;
 import com.explorarte.api.user.UserRepository;
@@ -43,15 +42,13 @@ class DataSeederGateTest {
         when(events.count()).thenReturn(1L);
         ToolsContentRepository tools = mock(ToolsContentRepository.class);
         when(tools.count()).thenReturn(1L);
-        SchoolRepository schools = mock(SchoolRepository.class);
-        when(schools.count()).thenReturn(1L);
 
         PasswordEncoder encoder = mock(PasswordEncoder.class);
         when(encoder.encode(org.mockito.ArgumentMatchers.anyString())).thenReturn("$2a$10$hash");
 
         return new DataSeeder(
                 userRepository, emotions, mock(EmotionContentRepository.class), posts,
-                mock(CommentRepository.class), events, tools, schools, encoder, seedPassword);
+                mock(CommentRepository.class), events, tools, encoder, seedPassword);
     }
 
     @Test
@@ -98,12 +95,10 @@ class DataSeederGateTest {
         when(events.count()).thenReturn(0L);
         ToolsContentRepository tools = mock(ToolsContentRepository.class);
         when(tools.count()).thenReturn(1L);
-        SchoolRepository schools = mock(SchoolRepository.class);
-        when(schools.count()).thenReturn(1L);
 
         DataSeeder seeder = new DataSeeder(
                 userRepository, emotions, mock(EmotionContentRepository.class), posts,
-                mock(CommentRepository.class), events, tools, schools, mock(PasswordEncoder.class), "");
+                mock(CommentRepository.class), events, tools, mock(PasswordEncoder.class), "");
 
         seeder.run(new DefaultApplicationArguments());
 

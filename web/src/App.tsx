@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import type { UserRole } from '@explorarte/shared';
 import { useAuth } from './context/AuthContext';
 import { TabsLayout } from './components/TabsLayout';
@@ -34,19 +34,43 @@ import SyncProblemas from './routes/SyncProblemas';
 // las agrupa en un unico chunk 'admin' y el service worker no lo precachea.
 const AdminDashboard = lazy(() => import('./routes/admin/AdminDashboard'));
 const AdminUsuarios = lazy(() => import('./routes/admin/AdminUsuarios'));
+const AdminInvitaciones = lazy(() => import('./routes/admin/AdminInvitaciones'));
 const AdminEmociones = lazy(() => import('./routes/admin/AdminEmociones'));
 const AdminHerramientas = lazy(() => import('./routes/admin/AdminHerramientas'));
 const AdminAprendiendo = lazy(() => import('./routes/admin/AdminAprendiendo'));
 const AdminIntroVideos = lazy(() => import('./routes/admin/AdminIntroVideos'));
 
+/**
+ * Sin sesion se va a /login, no al carrusel de bienvenida: quien llega aqui ya
+ * tenia cuenta (la sesion caduco, o abrio un enlace guardado). `from` guarda a
+ * donde iba para devolverla ahi despues de entrar.
+ */
+function ToLogin() {
+  const location = useLocation();
+  return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
+}
+
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { authed } = useAuth();
-  return authed ? <>{children}</> : <Navigate to="/" replace />;
+  return authed ? <>{children}</> : <ToLogin />;
+}
+
+/** La bienvenida es para quien no tiene sesion; con sesion se entra directo. */
+function HomeOrOnboarding() {
+  const { authed, user } = useAuth();
+  if (!authed) return <Onboarding />;
+  return <Navigate to={user?.role === 'admin' ? '/admin' : '/main'} replace />;
+}
+
+/** Una URL mal escrita lleva a Inicio si hay sesion, y a la bienvenida si no. */
+function NotFound() {
+  const { authed } = useAuth();
+  return <Navigate to={authed ? '/main' : '/'} replace />;
 }
 
 function RequireRole({ role, children }: { role: UserRole; children: React.ReactNode }) {
   const { authed, user, profileResolved } = useAuth();
-  if (!authed) return <Navigate to="/" replace />;
+  if (!authed) return <ToLogin />;
   // Tener sesion pero no perfil todavia no es "no eres admin": es "aun no lo
   // se". Desde que AuthProvider pinta en cuanto la cache responde, esa ventana
   // existe de verdad, y redirigir en ella echaria de /admin a quien si tiene el
@@ -68,7 +92,7 @@ export function App() {
       <Suspense fallback={<ContentState status="loading" />}>
       <Routes>
       {/* pre-login */}
-      <Route path="/" element={<Onboarding />} />
+      <Route path="/" element={<HomeOrOnboarding />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -98,13 +122,14 @@ export function App() {
         {/* admin console */}
         <Route path="/admin" element={<RequireRole role="admin"><AdminDashboard /></RequireRole>} />
         <Route path="/admin/usuarios" element={<RequireRole role="admin"><AdminUsuarios /></RequireRole>} />
+        <Route path="/admin/invitaciones" element={<RequireRole role="admin"><AdminInvitaciones /></RequireRole>} />
         <Route path="/admin/emociones" element={<RequireRole role="admin"><AdminEmociones /></RequireRole>} />
         <Route path="/admin/herramientas" element={<RequireRole role="admin"><AdminHerramientas /></RequireRole>} />
         <Route path="/admin/aprendiendo" element={<RequireRole role="admin"><AdminAprendiendo /></RequireRole>} />
         <Route path="/admin/videos-intro" element={<RequireRole role="admin"><AdminIntroVideos /></RequireRole>} />
       </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
       </Suspense>
     </>

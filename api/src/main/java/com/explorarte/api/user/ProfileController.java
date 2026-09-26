@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.explorarte.api.common.ConflictException;
 import com.explorarte.api.media.MediaUrlPolicy;
-import com.explorarte.api.misc.SchoolService;
 import com.explorarte.api.security.CurrentUserService;
 
 import jakarta.validation.Valid;
@@ -19,14 +18,12 @@ public class ProfileController {
 
     private final CurrentUserService currentUserService;
     private final UserRepository userRepository;
-    private final SchoolService schoolService;
     private final MediaUrlPolicy mediaUrlPolicy;
 
     public ProfileController(CurrentUserService currentUserService, UserRepository userRepository,
-            SchoolService schoolService, MediaUrlPolicy mediaUrlPolicy) {
+            MediaUrlPolicy mediaUrlPolicy) {
         this.currentUserService = currentUserService;
         this.userRepository = userRepository;
-        this.schoolService = schoolService;
         this.mediaUrlPolicy = mediaUrlPolicy;
     }
 
@@ -42,7 +39,6 @@ public class ProfileController {
         if (input.lastname() != null) user.setLastname(input.lastname().trim());
         if (input.email() != null) applyEmailChange(user, input.email());
         if (input.phone() != null) user.setPhone(input.phone().isBlank() ? null : input.phone().trim());
-        if (input.institucion() != null) user.setInstitucion(input.institucion().trim());
         if (input.ubicacion() != null) user.setUbicacion(input.ubicacion().trim());
         if (input.photo() != null) {
             if (input.photo().isBlank()) {
@@ -52,9 +48,23 @@ public class ProfileController {
                 user.setPhoto(input.photo());
             }
         }
+        // Guardar el perfil es lo que apaga el aviso de "completa tu perfil".
+        // Se exige lo mismo que pide el alta normal: sin esto, una cuenta
+        // invitada podria tocar un campo cualquiera y quitarse el recordatorio
+        // con el perfil igual de vacio que antes.
+        if (!user.isProfileCompleted() && isComplete(user)) {
+            user.setProfileCompleted(true);
+        }
         userRepository.save(user);
-        schoolService.addIfNew(user.getInstitucion());
         return user.toDto();
+    }
+
+    private static boolean isComplete(User user) {
+        return notBlank(user.getName()) && notBlank(user.getLastname()) && notBlank(user.getUbicacion());
+    }
+
+    private static boolean notBlank(String value) {
+        return value != null && !value.isBlank();
     }
 
     /**

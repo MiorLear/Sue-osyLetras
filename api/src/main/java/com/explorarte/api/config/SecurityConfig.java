@@ -62,7 +62,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/learning/progress").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/learning/progress/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/learning/progress/**").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/tools", "/schools").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/tools").permitAll()
                         .requestMatchers(HttpMethod.GET, "/screen-intro-videos", "/screen-intro-videos/**").permitAll()
                         // GCP-04: resolving a media URL to a signed Cloud Storage URL.
                         // Reachable without a token because <img src>/<video src> cannot
