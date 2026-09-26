@@ -15,6 +15,8 @@ import type {
   CreateTopicInput,
   Emotion,
   EmotionDetail,
+  Invitation,
+  InvitationCheck,
   LearningProgressEntry,
   LoginInput,
   MediaItem,
@@ -151,6 +153,8 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
       login: (input: LoginInput) => request<AuthResult>('POST', '/auth/login', input),
       register: (input: RegisterInput) => request<AuthResult>('POST', '/auth/register', input),
       firebase: (input) => request<AuthResult>('POST', '/auth/firebase', input),
+      invitation: (token: string) =>
+        request<InvitationCheck>('GET', `/auth/invitations/${encodeURIComponent(token)}`),
       forgotPassword: (emailOrPhone: string) =>
         request<{ sent: true }>('POST', '/auth/forgot-password', { emailOrPhone }),
       resetPassword: (emailOrPhone: string, code: string, newPassword: string) =>
@@ -207,8 +211,15 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
         list: (status?: UserStatus) => request<UserProfile[]>('GET', `/admin/users${q({ status })}`),
         approve: (id: string) => request<UserProfile>('POST', `/admin/users/${encodeURIComponent(id)}/approve`),
         reject: (id: string) => request<UserProfile>('POST', `/admin/users/${encodeURIComponent(id)}/reject`),
-        invite: (email: string) => request<{ sent: true }>('POST', '/admin/users/invite', { email }),
         remove: (id: string) => request<void>('DELETE', `/admin/users/${encodeURIComponent(id)}`),
+      },
+      invitations: {
+        list: () => request<Invitation[]>('GET', '/admin/invitations'),
+        create: (email: string) => request<Invitation>('POST', '/admin/invitations', { email }),
+        resend: (id: string) =>
+          request<Invitation>('POST', `/admin/invitations/${encodeURIComponent(id)}/resend`),
+        revoke: (id: string) =>
+          request<void>('DELETE', `/admin/invitations/${encodeURIComponent(id)}`),
       },
     },
     media: {

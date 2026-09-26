@@ -11,13 +11,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import com.explorarte.api.auth.EmailService;
 import com.explorarte.api.common.PageResponse;
 import com.explorarte.api.common.Pagination;
 import com.explorarte.api.common.ResourceNotFoundException;
@@ -26,7 +24,6 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import jakarta.validation.Valid;
 import com.google.firebase.auth.AuthErrorCode;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
@@ -35,18 +32,16 @@ import com.google.firebase.auth.FirebaseAuthException;
 public class AdminUserController {
 
     private final UserRepository userRepository;
-    private final EmailService emailService;
     private final FirebaseAuth firebaseAuth;
 
     @Autowired
-    public AdminUserController(UserRepository userRepository, EmailService emailService, FirebaseAuth firebaseAuth) {
+    public AdminUserController(UserRepository userRepository, FirebaseAuth firebaseAuth) {
         this.userRepository = userRepository;
-        this.emailService = emailService;
         this.firebaseAuth = firebaseAuth;
     }
 
     AdminUserController(UserRepository userRepository) {
-        this(userRepository, null, null);
+        this(userRepository, null);
     }
 
     /** Newest registrations first — the approval queue is what an admin opens
@@ -86,16 +81,6 @@ public class AdminUserController {
         user.setStatus(UserStatus.REJECTED);
         userRepository.save(user);
         return user.toDto();
-    }
-
-    @PostMapping("/admin/users/invite")
-    public InviteSentResponse invite(@Valid @RequestBody InviteUserInput input) {
-        String email = input.email().trim().toLowerCase();
-        if (emailService == null || !emailService.sendInvitation(email)) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                    "No se pudo enviar la invitación");
-        }
-        return InviteSentResponse.ok();
     }
 
     @DeleteMapping("/admin/users/{id}")

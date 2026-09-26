@@ -30,8 +30,6 @@ export default function AdminUsuarios() {
   const [filter, setFilter] = useState<FilterId>('approved');
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviting, setInviting] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Fetch every teacher once and narrow in memory. Passing ?status= would 400:
@@ -67,24 +65,6 @@ export default function AdminUsuarios() {
     }
   };
 
-  const invite = async () => {
-    const email = inviteEmail.trim();
-    if (!/^\S+@\S+\.\S+$/.test(email)) {
-      toast.error('Ingresa un correo electrónico válido.');
-      return;
-    }
-    setInviting(true);
-    try {
-      await api.admin.users.invite(email);
-      setInviteEmail('');
-      toast.success(`Invitación enviada a ${email}.`);
-    } catch {
-      toast.error('No se pudo enviar la invitación. Revisa el correo e intenta de nuevo.');
-    } finally {
-      setInviting(false);
-    }
-  };
-
   const remove = async (u: UserProfile) => {
     const accepted = await confirmDialog({
       title: `Eliminar a ${u.name}`,
@@ -113,33 +93,6 @@ export default function AdminUsuarios() {
         accent="docentes"
         lede="Consulta a las docentes registradas y gestiona quién tiene acceso a ExplorArte."
       />
-
-      <section style={{ marginBottom: 22, padding: 18, borderRadius: 18, background: '#fff', border: '1px solid var(--border)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-          <span style={{ width: 36, height: 36, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#E8F8F7' }}>
-            <Icon name="mail" size={18} color="var(--brand-dark)" />
-          </span>
-          <div>
-            <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-dark)' }}>Invitar docente</h2>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Recibirá un correo con el enlace para crear su cuenta.</p>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <input
-            className="input"
-            type="email"
-            value={inviteEmail}
-            onChange={(event) => setInviteEmail(event.target.value)}
-            onKeyDown={(event) => { if (event.key === 'Enter') void invite(); }}
-            placeholder="docente@colegio.edu"
-            aria-label="Correo de la docente"
-            style={{ flex: '1 1 260px' }}
-          />
-          <button onClick={() => void invite()} disabled={inviting} style={{ padding: '10px 18px', borderRadius: 11, background: 'var(--brand-dark)', color: '#fff', fontSize: 13, fontWeight: 700, opacity: inviting ? 0.6 : 1 }}>
-            {inviting ? 'Enviando…' : 'Enviar invitación'}
-          </button>
-        </div>
-      </section>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 22, flexWrap: 'wrap' }}>
         {FILTERS.map((f) => {

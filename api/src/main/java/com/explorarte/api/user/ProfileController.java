@@ -48,8 +48,23 @@ public class ProfileController {
                 user.setPhoto(input.photo());
             }
         }
+        // Guardar el perfil es lo que apaga el aviso de "completa tu perfil".
+        // Se exige lo mismo que pide el alta normal: sin esto, una cuenta
+        // invitada podria tocar un campo cualquiera y quitarse el recordatorio
+        // con el perfil igual de vacio que antes.
+        if (!user.isProfileCompleted() && isComplete(user)) {
+            user.setProfileCompleted(true);
+        }
         userRepository.save(user);
         return user.toDto();
+    }
+
+    private static boolean isComplete(User user) {
+        return notBlank(user.getName()) && notBlank(user.getLastname()) && notBlank(user.getUbicacion());
+    }
+
+    private static boolean notBlank(String value) {
+        return value != null && !value.isBlank();
     }
 
     /**

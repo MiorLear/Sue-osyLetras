@@ -207,7 +207,7 @@ gcloud iam service-accounts add-iam-policy-binding "$RUNTIME_SA" \
 | `SPRING_DATASOURCE_PASSWORD`                                                      | `--set-secrets` (`DB_PASSWORD`)  | Acceso total a la base.                                                                                          |
 | `SEED_USER_PASSWORD`                                                              | **no se setea**                  | Sin ella el seeder no crea ninguna cuenta (SEC-02). En producción se deja fuera.                                 |
 | `RESEND_API_KEY`                                                                  | `--set-secrets` si se usa correo | Permite enviar correo como el dominio del proyecto.                                                              |
-| `GCS_BUCKET`, `APP_MEDIA_*`, `APP_CORS_ALLOWED_ORIGINS`, `JWT_EXPIRATION_MINUTES` | `--set-env-vars`                 | No son secretos.                                                                                                 |
+| `GCS_BUCKET`, `APP_MEDIA_*`, `APP_CORS_ALLOWED_ORIGINS`, `JWT_EXPIRATION_MINUTES`, `APP_INVITATION_URL` | `--set-env-vars`                 | No son secretos.                                                                                                 |
 | _(ninguna llave de storage)_                                                      | —                                | **Ya no existe.** GCP-04 quitó `SUPABASE_KEY`; las credenciales de Storage son la propia identidad del servicio. |
 
 ---
@@ -622,10 +622,18 @@ Actualizada a lo que el código lee hoy. Ninguna debe ser igual a los valores de
 
 - [ ] `JWT_SECRET` — **créalo antes del primer deploy o el deploy falla.** `openssl rand -base64 48`.
 - [ ] `SPRING_DATASOURCE_PASSWORD` — contraseña real de Cloud SQL, no `explorarte_dev_password`.
-- [ ] `RESEND_API_KEY` — solo si se va a enviar correo de recuperación de contraseña.
+- [ ] `RESEND_API_KEY` — hace falta para el correo de recuperación de contraseña **y para las invitaciones del admin**: sin ella, `POST /admin/invitations` responde 503.
 
 **Configuración (`--set-env-vars`):**
 
+- [ ] `APP_INVITATION_URL` — `https://explorarte.app/register`. Es la página sobre la que
+      se cuelga el token (`?invitacion=...`) en el correo de invitación. Ojo: el workflow de
+      despliegue corre `gcloud run deploy` sin flags a propósito, para conservar lo ya puesto,
+      así que **esta variable hay que darla de alta a mano una vez**:
+
+      ```bash
+      gcloud run services update explorarte-api --region us-east4 --project explorarte-6335b --set-env-vars APP_INVITATION_URL=https://explorarte.app/register
+      ```
 - [ ] `SPRING_DATASOURCE_URL` — la forma con `cloudSqlInstance` + `socketFactory` (§1).
 - [ ] `SPRING_DATASOURCE_USERNAME`
 - [ ] `GCS_BUCKET` — el bucket privado de Cloud Storage for Firebase.

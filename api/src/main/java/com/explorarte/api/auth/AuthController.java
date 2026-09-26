@@ -9,12 +9,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.explorarte.api.invitation.InvitationCheckDto;
+import com.explorarte.api.invitation.InvitationService;
 import com.explorarte.api.security.AuthRateLimiter;
 import com.explorarte.api.security.AuthenticatedUserCache;
 import com.explorarte.api.security.JwtService;
@@ -27,6 +31,7 @@ import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 
 /**
  * Auth endpoints. Password reset sends a real, random, expiring code by email
@@ -52,6 +57,7 @@ public class AuthController {
     private final AuthRateLimiter rateLimiter;
     private final AuthenticatedUserCache userCache;
     private final FirebaseAuth firebaseAuth;
+    private final InvitationService invitationService;
 
     @Autowired
     public AuthController(
@@ -62,7 +68,8 @@ public class AuthController {
             EmailService emailService,
             AuthRateLimiter rateLimiter,
             AuthenticatedUserCache userCache,
-            FirebaseAuth firebaseAuth) {
+            FirebaseAuth firebaseAuth,
+            InvitationService invitationService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -71,6 +78,7 @@ public class AuthController {
         this.rateLimiter = rateLimiter;
         this.userCache = userCache;
         this.firebaseAuth = firebaseAuth;
+        this.invitationService = invitationService;
     }
 
     /** Kept for focused unit tests that do not exercise Firebase authentication. */
@@ -83,7 +91,7 @@ public class AuthController {
             AuthRateLimiter rateLimiter,
             AuthenticatedUserCache userCache) {
         this(userRepository, passwordEncoder, jwtService, verificationCodeService, emailService,
-                rateLimiter, userCache, null);
+                rateLimiter, userCache, null, null);
     }
 
     /** Exchanges a verified Firebase Google identity for the normal app session. */
@@ -168,7 +176,37 @@ public class AuthController {
         user.setPhoto(clean(token.getPicture()));
         user.setRole(UserRole.TEACHER);
         user.setStatus(UserStatus.APPROVED);
+        // Con Google no se piden ni el nombre real ni la ubicacion, asi que una
+        // cuenta invitada llega a medio llenar y hay que pedirle que la termine.
+        user.setProfileCompleted(!acceptInvitation(input.invitationToken(), email, user.getId()));
         return userRepository.save(user);
+    }
+
+    /**
+     * Consume el token de invitacion, si lo hay y sirve para ese correo.
+     *
+     * @return true si el alta venia de una invitacion aceptada.
+     */
+    private boolean acceptInvitation(String token, String email, String userId) {
+        if (invitationService == null || token == null || token.isBlank()) return false;
+        return invitationService.accept(token, email, userId).isPresent();
+    }
+
+    /**
+     * Lo que la pantalla de alta necesita saber de un enlace de invitacion.
+     *
+     * <p>Vive bajo {@code /auth/} y no bajo {@code /admin/} porque quien lo abre
+     * todavia no tiene cuenta; de paso hereda el limite por IP de
+     * {@code AuthRateLimitFilter}, que es lo que hace que adivinar tokens no sea
+     * una estrategia. Un token que no sirve responde siempre igual, sin decir si
+     * no existe, caduco, ya se uso o se revoco.
+     */
+    @GetMapping("/auth/invitations/{token}")
+    public InvitationCheckDto checkInvitation(@PathVariable @Size(max = 200) String token) {
+        if (invitationService == null) return InvitationCheckDto.invalid();
+        return invitationService.usable(token)
+                .map(invitation -> new InvitationCheckDto(true, invitation.getEmail()))
+                .orElseGet(InvitationCheckDto::invalid);
     }
 
     private static String clean(String value) {
@@ -230,6 +268,9 @@ public class AuthController {
         // Registration auto-approves, matching the existing mock's behavior; the
         // admin console remains available to reject/suspend accounts afterwards.
         user.setStatus(UserStatus.APPROVED);
+        // El alta por correo si pide nombre, apellido y ubicacion, pero una
+        // cuenta invitada sigue sin foto y conviene que pase por su perfil.
+        user.setProfileCompleted(!acceptInvitation(input.invitationToken(), email, user.getId()));
         userRepository.save(user);
         return authResult(user);
     }

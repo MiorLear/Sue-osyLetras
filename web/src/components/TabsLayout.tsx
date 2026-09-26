@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { useContentSync } from '@/lib/useContentSync';
 import { useOutboxReplay } from '@/lib/outbox-scheduler';
 import { BottomNav } from './BottomNav';
+import { CompletaTuPerfil } from './CompletaTuPerfil';
 import { MobileTopBar } from './MobileTopBar';
 import { Sidebar } from './Sidebar';
 
@@ -30,6 +31,9 @@ export function TabsLayout() {
         <Outlet />
       </main>
       <BottomNav />
+      {/* Aquí y no en main.tsx: solo tiene sentido con la sesión ya abierta,
+          igual que InstallPrompt con su gate de `authed`. */}
+      <CompletaTuPerfil />
     </div>
   );
 }

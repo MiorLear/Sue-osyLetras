@@ -351,6 +351,9 @@ export interface UserProfile {
   status: UserStatus;
   /** data/object URL of the profile photo, or null */
   photo?: string | null;
+  /** Falso mientras una cuenta invitada no haya completado su perfil. Es lo que
+   *  enciende el aviso de bienvenida; se apaga al guardar el perfil. */
+  profileCompleted?: boolean;
 }
 
 export type UpdateProfileInput = Partial<UserProfile>;
@@ -364,6 +367,26 @@ export interface AuthResult {
 export interface LoginInput {
   email: string;
   password: string;
+}
+
+/** Estado de una invitación. `expired` no se guarda: lo calcula la API al leer. */
+export type InvitationStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
+
+export interface Invitation {
+  id: string;
+  email: string;
+  status: InvitationStatus;
+  /** ISO-8601 */
+  createdAt: string;
+  expiresAt: string;
+  acceptedAt?: string | null;
+}
+
+/** Lo que /auth/invitations/:token responde. Un token que no sirve llega como
+ *  `{ valid: false }` sin decir por qué. */
+export interface InvitationCheck {
+  valid: boolean;
+  email?: string | null;
 }
 
 export interface RegisterInput {

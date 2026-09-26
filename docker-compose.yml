@@ -61,6 +61,7 @@ services:
       # loguea el código, no se envía. Ver .env.example.
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       RESEND_FROM: ${RESEND_FROM:-Sueños y Letras <onboarding@resend.dev>}
+      APP_INVITATION_URL: ${APP_INVITATION_URL:-http://localhost:5173/register}
       # AUTH_DEV_OTP_CODE fue eliminado (SEC-04). Para leer un código en local:
       #   docker compose exec db psql -U explorarte -d explorarte \
       #     -c "select * from verification_codes;"

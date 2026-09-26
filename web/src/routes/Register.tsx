@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ApiError } from '@explorarte/shared';
 import { GoogleIcon, Icon, type IconName } from '@/components/Icon';
 import { Logo } from '@/components/Logo';
@@ -72,6 +72,8 @@ function registerFailure(err: unknown): { message: string; backToCredentials: bo
 export default function Register() {
   const navigate = useNavigate();
   const { signIn } = useAuth();
+  // El enlace del correo de invitación llega como /register?invitacion=<token>.
+  const invitationToken = useSearchParams()[0].get('invitacion');
 
   const [step, setStep] = useState(0);
   const [method, setMethod] = useState<Method>(null);
@@ -83,6 +85,8 @@ export default function Register() {
   const [lastname, setLastname] = useState('');
   const [ubicacion, setUbicacion] = useState('');
   const [firebaseToken, setFirebaseToken] = useState<string | null>(null);
+  /** El correo al que se envió la invitación, cuando el alta viene de una. */
+  const [invitedEmail, setInvitedEmail] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -103,6 +107,28 @@ export default function Register() {
   // dejado el popup. No hace falta guardar nada entre una página y otra porque
   // ese paso empieza vacío: lo que se escribió antes, si acaso, fue el correo,
   // y por Google no se pide.
+  // El token se resuelve aparte del regreso de Google: precarga el correo y lo
+  // deja fijo, porque una invitación vale para una dirección y no para otra. Un
+  // token que ya no sirve no se anuncia como error: el alta normal sigue
+  // estando ahí, y solo se pierde el atajo.
+  useEffect(() => {
+    if (!invitationToken) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const check = await api.auth.invitation(invitationToken);
+        if (cancelled || !check.valid || !check.email) return;
+        setInvitedEmail(check.email);
+        setEmail(check.email);
+      } catch (err) {
+        console.error('[registro] invitación', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [invitationToken]);
+
   const arrancado = useRef(false);
   useEffect(() => {
     if (arrancado.current) return;
@@ -140,9 +166,10 @@ export default function Register() {
     setError(null);
     setSubmitting(true);
     try {
+      const invitation = invitationToken ?? undefined;
       const result = firebaseToken
-        ? await api.auth.firebase({ idToken: firebaseToken, name, lastname, ubicacion })
-        : await api.auth.register({ name, lastname, ubicacion, email, password });
+        ? await api.auth.firebase({ idToken: firebaseToken, name, lastname, ubicacion, invitationToken: invitation })
+        : await api.auth.register({ name, lastname, ubicacion, email, password, invitationToken: invitation });
       await signIn(result);
       navigate('/main', { replace: true });
     } catch (err) {
@@ -220,6 +247,13 @@ export default function Register() {
             al paso del correo, y el aviso tiene que seguir visible al llegar. */}
         <ErrorNote message={error} />
 
+        {invitedEmail ? (
+          <div style={{ borderRadius: 14, padding: 14, background: '#E8F8F7', border: '1px solid #C0E8E5' }}>
+            <div style={{ fontSize: 12.5, color: 'var(--text-body)' }}>Te invitaron a ExplorArte con el correo</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-dark)', wordBreak: 'break-all' }}>{invitedEmail}</div>
+          </div>
+        ) : null}
+
         {step === 0 ? (
           <>
             <MethodCard iconBg="#FFF3E0" title="Continuar con Google" subtitle="Usa tu cuenta de Google" onClick={() => choose('google')} google />
@@ -229,7 +263,7 @@ export default function Register() {
 
         {step === 1 ? (
           <>
-            <Field label="Correo electrónico" placeholder="correo@ejemplo.com" type="email" autoCapitalize="none" value={email} onChangeText={setEmail} />
+            <Field label="Correo electrónico" placeholder="correo@ejemplo.com" type="email" autoCapitalize="none" value={email} onChangeText={setEmail} readOnly={!!invitedEmail} />
             <Field label="Contraseña" password placeholder="Mínimo 8 caracteres" value={password} onChangeText={setPassword} />
             <Field label="Confirmar contraseña" password placeholder="Repite tu contraseña" value={confirm} onChangeText={setConfirm} />
             {/* Un botón deshabilitado sin explicación es su propio problema: la

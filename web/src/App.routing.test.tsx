@@ -42,6 +42,7 @@ vi.mock("./routes/Sobre", stub("sobre"));
 vi.mock("./routes/SyncProblemas", stub("sync"));
 vi.mock("./routes/admin/AdminDashboard", stub("admin"));
 vi.mock("./routes/admin/AdminUsuarios", stub("admin-usuarios"));
+vi.mock("./routes/admin/AdminInvitaciones", stub("admin-invitaciones"));
 vi.mock("./routes/admin/AdminEmociones", stub("admin-emociones"));
 vi.mock("./routes/admin/AdminHerramientas", stub("admin-herramientas"));
 vi.mock("./routes/admin/AdminAprendiendo", stub("admin-aprendiendo"));

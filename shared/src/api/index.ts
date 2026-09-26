@@ -39,6 +39,7 @@ export type {
   ProfileApi,
   AdminApi,
   AdminUsersApi,
+  AdminInvitationsApi,
   MediaApi,
   MediaCategory,
   ScreenIntrosApi,

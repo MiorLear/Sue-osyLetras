@@ -34,6 +34,7 @@ import SyncProblemas from './routes/SyncProblemas';
 // las agrupa en un unico chunk 'admin' y el service worker no lo precachea.
 const AdminDashboard = lazy(() => import('./routes/admin/AdminDashboard'));
 const AdminUsuarios = lazy(() => import('./routes/admin/AdminUsuarios'));
+const AdminInvitaciones = lazy(() => import('./routes/admin/AdminInvitaciones'));
 const AdminEmociones = lazy(() => import('./routes/admin/AdminEmociones'));
 const AdminHerramientas = lazy(() => import('./routes/admin/AdminHerramientas'));
 const AdminAprendiendo = lazy(() => import('./routes/admin/AdminAprendiendo'));
@@ -121,6 +122,7 @@ export function App() {
         {/* admin console */}
         <Route path="/admin" element={<RequireRole role="admin"><AdminDashboard /></RequireRole>} />
         <Route path="/admin/usuarios" element={<RequireRole role="admin"><AdminUsuarios /></RequireRole>} />
+        <Route path="/admin/invitaciones" element={<RequireRole role="admin"><AdminInvitaciones /></RequireRole>} />
         <Route path="/admin/emociones" element={<RequireRole role="admin"><AdminEmociones /></RequireRole>} />
         <Route path="/admin/herramientas" element={<RequireRole role="admin"><AdminHerramientas /></RequireRole>} />
         <Route path="/admin/aprendiendo" element={<RequireRole role="admin"><AdminAprendiendo /></RequireRole>} />

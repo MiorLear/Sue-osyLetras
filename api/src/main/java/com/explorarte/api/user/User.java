@@ -61,6 +61,15 @@ public class User implements Persistable<String> {
     private String photo;
 
     /**
+     * Falso mientras la cuenta no haya completado su perfil. Solo nace en falso
+     * cuando el alta viene de una invitación: quien se registra por su cuenta
+     * llena los campos en el propio formulario, y por eso la columna es
+     * {@code DEFAULT true} y nadie que ya existía recibe el aviso.
+     */
+    @Column(name = "profile_completed", nullable = false)
+    private boolean profileCompleted = true;
+
+    /**
      * Bumped to invalidate every token this account is currently holding (SEC-09).
      * Tokens embed it as the {@code tv} claim and are refused once it no longer matches.
      */
@@ -104,6 +113,9 @@ public class User implements Persistable<String> {
     public String getPhoto() { return photo; }
     public void setPhoto(String photo) { this.photo = photo; }
 
+    public boolean isProfileCompleted() { return profileCompleted; }
+    public void setProfileCompleted(boolean profileCompleted) { this.profileCompleted = profileCompleted; }
+
     public int getTokenVersion() { return tokenVersion; }
     public void setTokenVersion(int tokenVersion) { this.tokenVersion = tokenVersion; }
 
@@ -114,6 +126,7 @@ public class User implements Persistable<String> {
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 
     public UserProfileDto toDto() {
-        return new UserProfileDto(id, name, lastname, email, phone, institucion, ubicacion, role, status, photo);
+        return new UserProfileDto(id, name, lastname, email, phone, institucion, ubicacion, role, status, photo,
+                profileCompleted);
     }
 }
