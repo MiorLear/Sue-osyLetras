@@ -9,12 +9,40 @@ import { toast } from '@/components/toast-store';
 
 import { api } from '@/lib/api';
 import { cacheKeys } from '@/lib/cache-keys';
-import { currentStepIndex, effectiveProgress, progressId } from '@/lib/learning-progress';
+import { completedCount, currentStepIndex, effectiveProgress, progressId } from '@/lib/learning-progress';
 import { isDeadSession } from '@/lib/offline-errors';
 import { enqueueLearningStepComplete, enqueueLearningStepUncomplete } from '@/lib/outbox';
 import { useNetworkStatus } from '@/lib/useNetworkStatus';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
 import { usePendingIndex } from '@/lib/use-outbox';
+
+/** Adónde vuelve la docente, con el nombre que la sección tiene en su cabecera. */
+const INDICE = { to: '/aprendiendo', label: 'Bienestar emocional' } as const;
+
+/**
+ * El cierre del tema, igual en los tres formatos: al terminar de leer, la
+ * salida está ahí mismo y no en la cabecera, que a esas alturas queda muy
+ * arriba. En un mapa ya recorrido entero, además, lo celebra.
+ */
+function TopicEnd({ completo, onBack }: { completo: boolean; onBack: () => void }) {
+  return (
+    <div className={completo ? 'topic-end topic-end--done' : 'topic-end'}>
+      {completo ? (
+        <>
+          <p className="topic-end__title">
+            <span aria-hidden>🎉 </span>¡Completaste el recorrido!
+          </p>
+          <p className="topic-end__text">
+            Puedes volver a cualquier fase cuando quieras, o seguir con otro tema de {INDICE.label.toLowerCase()}.
+          </p>
+        </>
+      ) : null}
+      <button className="btn btn-outline topic-end__back" onClick={onBack}>
+        <Icon name="arrow-left" size={18} color="var(--brand-dark)" /> Volver a {INDICE.label}
+      </button>
+    </div>
+  );
+}
 
 /**
  * Un tema de Aprendiendo, recorrido como diga su `layout`.
@@ -88,11 +116,10 @@ export default function AprendiendoTema() {
     // 820px, el panel de la fase se quedaba en una columna de 360.
     <div className={topic?.layout === 'path' ? 'page page-narrow page-learning-path' : 'page page-narrow'}>
       <header className="gradient-header" style={{ background: 'var(--brand-gradient)' }}>
-        <button
-          className="tap-44"
-          onClick={() => navigate('/aprendiendo')}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16, color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: 600 }}>
-          <Icon name="arrow-left" size={18} color="rgba(255,255,255,0.9)" /> Volver
+        {/* A una ruta fija y no a `-1`: con un enlace directo o tras recargar,
+            el historial no tiene nada detrás y `-1` sacaría de la app. */}
+        <button className="topic-back" aria-label={`Volver a ${INDICE.label}`} onClick={() => navigate(INDICE.to)}>
+          <Icon name="arrow-left" size={18} color="#fff" /> {INDICE.label}
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <span aria-hidden style={{ fontSize: 40 }}>
@@ -143,6 +170,15 @@ export default function AprendiendoTema() {
           ) : (
             <TopicAccordion topic={topic} />
           )}
+
+          <TopicEnd
+            completo={
+              topic.layout === 'path' &&
+              topic.subtopics.length > 0 &&
+              completedCount(topic.subtopics, topic.id, done) >= topic.subtopics.length
+            }
+            onBack={() => navigate(INDICE.to)}
+          />
         </>
       )}
     </div>

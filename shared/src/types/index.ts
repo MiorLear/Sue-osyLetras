@@ -208,6 +208,12 @@ export interface SubTopic {
   /** Emoji del nodo en el mapa de fases. Vacío en los temas que no lo usan. */
   emoji: string;
   title: string;
+  /**
+   * Una o dos frases que el mapa de fases enseña bajo el título del nodo, para
+   * saber qué hay dentro antes de abrirlo. Opcional: nula o vacía, el nodo se
+   * pinta sin ella. Hasta 200 caracteres (el CMS aconseja 160).
+   */
+  description?: string | null;
   blocks: LearningBlock[];
   pdfs: MediaItem[];
   videos: MediaItem[];

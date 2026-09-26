@@ -94,12 +94,9 @@ class MigrationChainTest {
                     .as("migration %s state", info.getVersion())
                     .isFalse();
         }
-        // El 18 falta a proposito: lo ocupa V18__subtopic_description.sql, que
-        // vive en main y todavia no esta en esta rama. Reservarlo evita que dos
-        // migraciones distintas compartan version al fusionar.
         assertThat(applied).containsExactly(
                 "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17",
-                "19", "20", "21", "22");
+                "18", "19", "20", "21", "22");
 
         // validate() vuelve a leer los checksums: si alguien editó una migración
         // ya aplicada en vez de agregar una nueva, esto es lo que lo dice — y en
@@ -470,6 +467,33 @@ class MigrationChainTest {
         assertThat(scalar("SELECT bibliography_items->0->>'author' FROM tools_content")).isEqualTo("Daniel J. Siegel");
         assertThat(scalar("SELECT bibliography_items->1->>'title' FROM tools_content")).isEqualTo("Sin autor");
         assertThat(scalar("SELECT bibliography_items->1->>'author' FROM tools_content")).isNull();
+    }
+
+    /**
+     * V18 — la descripción corta de cada fase. En una base nueva el tema del
+     * mapa se llama {@code autocuidado} (el de V15); en producción,
+     * {@code practicar-autocuidado} (el que V16 conserva). Las tres fases
+     * tienen que salir con texto en los dos casos, y los temas que no son un
+     * mapa quedan sin descripción.
+     */
+    @Test
+    void fillsThePhaseDescriptionsOfTheSelfCareMap() throws SQLException {
+        Flyway flyway = flyway();
+        flyway.clean();
+        flyway.migrate();
+
+        assertThat(scalar("""
+                SELECT count(*) FROM topic_subtopics
+                 WHERE topic_id = 'autocuidado' AND description IS NOT NULL
+                """)).isEqualTo("3");
+        assertThat(scalar("""
+                SELECT description FROM topic_subtopics
+                 WHERE topic_id = 'autocuidado' AND subtopic_key = 'cuidando-mi-cuerpo'
+                """)).startsWith("Descanso, alimentación y movimiento");
+        assertThat(scalar("""
+                SELECT count(*) FROM topic_subtopics
+                 WHERE topic_id <> 'autocuidado' AND description IS NOT NULL
+                """)).isEqualTo("0");
     }
 
     // --- helpers -----------------------------------------------------------

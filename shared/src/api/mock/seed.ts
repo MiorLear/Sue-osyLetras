@@ -216,6 +216,7 @@ export const TOPICS: Topic[] = [
         key: 'cuidando-mis-emociones',
         emoji: '🌸',
         title: 'Cuidando mis emociones',
+        description: 'Reconocer, nombrar y comprender lo que sientes para responder con más calma a los desafíos del día.',
         blocks: [
           { kind: 'heading', text: '¿Por qué es importante?' },
           {
@@ -260,6 +261,7 @@ export const TOPICS: Topic[] = [
         key: 'cuidando-mi-cuerpo',
         emoji: '🌿',
         title: 'Cuidando mi cuerpo',
+        description: 'Descanso, alimentación y movimiento: pequeños hábitos que también sostienen tu bienestar emocional.',
         blocks: [
           { kind: 'heading', text: '¿Por qué es importante?' },
           { kind: 'paragraph', text: 'Nuestro cuerpo y nuestras emociones están profundamente conectados.' },
@@ -298,6 +300,7 @@ export const TOPICS: Topic[] = [
         key: 'cuidando-mi-mente',
         emoji: '🧠',
         title: 'Cuidando mi mente',
+        description: 'Pausas que le devuelven a tu mente la energía, la concentración y la creatividad.',
         blocks: [
           { kind: 'heading', text: '¿Por qué es importante?' },
           { kind: 'paragraph', text: 'Nuestra mente necesita espacios para descansar, aprender y recuperar energía.' },

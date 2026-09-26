@@ -50,6 +50,12 @@ public class SubTopic {
     private String title;
 
     /**
+     * Una o dos frases que el mapa de fases enseña bajo el título del nodo.
+     * Nula en las filas anteriores a V18 y en los temas que no la usan.
+     */
+    private String description;
+
+    /**
      * El contenido. Sustituye a la columna {@code body}, que era un TEXT suelto
      * y por eso no podía representar listas, cuadros ni preguntas.
      *
@@ -85,6 +91,9 @@ public class SubTopic {
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
 
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+
     public List<LearningBlock> getBlocks() { return blocks; }
     public void setBlocks(List<LearningBlock> blocks) { this.blocks = blocks; }
 
@@ -98,6 +107,6 @@ public class SubTopic {
     public void setAudios(List<MediaItem> audios) { this.audios = audios; }
 
     public SubTopicDto toDto() {
-        return new SubTopicDto(key, emoji == null ? "" : emoji, title, blocks, pdfs, videos, audios);
+        return new SubTopicDto(key, emoji == null ? "" : emoji, title, description, blocks, pdfs, videos, audios);
     }
 }

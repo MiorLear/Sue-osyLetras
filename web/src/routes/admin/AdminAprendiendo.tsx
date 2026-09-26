@@ -100,6 +100,9 @@ export default function AdminAprendiendo() {
           ...s,
           title: s.title.trim(),
           emoji: s.emoji.trim(),
+          // Vacía viaja como null: el servidor la guarda igual, y así el
+          // borrador no manda espacios sueltos.
+          description: s.description?.trim() || null,
           blocks: limpiar(s.blocks),
           pdfs: s.pdfs.filter((m) => m.url.trim()),
           videos: s.videos.filter((m) => m.url.trim()),
