@@ -58,8 +58,8 @@ describe('auth-errors · describeAuthError', () => {
     });
   });
 
-  // Login pasa Google y SMS por el mismo manejador: nombrar un proveedor en el
-  // mensaje genérico etiqueta mal al otro (un OTP equivocado no es "de Google").
+  // El mensaje genérico no nombra proveedor: el código que trae dentro es lo
+  // que hace diagnosticable un reporte desde el teléfono de una docente.
   it('el mensaje genérico no le echa la culpa a un proveedor concreto', () => {
     const display = describeAuthError({ code: 'auth/internal-error' });
     expect(display).toEqual({ kind: 'message', message: expect.not.stringContaining('Google') });
@@ -68,36 +68,5 @@ describe('auth-errors · describeAuthError', () => {
   it('devuelve null para lo que no es de Firebase Auth, y así cae al mapeo de la API', () => {
     expect(describeAuthError(new ApiError(401, 'unauthorized', ''))).toBeNull();
     expect(describeAuthError(new TypeError('Failed to fetch'))).toBeNull();
-  });
-});
-
-describe('auth-errors · acceso por SMS', () => {
-  // El número y el código son cosas distintas. Decirle "revisa el número" a
-  // quien tecleó mal el OTP la manda a corregir lo que ya estaba bien.
-  it('separa el número mal escrito del código mal escrito', () => {
-    const numero = describeAuthError({ code: 'auth/invalid-phone-number' });
-    const codigo = describeAuthError({ code: 'auth/invalid-verification-code' });
-
-    expect(numero).toEqual({ kind: 'message', message: expect.stringContaining('+502') });
-    expect(codigo).toEqual({ kind: 'message', message: expect.stringContaining('código') });
-    expect(numero).not.toEqual(codigo);
-  });
-
-  it('dice que hay que pedir otro código cuando el anterior caducó', () => {
-    const display = describeAuthError({ code: 'auth/code-expired' });
-    expect(display).toEqual({ kind: 'message', message: expect.stringContaining('caducó') });
-  });
-
-  // El SMS solo está habilitado para ciertos países en la consola de Firebase.
-  // Culpar al número es falso y no le deja salida a la usuaria.
-  it('ofrece otra vía cuando el país no tiene SMS habilitado', () => {
-    const display = describeAuthError({ code: 'auth/operation-not-allowed' });
-    expect(display).toEqual({ kind: 'message', message: expect.stringContaining('país') });
-    if (display?.kind === 'message') expect(display.message).toMatch(/Google|correo/);
-  });
-
-  it('ofrece otra vía cuando se agota la cuota de SMS', () => {
-    const display = describeAuthError({ code: 'auth/quota-exceeded' });
-    expect(display).toEqual({ kind: 'message', message: expect.stringMatching(/Google|correo/) });
   });
 });

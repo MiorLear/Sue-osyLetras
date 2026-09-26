@@ -30,7 +30,7 @@ import type {
   UserProfile,
   UserStatus,
 } from '../../types/index.js';
-import { INSTITUCIONES } from '../../design/tokens.js';
+import { INSTITUCION_POR_DEFECTO } from '../../design/tokens.js';
 import {
   EMOTION_CONTENT,
   EMOTIONS,
@@ -125,10 +125,10 @@ export function createMockClient(): ApiClient {
           id: 'u-' + Date.now(),
           name: input.name,
           lastname: input.lastname,
-          institucion: input.institucion,
+          institucion: INSTITUCION_POR_DEFECTO,
           ubicacion: input.ubicacion,
           email: input.email ?? '',
-          phone: input.phone ?? '',
+          phone: '',
           role: 'teacher',
           // Los registros ya no necesitan aprobación: entran activos de inmediato.
           status: 'approved',
@@ -141,18 +141,6 @@ export function createMockClient(): ApiClient {
       async firebase() {
         await delay();
         return authResult();
-      },
-      async requestOtp(_phone: string) {
-        await delay();
-        return { sent: true as const };
-      },
-      async verifyOtp(_phone: string, _code: string) {
-        await delay();
-        return authResult();
-      },
-      async checkOtp(_phone: string, _code: string) {
-        await delay();
-        return { sent: true as const };
       },
       async forgotPassword(_emailOrPhone: string) {
         await delay();
@@ -367,13 +355,6 @@ export function createMockClient(): ApiClient {
         const u = users.find((x) => x.id === currentUser.id);
         if (u) Object.assign(u, currentUser);
         return clone(currentUser);
-      },
-    },
-
-    misc: {
-      async schools(): Promise<string[]> {
-        await delay();
-        return [...INSTITUCIONES];
       },
     },
 

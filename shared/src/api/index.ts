@@ -37,7 +37,6 @@ export type {
   LearningApi,
   ToolsApi,
   ProfileApi,
-  MiscApi,
   AdminApi,
   AdminUsersApi,
   MediaApi,

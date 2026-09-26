@@ -38,14 +38,14 @@ class UpdateProfileInputValidationTest {
     }
 
     private static UpdateProfileInput of(String email, String phone) {
-        return new UpdateProfileInput("Ana", "Pérez", email, phone, "Escuela 1", "San José", null);
+        return new UpdateProfileInput("Ana", "Pérez", email, phone, "San José", null);
     }
 
     @Test
     void acceptsATypicalProfileSave() {
         assertThat(invalidPathsOf(of("ana@escuela.cr", "8888-8888"))).isEmpty();
         assertThat(invalidPathsOf(of("ana@escuela.cr", ""))).isEmpty();
-        assertThat(invalidPathsOf(new UpdateProfileInput(null, null, null, null, null, null, null))).isEmpty();
+        assertThat(invalidPathsOf(new UpdateProfileInput(null, null, null, null, null, null))).isEmpty();
     }
 
     /** BUG-13: the email column is the login identity, so a malformed or blank
@@ -66,21 +66,19 @@ class UpdateProfileInputValidationTest {
 
     @Test
     void rejectsBlankNamesThatWouldWipeNotNullColumns() {
-        assertThat(invalidPathsOf(new UpdateProfileInput("  ", null, null, null, null, null, null)))
+        assertThat(invalidPathsOf(new UpdateProfileInput("  ", null, null, null, null, null)))
                 .contains("namePresentAndUsable");
-        assertThat(invalidPathsOf(new UpdateProfileInput(null, "  ", null, null, null, null, null)))
+        assertThat(invalidPathsOf(new UpdateProfileInput(null, "  ", null, null, null, null)))
                 .contains("lastnamePresentAndUsable");
     }
 
     @Test
     void capsEveryFieldToItsColumnWidth() {
-        assertThat(invalidPathsOf(new UpdateProfileInput("n".repeat(121), null, null, null, null, null, null)))
+        assertThat(invalidPathsOf(new UpdateProfileInput("n".repeat(121), null, null, null, null, null)))
                 .contains("name");
-        assertThat(invalidPathsOf(new UpdateProfileInput(null, "l".repeat(121), null, null, null, null, null)))
+        assertThat(invalidPathsOf(new UpdateProfileInput(null, "l".repeat(121), null, null, null, null)))
                 .contains("lastname");
-        assertThat(invalidPathsOf(new UpdateProfileInput(null, null, null, null, "i".repeat(161), null, null)))
-                .contains("institucion");
-        assertThat(invalidPathsOf(new UpdateProfileInput(null, null, null, null, null, "u".repeat(161), null)))
+        assertThat(invalidPathsOf(new UpdateProfileInput(null, null, null, null, "u".repeat(161), null)))
                 .contains("ubicacion");
     }
 }

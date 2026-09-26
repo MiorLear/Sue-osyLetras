@@ -22,14 +22,10 @@ export const colors = {
 /** Brand gradient used in headers and primary buttons (135deg in the design). */
 export const brandGradient = ['#3DBFB8', '#2A9A95'] as const;
 
-export const INSTITUCIONES = [
-  'Colegio Americano',
-  'Escuela Nacional Primaria',
-  'Colegio La Salle',
-  'Instituto Bilingüe',
-  'Escuela Pública Central',
-  'Colegio San Francisco',
-];
+/** La única institución del programa. El selector de colegios se retiró: la
+ *  lista que había sembrada no correspondía a ninguna escuela real. Debe
+ *  coincidir con `User.INSTITUCION_POR_DEFECTO` en la API. */
+export const INSTITUCION_POR_DEFECTO = 'Sueños y Letras';
 
 /** Colors per calendar event type. */
 export const EVENT_COLORS: Record<string, string> = {

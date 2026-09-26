@@ -145,62 +145,6 @@ export function Select({
   );
 }
 
-const ADD_NEW_LABEL = '➕ Agregar nueva…';
-
-/**
- * Desplegable de opciones con la posibilidad de "Agregar nueva…": al elegir esa
- * opción se cambia a un campo de texto libre. El valor escrito se guarda igual
- * que cualquier opción (se reutiliza para los KPIs).
- */
-export function SelectOrAdd({
-  label,
-  icon,
-  value,
-  placeholder,
-  options,
-  onChange,
-  addLabel = ADD_NEW_LABEL,
-  newPlaceholder = 'Escribe el nombre',
-}: {
-  label?: string;
-  icon?: IconName;
-  value: string;
-  placeholder?: string;
-  options: string[];
-  onChange: (v: string) => void;
-  addLabel?: string;
-  newPlaceholder?: string;
-}) {
-  const [adding, setAdding] = useState(() => !!value && !options.includes(value));
-
-  if (adding) {
-    return (
-      <div>
-        <Field label={label} icon={icon} placeholder={newPlaceholder} value={value} autoFocus onChangeText={onChange} />
-        <button
-          type="button"
-          onClick={() => {
-            setAdding(false);
-            onChange('');
-          }}
-          style={{ marginTop: 6, fontSize: 12, color: 'var(--brand)', fontWeight: 700 }}>
-          ← Elegir de la lista
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <Select
-      label={label}
-      icon={icon}
-      value={options.includes(value) ? value : ''}
-      placeholder={placeholder}
-      options={[...options, addLabel]}
-      onChange={(v) => (v === addLabel ? setAdding(true) : onChange(v))}
-    />
-  );
-}
 
 /**
  * Autocompletado de ubicación (tipo Google Maps) con una API gratuita y sin key.

@@ -22,7 +22,6 @@ vi.mock('@/context/AuthContext', () => ({
   useAuth: () => ({ user: null, setUser, signOut: vi.fn() }),
 }));
 
-vi.mock('@/lib/useSchools', () => ({ useSchools: () => ['Colegio Americano'] }));
 
 import Profile from '@/routes/Profile';
 import { Toaster } from '@/components/Toaster';
@@ -40,7 +39,7 @@ const PERFIL = {
   lastname: 'Ruiz',
   email: 'ana@ejemplo.com',
   phone: '+503 7000 1234',
-  institucion: 'Colegio Americano',
+  institucion: 'Sueños y Letras',
   ubicacion: 'San Salvador',
   photo: null,
   role: 'teacher' as const,

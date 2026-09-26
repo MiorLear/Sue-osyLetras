@@ -15,7 +15,6 @@ interface Stats {
   emotions: number;
   topics: number;
   byZona: Group[];
-  byInstitucion: Group[];
 }
 
 const MODULES = [
@@ -59,7 +58,6 @@ export default function AdminDashboard() {
         emotions: emotions.length,
         topics: topics.length,
         byZona: groupCount(teachers.map((t) => t.ubicacion)),
-        byInstitucion: groupCount(teachers.map((t) => t.institucion)),
       });
     // Sin este catch, un fallo de cualquiera de las tres lecturas dejaba el
     // panel en «Cargando…» para siempre.
@@ -97,9 +95,8 @@ export default function AdminDashboard() {
         <span className="section-rule" />
       </div>
 
-      <div className="admin-2col" style={{ marginBottom: 30 }}>
+      <div style={{ marginBottom: 30 }}>
         <BreakdownCard title="Docentes por zona" emoji="📍" groups={stats?.byZona} />
-        <BreakdownCard title="Docentes por institución" emoji="🏫" groups={stats?.byInstitucion} />
       </div>
 
       <div className="section-head" style={{ gap: 12 }}>

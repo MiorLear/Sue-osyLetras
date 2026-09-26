@@ -17,7 +17,6 @@ export type ApiModuleKey =
   | 'learning'
   | 'tools'
   | 'profile'
-  | 'misc'
   | 'admin'
   | 'media'
   | 'screenIntros';
@@ -76,7 +75,6 @@ export function createConfigurableApiClient(
     learning: pick('learning'),
     tools: pick('tools'),
     profile: pick('profile'),
-    misc: pick('misc'),
     admin: pick('admin'),
     media: pick('media'),
     screenIntros: pick('screenIntros'),

@@ -36,14 +36,8 @@ export interface AuthApi {
   login(input: LoginInput): Promise<AuthResult>;
   /** POST /auth/register */
   register(input: RegisterInput): Promise<AuthResult>;
-  /** POST /auth/firebase — exchange a verified Google/phone Firebase ID token. */
+  /** POST /auth/firebase — exchange a verified Google Firebase ID token. */
   firebase(input: FirebaseAuthInput): Promise<AuthResult>;
-  /** POST /auth/otp/request */
-  requestOtp(phone: string): Promise<{ sent: true }>;
-  /** POST /auth/otp/verify */
-  verifyOtp(phone: string, code: string): Promise<AuthResult>;
-  /** POST /auth/otp/check — validate an OTP code without an existing account (registration) */
-  checkOtp(phone: string, code: string): Promise<{ sent: true }>;
   /** POST /auth/forgot-password */
   forgotPassword(emailOrPhone: string): Promise<{ sent: true }>;
   /** POST /auth/reset-password — set a new password after OTP verification */
@@ -54,8 +48,9 @@ export interface FirebaseAuthInput {
   idToken: string;
   name?: string;
   lastname?: string;
-  institucion?: string;
   ubicacion?: string;
+  /** Token de invitación, cuando el alta viene de un correo del admin. */
+  invitationToken?: string;
 }
 
 export interface EmotionsApi {
@@ -155,11 +150,6 @@ export interface ProfileApi {
   update(input: UpdateProfileInput): Promise<UserProfile>;
 }
 
-export interface MiscApi {
-  /** GET /schools */
-  schools(): Promise<string[]>;
-}
-
 /** Categories accepted by POST /media/upload — tools/emotions/learning/screen-intros
  * are admin-only, posts/profile are any authenticated user. */
 export type MediaCategory = 'tools' | 'emotions' | 'learning' | 'screen-intros' | 'posts' | 'profile';
@@ -195,7 +185,6 @@ export interface ApiClient {
   learning: LearningApi;
   tools: ToolsApi;
   profile: ProfileApi;
-  misc: MiscApi;
   admin: AdminApi;
   media: MediaApi;
   screenIntros: ScreenIntrosApi;

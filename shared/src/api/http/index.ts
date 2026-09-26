@@ -151,11 +151,6 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
       login: (input: LoginInput) => request<AuthResult>('POST', '/auth/login', input),
       register: (input: RegisterInput) => request<AuthResult>('POST', '/auth/register', input),
       firebase: (input) => request<AuthResult>('POST', '/auth/firebase', input),
-      requestOtp: (phone: string) => request<{ sent: true }>('POST', '/auth/otp/request', { phone }),
-      verifyOtp: (phone: string, code: string) =>
-        request<AuthResult>('POST', '/auth/otp/verify', { phone, code }),
-      checkOtp: (phone: string, code: string) =>
-        request<{ sent: true }>('POST', '/auth/otp/check', { phone, code }),
       forgotPassword: (emailOrPhone: string) =>
         request<{ sent: true }>('POST', '/auth/forgot-password', { emailOrPhone }),
       resetPassword: (emailOrPhone: string, code: string, newPassword: string) =>
@@ -206,9 +201,6 @@ export function createHttpClient(opts: HttpClientOptions): ApiClient {
     profile: {
       get: () => request<UserProfile>('GET', '/me'),
       update: (input: UpdateProfileInput) => request<UserProfile>('PUT', '/me', input),
-    },
-    misc: {
-      schools: () => request<string[]>('GET', '/schools'),
     },
     admin: {
       users: {

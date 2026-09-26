@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { UserProfile } from '@explorarte/shared';
 import { Icon } from '@/components/Icon';
 import { Masthead } from '@/components/Masthead';
-import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
+import { Field, LocationAutocomplete, PrimaryButton } from '@/components/ui';
 import { toast } from '@/components/toast-store';
 import { useAuth } from '@/context/AuthContext';
 import { CacheAgeNote, ContentState } from '@/components/ContentState';
@@ -16,7 +16,6 @@ import { usePendingIndex } from '@/lib/use-outbox';
 import { useIsOnline } from '@/lib/useNetworkStatus';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
 import { useRefetchOnDrain } from '@/lib/useRefetchOnDrain';
-import { useSchools } from '@/lib/useSchools';
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -29,7 +28,6 @@ export default function Profile() {
     ageMs,
     reload,
   } = useOfflineAsync(cacheKeys.profile(), () => api.profile.get(), []);
-  const schools = useSchools();
   const online = useIsOnline();
   const pending = usePendingIndex();
   useRefetchOnDrain(reload);
@@ -39,7 +37,6 @@ export default function Profile() {
   const [lastname, setLastname] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [institucion, setInstitucion] = useState('');
   const [ubicacion, setUbicacion] = useState('');
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -82,7 +79,6 @@ export default function Profile() {
     setLastname(profile.lastname);
     setEmail(profile.email);
     setPhone(profile.phone);
-    setInstitucion(profile.institucion);
     setUbicacion(profile.ubicacion);
     setPhoto(profile.photo ?? null);
   }, [profile, dirty, pending.profile]);
@@ -130,7 +126,7 @@ export default function Profile() {
   const handleSave = async () => {
     setSaveError(null);
     setSaving(true);
-    const textInput = { name, lastname, email, phone, institucion, ubicacion };
+    const textInput = { name, lastname, email, phone, ubicacion };
     // La foto solo entra en la cola si de verdad se subió: solo entonces es una
     // URL alojada que el servidor puede aceptar tal cual. Si no cambió,
     // reenviarla es un no-op que además pisaría un cambio hecho desde otro
@@ -245,8 +241,7 @@ export default function Profile() {
             <Field label="Correo electrónico" icon="mail" value={email} onChangeText={edit(setEmail)} type="email" autoCapitalize="none" placeholder="correo@ejemplo.com" />
             <Field label="Teléfono" icon="phone" value={phone} onChangeText={edit(setPhone)} placeholder="+502 1234 5678" />
 
-            <SectionLabel>Institución</SectionLabel>
-            <SelectOrAdd label="Institución" icon="map-pin" value={institucion} options={schools} onChange={edit(setInstitucion)} newPlaceholder="Nombre de la institución" />
+            <SectionLabel>Ubicación</SectionLabel>
             <LocationAutocomplete label="Ubicación" value={ubicacion} onChange={edit(setUbicacion)} />
 
             <PrimaryButton label={saving ? 'Guardando…' : 'Guardar cambios'} onClick={handleSave} disabled={saving} />

@@ -176,9 +176,7 @@ export default function AdminUsuarios() {
                     <span style={{ borderRadius: 8, padding: '2px 9px', fontSize: 10.5, fontWeight: 700, color: tag.color, background: tag.bg }}>{tag.label}</span>
                   </div>
                   <div style={{ marginTop: 4, fontSize: 12.5, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="map-pin" size={12} color="var(--text-muted)" />{u.institucion}</span>
-                    <span>·</span>
-                    <span>{u.ubicacion}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="map-pin" size={12} color="var(--text-muted)" />{u.ubicacion}</span>
                     <span>·</span>
                     <span>{u.email}</span>
                   </div>

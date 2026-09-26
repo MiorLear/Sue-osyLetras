@@ -45,6 +45,13 @@ public class User implements Persistable<String> {
     private String institucion;
     private String ubicacion;
 
+    /**
+     * La unica institucion del programa. El selector de colegios se retiro: la
+     * lista sembrada no correspondia a ninguna escuela real, asi que toda
+     * cuenta nace con este valor y nadie lo elige.
+     */
+    public static final String INSTITUCION_POR_DEFECTO = "Sueños y Letras";
+
     @Enumerated(EnumType.STRING)
     private UserRole role;
 

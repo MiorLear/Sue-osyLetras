@@ -56,7 +56,7 @@ class AuthControllerLoginTest {
      * ser nunca el motivo de un fallo.
      */
     private AuthController controller() {
-        return new AuthController(userRepository, passwordEncoder, jwtService, null, null, null,
+        return new AuthController(userRepository, passwordEncoder, jwtService, null, null,
                 new AuthRateLimiter(false, 1, 1, 1, 1, 1000), null);
     }
 

@@ -10,14 +10,12 @@ import { colors } from '@/constants/theme';
 import { api } from '@/lib/api';
 import { OtpInput } from './register';
 
-type Tab = 'email' | 'phone';
 type Step = 'input' | 'otp' | 'password' | 'success';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const [tab, setTab] = useState<Tab>('email');
   const [identifier, setIdentifier] = useState('');
   const [step, setStep] = useState<Step>('input');
   const [otp, setOtp] = useState('');
@@ -27,20 +25,13 @@ export default function ForgotPasswordScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const goLogin = () => router.push('/login');
-  const isPhone = tab === 'phone';
-  const canSend = isPhone ? identifier.length >= 8 : identifier.includes('@');
-
-  const switchTab = (t: Tab) => {
-    setTab(t);
-    setIdentifier('');
-    setError(null);
-  };
+  const canSend = identifier.includes('@');
 
   const sendCode = async () => {
     setLoading(true);
     setError(null);
     try {
-      await api.auth.requestOtp(identifier);
+      await api.auth.forgotPassword(identifier);
       setStep('otp');
     } catch {
       setError('No se pudo enviar el código. Revisa tu conexión e intenta de nuevo.');
@@ -49,17 +40,11 @@ export default function ForgotPasswordScreen() {
     }
   };
 
-  const verifyCode = async () => {
-    setLoading(true);
+  // El codigo se comprueba al restablecer: /auth/reset-password lo valida y
+  // consume en la misma llamada, asi que aqui solo se avanza de paso.
+  const verifyCode = () => {
     setError(null);
-    try {
-      await api.auth.checkOtp(identifier, otp);
-      setStep('password');
-    } catch {
-      setError('Código incorrecto. Verifica e intenta de nuevo.');
-    } finally {
-      setLoading(false);
-    }
+    setStep('password');
   };
 
   const submitNewPassword = async () => {
@@ -109,28 +94,15 @@ export default function ForgotPasswordScreen() {
         contentContainerStyle={{ paddingHorizontal: 20, gap: 16 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-        {step === 'input' ? (
-          <View style={{ flexDirection: 'row', padding: 4, borderRadius: 16, backgroundColor: '#E8F8F7' }}>
-            <TabBtn label="Por correo" icon="mail" active={!isPhone} onPress={() => switchTab('email')} />
-            <TabBtn label="Por teléfono" icon="phone" active={isPhone} onPress={() => switchTab('phone')} />
-          </View>
-        ) : null}
-
         {/* Step: identifier input */}
         {step === 'input' ? (
           <>
-            <InfoBox
-              text={
-                isPhone
-                  ? 'Ingresa tu número de teléfono y te enviaremos un código de 6 dígitos para verificar tu identidad.'
-                  : 'Ingresa el correo con el que te registraste y te enviaremos un código de 6 dígitos para restablecer tu contraseña.'
-              }
-            />
+            <InfoBox text="Ingresa el correo con el que te registraste y te enviaremos un código de 6 dígitos para restablecer tu contraseña." />
             <Field
-              label={isPhone ? 'Número de teléfono' : 'Correo electrónico'}
-              icon={isPhone ? 'phone' : 'mail'}
-              placeholder={isPhone ? '+502 1234 5678' : 'correo@ejemplo.com'}
-              keyboardType={isPhone ? 'phone-pad' : 'email-address'}
+              label="Correo electrónico"
+              icon="mail"
+              placeholder="correo@ejemplo.com"
+              keyboardType="email-address"
               autoCapitalize="none"
               value={identifier}
               onChangeText={setIdentifier}
@@ -168,7 +140,7 @@ export default function ForgotPasswordScreen() {
             ) : null}
             {error ? <ErrorText text={error} /> : null}
             <PrimaryButton
-              label={loading ? 'Verificando...' : 'Verificar código'}
+              label="Continuar"
               onPress={verifyCode}
               disabled={otp.length < 6 || loading}
             />
@@ -230,43 +202,6 @@ function ErrorText({ text }: { text: string }) {
   return <Text style={{ fontSize: 12.5, color: '#E53E3E', textAlign: 'center' }}>{text}</Text>;
 }
 
-function TabBtn({
-  label,
-  icon,
-  active,
-  onPress,
-}: {
-  label: string;
-  icon: 'mail' | 'phone';
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={{
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        paddingVertical: 10,
-        borderRadius: 12,
-        backgroundColor: active ? '#fff' : 'transparent',
-        ...(active ? { boxShadow: '0 1px 4px rgba(0,0,0,0.08)' } : null),
-      }}>
-      <Icon name={icon} size={14} color={active ? colors.textDark : colors.textMuted} />
-      <Text
-        style={{
-          fontSize: 12.5,
-          fontWeight: active ? '700' : '500',
-          color: active ? colors.textDark : colors.textMuted,
-        }}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
 
 function InfoBox({ text }: { text: string }) {
   return (

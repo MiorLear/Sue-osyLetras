@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomNav, MAIN_TABS } from '@/components/bottom-nav';
 import { Icon } from '@/components/icon';
-import { Field, LocationAutocomplete, PrimaryButton, SelectOrAdd } from '@/components/ui';
+import { Field, LocationAutocomplete, PrimaryButton } from '@/components/ui';
 import { brandGradient, colors } from '@/constants/theme';
 import { api, setAuthToken } from '@/lib/api';
 import { syncAllContent } from '@/lib/media-sync';
@@ -17,7 +17,6 @@ import { showNotice } from '@/lib/notice';
 import { writeCache } from '@/lib/offline-cache';
 import { useIsMetered, useIsOnline } from '@/lib/useNetworkStatus';
 import { useOfflineAsync } from '@/lib/useOfflineAsync';
-import { useSchools } from '@/lib/useSchools';
 
 function SectionLabel({ children }: { children: string }) {
   return (
@@ -100,7 +99,6 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
 
   const { data: profile, loading, error, reload } = useOfflineAsync('profile:me', () => api.profile.get(), []);
-  const schools = useSchools();
   const online = useIsOnline();
 
   const [photo, setPhoto] = useState<string | null>(null);
@@ -108,7 +106,6 @@ export default function ProfileScreen() {
   const [lastname, setLastname] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [institucion, setInstitucion] = useState('');
   const [ubicacion, setUbicacion] = useState('');
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -121,7 +118,6 @@ export default function ProfileScreen() {
     setLastname(profile.lastname);
     setEmail(profile.email);
     setPhone(profile.phone);
-    setInstitucion(profile.institucion);
     setUbicacion(profile.ubicacion);
   }, [profile]);
 
@@ -139,7 +135,7 @@ export default function ProfileScreen() {
 
   const handleSave = async () => {
     setSaving(true);
-    const textInput = { name, lastname, email, phone, institucion, ubicacion };
+    const textInput = { name, lastname, email, phone, ubicacion };
     const hasNewPhoto = !!(photo && photo.startsWith('file'));
     // Optimistic cache so the profile shows the edit immediately, even offline.
     const cacheMerged = { ...(profile ?? {}), ...textInput };
@@ -318,15 +314,7 @@ export default function ProfileScreen() {
               placeholder="+502 1234 5678"
             />
 
-            <SectionLabel>Institución</SectionLabel>
-            <SelectOrAdd
-              label="Institución"
-              icon="map-pin"
-              value={institucion}
-              options={schools}
-              onChange={setInstitucion}
-              newPlaceholder="Nombre de la institución"
-            />
+            <SectionLabel>Ubicación</SectionLabel>
             <LocationAutocomplete label="Ubicación" value={ubicacion} onChange={setUbicacion} />
 
             <PrimaryButton

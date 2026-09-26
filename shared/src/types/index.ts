@@ -342,7 +342,8 @@ export interface UserProfile {
   lastname: string;
   email: string;
   phone: string;
-  /** name of the school / institution the teacher belongs to */
+  /** Institución de la docente. Ya no se elige: todo el programa es
+   *  "Sueños y Letras" y el selector de colegios se retiró. */
   institucion: string;
   /** location (municipality/zone) used for the admin KPIs */
   ubicacion: string;
@@ -368,9 +369,9 @@ export interface LoginInput {
 export interface RegisterInput {
   name: string;
   lastname: string;
-  institucion: string;
   ubicacion: string;
-  email?: string;
-  password?: string;
-  phone?: string;
+  email: string;
+  password: string;
+  /** Token de invitación, cuando el alta viene de un correo del admin. */
+  invitationToken?: string;
 }

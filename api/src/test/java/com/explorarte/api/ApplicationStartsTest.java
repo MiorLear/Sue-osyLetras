@@ -85,7 +85,7 @@ class ApplicationStartsTest {
 
     @Test
     void servesPublicControllersThroughTheFirebaseHostingPrefix() throws Exception {
-        mockMvc.perform(get("/api/schools")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/tools")).andExpect(status().isOk());
     }
 
     /** GCP-04: leer un medio no exige token (ver MediaAccessController), pero
