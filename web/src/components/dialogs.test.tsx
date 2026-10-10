@@ -38,6 +38,19 @@ describe('toasts', () => {
     expect(screen.getByText('Estará disponible muy pronto.')).toBeTruthy();
   });
 
+  // La acción corre dentro del click, sin awaits: es lo que le devuelve el
+  // toque a un guardado que lo gastó descargando (open-file.ts).
+  it('ejecuta su acción en el mismo click y se cierra', () => {
+    const onClick = vi.fn();
+    render(<Toaster />);
+    act(() => {
+      toast.success('El archivo ya está descargado.', { action: { label: 'Guardar', onClick } });
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    expect(onClick).toHaveBeenCalledOnce();
+    expect(screen.queryByText('El archivo ya está descargado.')).toBeNull();
+  });
+
   it('se puede cerrar a mano y se va solo', () => {
     vi.useFakeTimers();
     render(<Toaster />);

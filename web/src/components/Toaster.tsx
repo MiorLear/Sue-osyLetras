@@ -27,6 +27,20 @@ export function Toaster() {
           <div className="toast__copy">
             {t.title && <p className="toast__title">{t.title}</p>}
             <p className="toast__message">{t.message}</p>
+            {t.action && (
+              <button
+                type="button"
+                className="toast__action"
+                onClick={() => {
+                  // Synchronous on purpose: the action may need this very
+                  // gesture (a download, the share sheet), and an await before
+                  // calling it would spend it.
+                  t.action?.onClick();
+                  dismissToast(t.id);
+                }}>
+                {t.action.label}
+              </button>
+            )}
           </div>
           <button
             type="button"
