@@ -1318,6 +1318,13 @@ a {
   box-shadow: 0 16px 40px -18px rgba(24, 48, 45, 0.5);
   animation: toast-in 0.18s ease-out;
 }
+/* La regla `.toast` antigua (la de las pantallas de admin) fija cada aviso al
+   centro con position: fixed: dentro de la pila salían a media anchura y unos
+   encima de otros, tapando el botón de acción del de abajo. */
+.toaster > .toast {
+  position: static;
+  transform: none;
+}
 @keyframes toast-in {
   from {
     opacity: 0;
@@ -1361,6 +1368,20 @@ a {
   line-height: 1.45;
   color: var(--text-body);
   white-space: pre-line;
+}
+.toast__action {
+  margin-top: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 12px;
+  /* --brand-dark y no --brand: con texto blanco, #2fa7a0 da 2,9:1 (tokens.css). */
+  background: var(--brand-dark);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 800;
+}
+.toast__action:hover {
+  background: #15605c;
 }
 .toast__close {
   flex-shrink: 0;

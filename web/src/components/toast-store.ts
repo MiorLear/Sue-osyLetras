@@ -2,17 +2,29 @@ import { useSyncExternalStore } from 'react';
 
 export type ToastTone = 'success' | 'error' | 'info';
 
+/**
+ * A button inside the toast. Its click is a fresh user gesture — which is the
+ * point: it is how an action that lost the original tap (a save that had to
+ * download first) gets one back. Clicking it also dismisses the toast.
+ */
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 export interface Toast {
   id: number;
   tone: ToastTone;
   title?: string;
   message: string;
+  action?: ToastAction;
 }
 
 interface ToastOptions {
   title?: string;
   /** Milliseconds on screen. 0 keeps it until dismissed. */
   duration?: number;
+  action?: ToastAction;
 }
 
 const DEFAULT_DURATION: Record<ToastTone, number> = {
@@ -48,7 +60,7 @@ export function dismissToast(id: number) {
 
 function push(tone: ToastTone, message: string, options: ToastOptions = {}): number {
   const id = nextId++;
-  toasts = [...toasts, { id, tone, message, title: options.title }];
+  toasts = [...toasts, { id, tone, message, title: options.title, action: options.action }];
   emit();
 
   const duration = options.duration ?? DEFAULT_DURATION[tone];
