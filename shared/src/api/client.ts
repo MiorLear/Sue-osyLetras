@@ -137,6 +137,8 @@ export interface AdminUsersApi {
   approve(id: string): Promise<UserProfile>;
   /** POST /admin/users/:id/reject */
   reject(id: string): Promise<UserProfile>;
+  /** POST /admin/users/:id/promote — la vuelve administradora (409 si no tiene acceso). */
+  promote(id: string): Promise<UserProfile>;
   /** DELETE /admin/users/:id */
   remove(id: string): Promise<void>;
 }

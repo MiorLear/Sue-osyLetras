@@ -65,6 +65,26 @@ export default function AdminUsuarios() {
     }
   };
 
+  const promote = async (u: UserProfile) => {
+    const accepted = await confirmDialog({
+      title: `Hacer administradora a ${u.name}`,
+      message: 'Podrá editar el contenido de ExplorArte y gestionar a las demás usuarias, igual que tú. Dejará de aparecer en este directorio de docentes.',
+      confirmLabel: 'Hacer administradora',
+    });
+    if (!accepted) return;
+    setBusy(u.id);
+    try {
+      await api.admin.users.promote(u.id);
+      // The directory only lists teachers, so the new admin leaves it.
+      setUsers((current) => current.filter((item) => item.id !== u.id));
+      toast.success(`${u.name} ahora es administradora.`);
+    } catch {
+      toast.error('No se pudo hacer administradora. Intenta de nuevo.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const remove = async (u: UserProfile) => {
     const accepted = await confirmDialog({
       title: `Eliminar a ${u.name}`,
@@ -142,6 +162,16 @@ export default function AdminUsuarios() {
                     <AdminBtn label="Quitar acceso" variant="outline" onClick={() => decide(u, 'reject')} disabled={busy === u.id} />
                   )}
                   </div>
+                  {!sinAcceso(u) && (
+                    <button
+                      onClick={() => void promote(u)}
+                      disabled={busy === u.id}
+                      aria-label={`Hacer administradora a ${u.name}`}
+                      title="Hacer administradora"
+                      style={{ width: 42, height: 42, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#E1F1EF', border: '1px solid #BFE0DB', opacity: busy === u.id ? 0.5 : 1 }}>
+                      <Icon name="shield" size={17} color="#1E7E78" />
+                    </button>
+                  )}
                   <button
                     onClick={() => void remove(u)}
                     disabled={busy === u.id}
