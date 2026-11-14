@@ -15,7 +15,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * Lets Firebase Hosting expose the API below {@code /api/**} without changing
- * the canonical routes used by the existing mobile and Render clients.
+ * the canonical routes that clients calling Cloud Run directly already use.
  * Firebase forwards the full path to Cloud Run, so this adapter removes the
  * prefix before Spring Security and MVC choose their route.
  */

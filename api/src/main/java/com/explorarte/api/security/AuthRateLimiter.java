@@ -27,9 +27,10 @@ import io.github.bucket4j.ConsumptionProbe;
  * <p>Buckets live in Caffeine caches with a maximum size and idle expiry: an attacker
  * rotating keys cannot grow this map without bound.
  *
- * <p>State is per-instance. On Render the API runs as a single container, so this is
- * effective today; a multi-instance deployment would want the Redis-backed Bucket4j
- * proxy manager instead.
+ * <p>State is per-instance. Cloud Run scales the API up to {@code --max-instances 4}
+ * (DESPLIEGUE.md), so under load the effective limit can be up to four times the
+ * configured one; a strict global limit would want the Redis-backed Bucket4j proxy
+ * manager instead.
  */
 @Component
 public class AuthRateLimiter {

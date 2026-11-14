@@ -147,7 +147,7 @@ public class DataSeeder implements ApplicationRunner {
             return;
         }
         // SEC-10: the seed password used to be written here verbatim on every cold boot,
-        // and Render keeps those logs readable from the dashboard.
+        // and Cloud Logging keeps those logs readable from the console.
         log.info("Seeding demo users with the injected SEED_USER_PASSWORD");
         String hash = passwordEncoder.encode(defaultPassword);
         userRepository.saveAll(List.of(

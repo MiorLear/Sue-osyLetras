@@ -43,7 +43,7 @@ export const OUTBOX_TTL_MS = 30 * 24 * 60 * 60_000;
 /** Y una fallida se borra al trimestre. */
 export const DEAD_LETTER_TTL_MS = 90 * 24 * 60 * 60_000;
 
-/** Lo que dijo el servidor se guarda recortado: un 502 de Render trae una
+/** Lo que dijo el servidor se guarda recortado: un 502 del proxy trae una
  *  página HTML entera, y eso no puede ocupar IndexedDB fila a fila. */
 export const MAX_DETAIL_CHARS = 200;
 

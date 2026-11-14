@@ -83,7 +83,7 @@ describe('cabeceras de seguridad (PWA-1.7 / SEC-12)', () => {
   // GCP-04: una URL canónica de medios responde 302 hacia Cloud Storage, y la
   // CSP se aplica a la URL FINAL de la redirección. Sin esta entrada las fotos
   // y los videos se rompen en silencio: no hay error de red, solo una violación
-  // en la consola. render.yaml ya lo tiene; este es el que cuenta en producción.
+  // en la consola. Esta es la CSP que sirve producción.
   it('deja pasar los medios que llegan por redirección a Cloud Storage', () => {
     const directive = (name: string) =>
       csp.split(';').find((d) => d.trim().startsWith(`${name} `)) ?? '';
