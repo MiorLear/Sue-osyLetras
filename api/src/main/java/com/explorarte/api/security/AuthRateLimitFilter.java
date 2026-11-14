@@ -43,7 +43,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Render (and any other reverse proxy in front of this API) terminates TLS and sets
+     * Cloud Run (and any other reverse proxy in front of this API) terminates TLS and sets
      * X-Forwarded-For, so {@code getRemoteAddr()} alone would bucket the whole internet
      * under the proxy's address.
      */

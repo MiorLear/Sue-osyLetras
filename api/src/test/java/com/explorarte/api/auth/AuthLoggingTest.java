@@ -31,8 +31,8 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 
 /**
- * SEC-10 — no verification code may reach the logs at any level. On Render these logs are
- * retained and readable from the dashboard, so a logged OTP is a credential handed out.
+ * SEC-10 — no verification code may reach the logs at any level. Cloud Logging retains
+ * these logs and makes them readable from the console, so a logged OTP is a credential handed out.
  *
  * <p>The code service and the email service are the real ones, so this exercises the actual
  * log statements rather than a stub of them. Email delivery is disabled (no Resend key),

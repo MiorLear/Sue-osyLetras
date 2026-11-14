@@ -241,7 +241,7 @@ function formatBytes(bytes: number): string {
  * button. Uploads immediately on selection (not on save) so large files get
  * their own progress/error feedback instead of silently riding along with
  * the rest of the form's JSON PUT. */
-/** Max upload size — the API's host (Render free tier) rejects larger request
+/** Max upload size — the API's host (Cloud Run) rejects larger request
  * bodies, so we guard client-side with a clear message instead of a cryptic
  * failed upload. Videos should be compressed (e.g. 720p) to fit. */
 const MAX_UPLOAD_MB = 33;

@@ -322,7 +322,7 @@ class MigrationChainTest {
     }
 
     /** Y en un entorno que nunca vio ese host no hace nada: el bloque de
-     * verificación no puede abortar el arranque de local, Render o los tests. */
+     * verificación no puede abortar el arranque de local, de Cloud Run o de los tests. */
     @Test
     void leavesUrlsOfOtherEnvironmentsAlone() throws SQLException {
         Flyway throughV10 = Flyway.configure()

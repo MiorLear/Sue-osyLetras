@@ -93,7 +93,7 @@ describe('outbox-errors · veredictos', () => {
   });
 
   it('el cuerpo del servidor se recorta y nunca llega a la pantalla', () => {
-    // Un 502 de Render devuelve una página HTML entera.
+    // Un 502 del proxy devuelve una página HTML entera.
     const html = '<html>' + 'x'.repeat(5000) + '</html>';
     const failure = classifyReplayError(httpError(502, html), 1);
     expect(failure.detail!.length).toBeLessThanOrEqual(MAX_DETAIL_CHARS);

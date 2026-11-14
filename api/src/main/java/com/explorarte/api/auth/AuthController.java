@@ -288,7 +288,7 @@ public class AuthController {
                 boolean sent = emailService.sendPasswordResetLink(email, input.emailOrPhone(), code);
                 if (!sent) {
                     // A delivery failure logs WHO and WHAT FAILED, never the code itself
-                    // (SEC-10). Render retains these logs and shows them in the dashboard.
+                    // (SEC-10). Cloud Logging retains these logs and shows them in the console.
                     log.warn("[forgot-password] reset email to {} was not delivered", email);
                 }
             } else {
