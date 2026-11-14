@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.explorarte.api.common.PageResponse;
 import com.explorarte.api.common.Pagination;
 import com.explorarte.api.common.ResourceNotFoundException;
+import com.explorarte.api.security.AuthenticatedUserCache;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -33,15 +34,18 @@ public class AdminUserController {
 
     private final UserRepository userRepository;
     private final FirebaseAuth firebaseAuth;
+    private final AuthenticatedUserCache userCache;
 
     @Autowired
-    public AdminUserController(UserRepository userRepository, FirebaseAuth firebaseAuth) {
+    public AdminUserController(UserRepository userRepository, FirebaseAuth firebaseAuth,
+            AuthenticatedUserCache userCache) {
         this.userRepository = userRepository;
         this.firebaseAuth = firebaseAuth;
+        this.userCache = userCache;
     }
 
     AdminUserController(UserRepository userRepository) {
-        this(userRepository, null);
+        this(userRepository, null, null);
     }
 
     /** Newest registrations first — the approval queue is what an admin opens
@@ -80,6 +84,36 @@ public class AdminUserController {
         User user = find(id);
         user.setStatus(UserStatus.REJECTED);
         userRepository.save(user);
+        return user.toDto();
+    }
+
+    /**
+     * Turns a teacher into an administrator. Idempotent for an existing admin.
+     *
+     * <p>A rejected account is refused instead of silently re-approved: giving
+     * someone back their access and handing them the admin console are two
+     * decisions, and the second shouldn't smuggle in the first. A pending one is
+     * approved on the way, since an admin waiting on the approval queue makes no sense.
+     *
+     * <p>The JWT filter reads the role from the database, so the account's existing
+     * token gains the privileges on its next request once the cached snapshot is dropped.
+     */
+    @PostMapping("/admin/users/{id}/promote")
+    public UserProfileDto promote(@PathVariable @NotBlank @Size(max = 64) String id) {
+        User user = find(id);
+        if (user.getRole() == UserRole.ADMIN) {
+            return user.toDto();
+        }
+        if (user.getStatus() == UserStatus.REJECTED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Primero dale acceso a la cuenta antes de hacerla administradora");
+        }
+        user.setRole(UserRole.ADMIN);
+        user.setStatus(UserStatus.APPROVED);
+        userRepository.save(user);
+        if (userCache != null) {
+            userCache.invalidate(user.getId());
+        }
         return user.toDto();
     }
 

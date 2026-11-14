@@ -388,6 +388,16 @@ export function createMockClient(): ApiClient {
           u.status = 'rejected';
           return clone(u);
         },
+        async promote(id: string): Promise<UserProfile> {
+          await delay(40);
+          const u = users.find((x) => x.id === id);
+          if (!u) throw new Error('User not found');
+          if (u.role === 'admin') return clone(u);
+          if (u.status === 'rejected') throw new Error('User has no access');
+          u.role = 'admin';
+          u.status = 'approved';
+          return clone(u);
+        },
         async remove(id: string): Promise<void> {
           await delay(40);
           const index = users.findIndex((x) => x.id === id);
