@@ -95,6 +95,14 @@ function setReducedMotion(reduce: boolean) {
 
 const view = () => render(<BookReader book={BOOK} onClose={vi.fn()} />);
 
+// El contador aparece en el mismo commit en que el PDF queda listo, pero el
+// libro (StPageFlip) se arma en un efecto que corre después. Hay que esperar
+// al libro, no al texto: en CI, más lenta, el texto llega primero.
+async function bookReady(count = 1) {
+  await waitFor(() => expect(flips).toHaveLength(count));
+  return flips[count - 1];
+}
+
 beforeEach(() => {
   flips.length = 0;
   vi.clearAllMocks();
@@ -123,23 +131,25 @@ describe('<BookReader />', () => {
   it('los botones pasan de página y el contador sigue al libro', async () => {
     view();
     await screen.findByText('Página 1 de 5');
+    const flip = await bookReady();
     fireEvent.click(screen.getByRole('button', { name: 'Página siguiente' }));
-    expect(flips[0].flipNext).toHaveBeenCalled();
-    act(() => flips[0].handlers.flip({ data: 2 }));
+    expect(flip.flipNext).toHaveBeenCalled();
+    act(() => flip.handlers.flip({ data: 2 }));
     expect(screen.getByText('Página 3 de 5')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Página anterior' }));
-    expect(flips[0].flipPrev).toHaveBeenCalled();
+    expect(flip.flipPrev).toHaveBeenCalled();
   });
 
   it('recuerda en qué página se quedó', async () => {
     const first = view();
     await screen.findByText('Página 1 de 5');
-    act(() => flips[0].handlers.flip({ data: 3 }));
+    const flip = await bookReady();
+    act(() => flip.handlers.flip({ data: 3 }));
     first.unmount();
 
     view();
     expect(await screen.findByText('Página 4 de 5')).toBeTruthy();
-    expect(flips[1].settings.startPage).toBe(3);
+    expect((await bookReady(2)).settings.startPage).toBe(3);
   });
 
   it('Descargar y Abrir en otra app usan el archivo del libro', async () => {
@@ -165,8 +175,9 @@ describe('<BookReader />', () => {
     setReducedMotion(true);
     view();
     await screen.findByText('Página 1 de 5');
-    expect(flips[0].settings.flippingTime).toBe(1);
-    expect(flips[0].settings.drawShadow).toBe(false);
+    const flip = await bookReady();
+    expect(flip.settings.flippingTime).toBe(1);
+    expect(flip.settings.drawShadow).toBe(false);
   });
 
   it('un PDF que no se puede abrir ofrece las otras salidas', async () => {
